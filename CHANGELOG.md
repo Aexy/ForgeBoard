@@ -41,6 +41,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Authenticated React workflow UI for creating workflows and client-linked work items, selecting boards, and loading persisted stages and cards. (`M1`)
 - Persistent native drag-and-drop card movement with accessible left/right movement controls. (`M1`)
 - Visible tenant-scoped activity panel that refreshes after workflow, work-item, client, and movement mutations. (`M1`)
+- Automatic firm discovery after existing-account login so a fresh browser can open the correct tenant without an internal firm ID. (`M1`)
 
 ### Changed
 

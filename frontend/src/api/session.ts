@@ -1,4 +1,5 @@
 export type SessionIdentity = { email: string }
+export type FirmAccess = { id: string; name: string; slug: string; role: string }
 export type FirmOnboarding = {
   firmName: string
   firmSlug: string
@@ -26,6 +27,10 @@ export function login(email: string, password: string): Promise<SessionIdentity>
 
 export function currentSession(): Promise<SessionIdentity> {
   return request('/api/auth/session')
+}
+
+export function listAccessibleFirms(): Promise<FirmAccess[]> {
+  return request('/api/identity/firms')
 }
 
 export function createFirm(details: FirmOnboarding): Promise<OnboardingResult> {

@@ -8,14 +8,14 @@ import * as workflowApi from './api/workflows'
 import * as activityApi from './api/activity'
 
 vi.mock('./api/session', () => ({
-  currentSession: vi.fn(), login: vi.fn(), logout: vi.fn(), createFirm: vi.fn(),
+  currentSession: vi.fn(), login: vi.fn(), logout: vi.fn(), createFirm: vi.fn(), listAccessibleFirms: vi.fn(),
 }))
 vi.mock('./api/clients', () => ({ listClients: vi.fn(), createClient: vi.fn(), archiveClient: vi.fn() }))
 vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn() }))
 vi.mock('./api/activity', () => ({ listActivity: vi.fn().mockResolvedValue([]) }))
 
 describe('App', () => {
-  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]) })
+  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]) })
 
   it('presents the workflow foundation after restoring a firm session', async () => {
     localStorage.setItem('forgeboard.selectedFirmId', 'firm-1')
@@ -28,6 +28,7 @@ describe('App', () => {
   it('signs an existing owner in', async () => {
     vi.mocked(session.currentSession).mockRejectedValue(new Error('unauthenticated'))
     vi.mocked(session.login).mockResolvedValue({ email: 'owner@example.com' })
+    vi.mocked(session.listAccessibleFirms).mockResolvedValue([{ id: 'firm-1', name: 'Hearth Accounting', slug: 'hearth', role: 'OWNER' }])
     render(<App />)
 
     fireEvent.change(await screen.findByLabelText('Email address'), { target: { value: 'owner@example.com' } })
@@ -35,7 +36,8 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await waitFor(() => expect(session.login).toHaveBeenCalledWith('owner@example.com', 'long-secret-password'))
-    expect(await screen.findByRole('heading', { name: 'Select a firm' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Workflows' })).toBeInTheDocument()
+    expect(localStorage.getItem('forgeboard.selectedFirmId')).toBe('firm-1')
   })
 
   it('creates a firm and starts the owner session', async () => {

@@ -33,7 +33,7 @@ public class TenantSelectionFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return !path.startsWith("/api/") || path.equals("/api/platform")
                 || path.equals("/api/onboarding/firms") || path.equals("/api/auth/csrf")
-                || path.equals("/api/auth/session");
+                || path.equals("/api/auth/session") || path.equals("/api/identity/firms");
     }
 
     @Override
