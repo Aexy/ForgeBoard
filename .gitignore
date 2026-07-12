@@ -1,0 +1,13 @@
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+.pnpm-store/
+.env
+.env.local
+!.env.example
