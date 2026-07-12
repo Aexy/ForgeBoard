@@ -4,17 +4,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.forgeboard.platform.security.SecurityConfiguration;
+import com.forgeboard.identity.security.SecurityConfiguration;
+import com.forgeboard.identity.security.TenantSelectionFilter;
+import com.forgeboard.identity.application.TenantAuthorizationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @WebMvcTest(PlatformController.class)
-@Import(SecurityConfiguration.class)
+@Import({SecurityConfiguration.class, TenantSelectionFilter.class})
 class PlatformControllerTest {
     @Autowired MockMvc mockMvc;
+    @MockitoBean TenantAuthorizationService tenantAuthorizationService;
 
     @Test
     void describesTheCurrentFoundation() throws Exception {

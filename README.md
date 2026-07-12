@@ -32,7 +32,24 @@ pnpm --dir frontend dev
 
 The backend listens on `http://localhost:8080`; Vite listens on `http://localhost:5173` and proxies `/api` to the backend.
 
+### Create the first firm
+
+```shell
+curl -X POST http://localhost:8080/api/onboarding/firms \
+  -H "Content-Type: application/json" \
+  -d '{"firmName":"Hearth Accounting","firmSlug":"hearth-accounting","ownerEmail":"owner@example.com","ownerName":"Alex Owner","password":"correct horse battery"}'
+```
+
+The response includes the new `firmId`. Authenticated tenant requests use HTTP Basic during M0 and must select that firm explicitly:
+
+```shell
+curl http://localhost:8080/api/identity/me \
+  -u owner@example.com:"correct horse battery" \
+  -H "X-ForgeBoard-Firm: <firmId>"
+```
+
+The firm header is checked against persisted membership on every tenant API request. Browser sessions and scoped service tokens will replace direct Basic authentication before SaaS launch.
+
 ## Current milestone
 
 M0 — Foundation and walking skeleton. See [PRODUCT_PLAN.md](PRODUCT_PLAN.md#11-delivery-milestones).
-

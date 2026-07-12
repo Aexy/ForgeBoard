@@ -24,6 +24,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Initial tenancy migration `V001` for firms, users, memberships, and auditable activity events. (`M0`)
 - React and TypeScript application shell presenting the first accounting workflow board. (`M0`)
 - Docker Compose PostgreSQL environment and GitHub Actions verification workflows. (`M0`)
+- Persisted firm, user, and membership domain models with repository boundaries. (`M0`)
+- Transactional firm onboarding that normalizes identities, hashes owner passwords, and creates the initial owner membership. (`M0`)
+- Database-backed authentication and explicit tenant selection through the `X-ForgeBoard-Firm` request header. (`M0`)
+- Tenant authorization that rejects authenticated users without membership in the selected firm. (`M0`)
 
 ### Changed
 
@@ -32,3 +36,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 ### Security
 
 - Established tenant isolation, scoped MCP tokens, auditable mutations, EU deployment, and GDPR-aware data handling as baseline requirements. (`M0`)
+- Added BCrypt password hashing with work factor 12 and membership verification before tenant context is exposed. (`M0`)
