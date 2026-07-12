@@ -28,6 +28,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Transactional firm onboarding that normalizes identities, hashes owner passwords, and creates the initial owner membership. (`M0`)
 - Database-backed authentication and explicit tenant selection through the `X-ForgeBoard-Firm` request header. (`M0`)
 - Tenant authorization that rejects authenticated users without membership in the selected firm. (`M0`)
+- Browser-session login, current-session, logout, and CSRF token endpoints. (`M0`)
+- PostgreSQL Testcontainers integration coverage for Flyway, onboarding persistence, and activity events; it skips locally when Docker is unavailable. (`M0`)
+- A credentialed frontend session client with CSRF-aware logout. (`M0`)
 
 ### Changed
 
@@ -37,3 +40,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 - Established tenant isolation, scoped MCP tokens, auditable mutations, EU deployment, and GDPR-aware data handling as baseline requirements. (`M0`)
 - Added BCrypt password hashing with work factor 12 and membership verification before tenant context is exposed. (`M0`)
+- Added persisted `firm.created` activity events within the onboarding transaction. (`M0`)
+- Added cookie-based CSRF protection for browser-session mutations while keeping onboarding and login as explicit public entry points. (`M0`)

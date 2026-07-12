@@ -32,12 +32,13 @@ class OnboardingServiceTest {
     @Mock UserRepository users;
     @Mock FirmMembershipRepository memberships;
     @Mock PasswordEncoder passwordEncoder;
+    @Mock ActivityAuditService audit;
     OnboardingService onboarding;
 
     @BeforeEach
     void setUp() {
         onboarding = new OnboardingService(firms, users, memberships, passwordEncoder,
-                Clock.fixed(Instant.parse("2026-07-12T20:00:00Z"), ZoneOffset.UTC));
+                Clock.fixed(Instant.parse("2026-07-12T20:00:00Z"), ZoneOffset.UTC), audit);
     }
 
     @Test
@@ -58,6 +59,7 @@ class OnboardingServiceTest {
         assertThat(user.getValue().passwordHash()).isEqualTo("encoded-password");
         assertThat(membership.getValue().role()).isEqualTo(MembershipRole.OWNER);
         assertThat(result.firmId()).isEqualTo(firm.getValue().id());
+        verify(audit).recordUserAction(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -75,4 +77,3 @@ class OnboardingServiceTest {
                 .isInstanceOf(InvalidIdentityException.class);
     }
 }
-

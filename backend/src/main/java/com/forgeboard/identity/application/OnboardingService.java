@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.forgeboard.identity.domain.Firm;
 import com.forgeboard.identity.domain.FirmMembership;
 import com.forgeboard.identity.domain.ForgeBoardUser;
+import com.forgeboard.identity.domain.ActivitySource;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
 import com.forgeboard.identity.persistence.FirmRepository;
@@ -25,14 +26,17 @@ public class OnboardingService {
     private final FirmMembershipRepository memberships;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
+    private final ActivityAuditService audit;
 
     public OnboardingService(FirmRepository firms, UserRepository users,
-            FirmMembershipRepository memberships, PasswordEncoder passwordEncoder, Clock clock) {
+            FirmMembershipRepository memberships, PasswordEncoder passwordEncoder, Clock clock,
+            ActivityAuditService audit) {
         this.firms = firms;
         this.users = users;
         this.memberships = memberships;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
+        this.audit = audit;
     }
 
     @Transactional
@@ -49,6 +53,8 @@ public class OnboardingService {
         firms.save(firm);
         users.save(owner);
         memberships.save(new FirmMembership(UUID.randomUUID(), firm.id(), owner.id(), MembershipRole.OWNER, now));
+        audit.recordUserAction(firm.id(), owner.id(), ActivitySource.REST, "firm.created", "firm", firm.id(),
+                java.util.Map.of("firmName", firm.name(), "firmSlug", firm.slug()));
         return new OnboardingResult(firm.id(), firm.slug(), owner.id(), owner.email());
     }
 
@@ -60,4 +66,3 @@ public class OnboardingService {
         return slug;
     }
 }
-

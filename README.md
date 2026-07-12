@@ -40,15 +40,22 @@ curl -X POST http://localhost:8080/api/onboarding/firms \
   -d '{"firmName":"Hearth Accounting","firmSlug":"hearth-accounting","ownerEmail":"owner@example.com","ownerName":"Alex Owner","password":"correct horse battery"}'
 ```
 
-The response includes the new `firmId`. Authenticated tenant requests use HTTP Basic during M0 and must select that firm explicitly:
+The response includes the new `firmId`. Browser clients create an HTTP session:
 
 ```shell
-curl http://localhost:8080/api/identity/me \
-  -u owner@example.com:"correct horse battery" \
+curl -c cookies.txt -X POST http://localhost:8080/api/auth/session \
+  -H "Content-Type: application/json" \
+  -d '{"email":"owner@example.com","password":"correct horse battery"}'
+```
+
+Authenticated tenant requests must select a firm explicitly:
+
+```shell
+curl -b cookies.txt http://localhost:8080/api/identity/me \
   -H "X-ForgeBoard-Firm: <firmId>"
 ```
 
-The firm header is checked against persisted membership on every tenant API request. Browser sessions and scoped service tokens will replace direct Basic authentication before SaaS launch.
+The firm header is checked against persisted membership on every tenant API request. Mutating session requests require the CSRF token returned by `GET /api/auth/csrf`. HTTP Basic remains enabled temporarily for development; scoped service tokens will be the MCP authentication path.
 
 ## Current milestone
 
