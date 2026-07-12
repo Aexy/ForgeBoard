@@ -17,6 +17,7 @@ import org.springframework.security.access.AccessDeniedException;
 import com.forgeboard.identity.domain.FirmMembership;
 import com.forgeboard.identity.domain.ForgeBoardUser;
 import com.forgeboard.identity.domain.MembershipRole;
+import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
 import com.forgeboard.identity.persistence.UserRepository;
 
@@ -34,7 +35,7 @@ class TenantAuthorizationServiceTest {
         when(users.findByEmail("owner@example.com")).thenReturn(Optional.of(user));
         when(memberships.findByFirmIdAndUserId(firmId, userId)).thenReturn(Optional.of(membership));
 
-        TenantPrincipal principal = new TenantAuthorizationService(users, memberships)
+        SelectedTenant principal = new TenantAuthorizationService(users, memberships)
                 .authorize("OWNER@EXAMPLE.COM", firmId);
         assertThat(principal.firmId()).isEqualTo(firmId);
         assertThat(principal.role()).isEqualTo(MembershipRole.OWNER);

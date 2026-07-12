@@ -266,6 +266,8 @@ The provider should be selected during the deployment milestone based on verifie
 
 ### M0 — Foundation and walking skeleton
 
+**Status: Complete (2026-07-12)**
+
 - Repository structure and architecture checks
 - Spring Boot application and React shell
 - PostgreSQL/Flyway setup
@@ -276,6 +278,8 @@ The provider should be selected during the deployment milestone based on verifie
 **Exit criterion:** a new developer can run the system and an authenticated user belongs to an isolated firm.
 
 ### M1 — Complete workflow slice
+
+**Status: In progress**
 
 - Clients, workflows, stages, and work items
 - Board UI with persistent drag-and-drop ordering
@@ -341,4 +345,3 @@ If the answer to 1 or 4 is no, do not implement it. If the answer to 2 or 5 is n
 - Implementation work should name the milestone it advances.
 - At the end of every meaningful code change, update `CHANGELOG.md` in the same commit or patch.
 - Completed milestone exit criteria should be marked here only after automated verification succeeds.
-

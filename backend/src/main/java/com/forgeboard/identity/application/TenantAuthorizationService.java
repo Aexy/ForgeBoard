@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import com.forgeboard.identity.domain.FirmMembership;
 import com.forgeboard.identity.domain.ForgeBoardUser;
+import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
 import com.forgeboard.identity.persistence.UserRepository;
 
@@ -21,13 +22,12 @@ public class TenantAuthorizationService {
         this.memberships = memberships;
     }
 
-    public TenantPrincipal authorize(String email, UUID firmId) {
+    public SelectedTenant authorize(String email, UUID firmId) {
         ForgeBoardUser user = users.findByEmail(email.toLowerCase(Locale.ROOT))
                 .filter(ForgeBoardUser::enabled)
                 .orElseThrow(() -> new AccessDeniedException("User is not active"));
         FirmMembership membership = memberships.findByFirmIdAndUserId(firmId, user.id())
                 .orElseThrow(() -> new AccessDeniedException("User is not a member of this firm"));
-        return new TenantPrincipal(firmId, user.id(), user.email(), membership.role());
+        return new SelectedTenant(firmId, user.id(), user.email(), membership.role());
     }
 }
-

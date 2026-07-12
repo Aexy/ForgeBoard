@@ -57,6 +57,20 @@ curl -b cookies.txt http://localhost:8080/api/identity/me \
 
 The firm header is checked against persisted membership on every tenant API request. Mutating session requests require the CSRF token returned by `GET /api/auth/csrf`. HTTP Basic remains enabled temporarily for development; scoped service tokens will be the MCP authentication path.
 
+### Client records
+
+All client operations are tenant-scoped and require the selected firm header. For example, after fetching a CSRF token:
+
+```shell
+curl -b cookies.txt -X POST http://localhost:8080/api/clients \
+  -H "Content-Type: application/json" \
+  -H "X-ForgeBoard-Firm: <firmId>" \
+  -H "X-XSRF-TOKEN: <csrfToken>" \
+  -d '{"legalName":"Northstar Studio GmbH","displayName":"Northstar Studio","primaryEmail":"hello@northstar.at"}'
+```
+
+Client reads and writes always include the firm identifier in repository queries; a global client-ID lookup is not used.
+
 ## Current milestone
 
-M0 — Foundation and walking skeleton. See [PRODUCT_PLAN.md](PRODUCT_PLAN.md#11-delivery-milestones).
+M1 — Complete workflow slice. See [PRODUCT_PLAN.md](PRODUCT_PLAN.md#11-delivery-milestones).

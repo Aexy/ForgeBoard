@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.forgeboard.identity.application.TenantAuthorizationService;
-import com.forgeboard.identity.application.TenantPrincipal;
+import com.forgeboard.identity.SelectedTenant;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,7 +22,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class TenantSelectionFilter extends OncePerRequestFilter {
     public static final String FIRM_HEADER = "X-ForgeBoard-Firm";
-    public static final String TENANT_PRINCIPAL_ATTRIBUTE = "forgeboard.tenantPrincipal";
+    public static final String TENANT_PRINCIPAL_ATTRIBUTE = "forgeboard.selectedTenant";
 
     private final TenantAuthorizationService authorization;
 
@@ -32,7 +32,8 @@ public class TenantSelectionFilter extends OncePerRequestFilter {
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
         return !path.startsWith("/api/") || path.equals("/api/platform")
-                || path.equals("/api/onboarding/firms") || path.startsWith("/api/auth/");
+                || path.equals("/api/onboarding/firms") || path.equals("/api/auth/csrf")
+                || path.equals("/api/auth/session");
     }
 
     @Override

@@ -31,10 +31,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Browser-session login, current-session, logout, and CSRF token endpoints. (`M0`)
 - PostgreSQL Testcontainers integration coverage for Flyway, onboarding persistence, and activity events; it skips locally when Docker is unavailable. (`M0`)
 - A credentialed frontend session client with CSRF-aware logout. (`M0`)
+- Accessible React firm-onboarding and owner-login flows with session restoration, sign-out, loading, and error states. (`M0`)
+- Tenant-isolated client records with create, list, detail, update, and archive operations. (`M1`)
+- Client schema migration `V002` with firm-scoped indexes and status constraints. (`M1`)
 
 ### Changed
 
 - Chose a shared modular application core with separate REST and MCP adapters instead of independent web and MCP products. This preserves consistent permissions, validation, transactions, and audit history while allowing later deployment separation. (`M0`)
+- Marked M0 complete and began M1 after authenticated firm onboarding, tenant isolation, CI, and local developer startup requirements were implemented. (`M1`)
 
 ### Security
 
@@ -42,3 +46,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Added BCrypt password hashing with work factor 12 and membership verification before tenant context is exposed. (`M0`)
 - Added persisted `firm.created` activity events within the onboarding transaction. (`M0`)
 - Added cookie-based CSRF protection for browser-session mutations while keeping onboarding and login as explicit public entry points. (`M0`)
+- Hardened session login to require CSRF, removed global HTTP Basic authentication, narrowed tenant-filter exclusions to exact auth routes, and added production cookie settings. (`M0`)
+- Enforced client tenant scope in every application operation and repository query, including negative cross-tenant and read-only-role tests. (`M1`)
