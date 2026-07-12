@@ -279,7 +279,7 @@ The provider should be selected during the deployment milestone based on verifie
 
 ### M1 — Complete workflow slice
 
-**Status: In progress**
+**Status: Complete (2026-07-13)**
 
 - Clients, workflows, stages, and work items
 - Board UI with persistent drag-and-drop ordering
@@ -287,6 +287,8 @@ The provider should be selected during the deployment milestone based on verifie
 - Integration and browser tests for the primary flow
 
 **Exit criterion:** a user can create a client work item and move it through a workflow with a visible history.
+
+Verified by the PostgreSQL integration test and React workflow tests, including persistent card movement and audit refresh.
 
 ### M2 — Accounting workflow value
 

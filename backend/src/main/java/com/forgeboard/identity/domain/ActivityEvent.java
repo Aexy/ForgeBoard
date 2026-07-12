@@ -47,8 +47,11 @@ public class ActivityEvent {
 
     public UUID firmId() { return firmId; }
     public UUID actorUserId() { return actorUserId; }
+    public ActivityActorType actorType() { return actorType; }
     public ActivitySource source() { return source; }
     public String action() { return action; }
+    public String targetType() { return targetType; }
+    public UUID targetId() { return targetId; }
     public Map<String, Object> summary() { return summary; }
+    public Instant occurredAt() { return occurredAt; }
 }
-

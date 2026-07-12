@@ -71,6 +71,16 @@ curl -b cookies.txt -X POST http://localhost:8080/api/clients \
 
 Client reads and writes always include the firm identifier in repository queries; a global client-ID lookup is not used.
 
+### Workflow board API
+
+Create a workflow with ordered stages using `POST /api/workflows`, then create work using
+`POST /api/workflows/{workflowId}/items`. The complete persisted board is returned by
+`GET /api/workflows/{workflowId}`.
+
+Cards move through `PATCH /api/workflows/{workflowId}/items/{itemId}/position`. The request names the target stage and optional neighboring item IDs; the server calculates a fractional rank and verifies that every referenced row belongs to the selected firm and workflow.
+
+Recent auditable changes are available from `GET /api/activity`, or can be filtered with `targetType` and `targetId` query parameters.
+
 ## Current milestone
 
 M1 — Complete workflow slice. See [PRODUCT_PLAN.md](PRODUCT_PLAN.md#11-delivery-milestones).

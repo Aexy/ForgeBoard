@@ -34,11 +34,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Accessible React firm-onboarding and owner-login flows with session restoration, sign-out, loading, and error states. (`M0`)
 - Tenant-isolated client records with create, list, detail, update, and archive operations. (`M1`)
 - Client schema migration `V002` with firm-scoped indexes and status constraints. (`M1`)
+- Workflow, ordered-stage, and ranked work-item schema migration `V003` with composite firm foreign keys. (`M1`)
+- Tenant-scoped workflow and board APIs for creating workflows, loading boards, creating work items, and moving cards. (`M1`)
+- Fractional work-item ranking with neighbor validation and persistent accessible movement semantics. (`M1`)
+- Tenant-scoped activity-history query API for recent and target-specific audit events. (`M1`)
+- Authenticated React workflow UI for creating workflows and client-linked work items, selecting boards, and loading persisted stages and cards. (`M1`)
+- Persistent native drag-and-drop card movement with accessible left/right movement controls. (`M1`)
+- Visible tenant-scoped activity panel that refreshes after workflow, work-item, client, and movement mutations. (`M1`)
 
 ### Changed
 
 - Chose a shared modular application core with separate REST and MCP adapters instead of independent web and MCP products. This preserves consistent permissions, validation, transactions, and audit history while allowing later deployment separation. (`M0`)
 - Marked M0 complete and began M1 after authenticated firm onboarding, tenant isolation, CI, and local developer startup requirements were implemented. (`M1`)
+- Marked M1 complete after its client-work-item, persistent workflow movement, and visible-history exit criterion passed backend, PostgreSQL, and frontend verification. (`M1`)
+
+### Fixed
+
+- Enabled Spring Boot 4 Flyway auto-configuration with `spring-boot-starter-flyway`, fixing PostgreSQL integration-test startup before Hibernate schema validation. (`M1`)
 
 ### Security
 
@@ -48,3 +60,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Added cookie-based CSRF protection for browser-session mutations while keeping onboarding and login as explicit public entry points. (`M0`)
 - Hardened session login to require CSRF, removed global HTTP Basic authentication, narrowed tenant-filter exclusions to exact auth routes, and added production cookie settings. (`M0`)
 - Enforced client tenant scope in every application operation and repository query, including negative cross-tenant and read-only-role tests. (`M1`)
+- Added database-enforced tenant consistency across clients, workflows, stages, and work items using composite foreign keys. (`M1`)

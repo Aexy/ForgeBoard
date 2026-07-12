@@ -15,6 +15,20 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.forgeboard.identity.application.OnboardingRequest;
 import com.forgeboard.identity.application.OnboardingService;
+import com.forgeboard.identity.application.OnboardingResult;
+import com.forgeboard.identity.domain.MembershipRole;
+import com.forgeboard.client.application.ClientRequest;
+import com.forgeboard.client.application.ClientService;
+import com.forgeboard.client.application.ClientView;
+import com.forgeboard.work.application.BoardView;
+import com.forgeboard.work.application.MoveWorkItemRequest;
+import com.forgeboard.work.application.WorkItemRequest;
+import com.forgeboard.work.application.WorkItemView;
+import com.forgeboard.work.application.WorkflowRequest;
+import com.forgeboard.work.application.WorkflowService;
+import com.forgeboard.work.domain.WorkPriority;
+import java.util.List;
+import java.util.UUID;
 
 @SpringBootTest
 @Testcontainers(disabledWithoutDocker = true)
@@ -31,18 +45,34 @@ class IdentityPostgresIntegrationTest {
 
     @Autowired OnboardingService onboarding;
     @Autowired JdbcClient jdbc;
+    @Autowired ClientService clients;
+    @Autowired WorkflowService workflows;
 
     @Test
     void flywaySchemaPersistsOnboardingAndItsAuditEvent() {
-        onboarding.createFirm(new OnboardingRequest("Hearth Accounting", "hearth-accounting",
+        OnboardingResult onboarded = onboarding.createFirm(new OnboardingRequest("Hearth Accounting", "hearth-accounting",
                 "owner@example.com", "Alex Owner", "correct horse battery"));
+        SelectedTenant tenant = new SelectedTenant(onboarded.firmId(), onboarded.ownerId(),
+                onboarded.ownerEmail(), MembershipRole.OWNER);
+        ClientView client = clients.create(tenant,
+                new ClientRequest("Northstar Studio GmbH", "Northstar Studio", "hello@northstar.at"));
+        BoardView board = workflows.createWorkflow(tenant,
+                new WorkflowRequest("Monthly bookkeeping", List.of("Waiting", "Preparation", "Review")));
+        WorkItemView item = workflows.createItem(tenant, board.id(), new WorkItemRequest(client.id(),
+                board.stages().get(0).id(), "June bookkeeping", "", null, WorkPriority.NORMAL));
+        workflows.moveItem(tenant, board.id(), item.id(),
+                new MoveWorkItemRequest(board.stages().get(1).id(), null, null));
 
         assertThat(count("firms")).isEqualTo(1);
         assertThat(count("users")).isEqualTo(1);
         assertThat(count("firm_memberships")).isEqualTo(1);
-        assertThat(count("activity_events")).isEqualTo(1);
-        assertThat(jdbc.sql("select action from activity_events").query(String.class).single())
-                .isEqualTo("firm.created");
+        assertThat(count("clients")).isEqualTo(1);
+        assertThat(count("workflows")).isEqualTo(1);
+        assertThat(count("workflow_stages")).isEqualTo(3);
+        assertThat(count("work_items")).isEqualTo(1);
+        assertThat(count("activity_events")).isEqualTo(5);
+        assertThat(jdbc.sql("select stage_id from work_items where id = :id").param("id", item.id())
+                .query(UUID.class).single()).isEqualTo(board.stages().get(1).id());
     }
 
     private long count(String table) {
