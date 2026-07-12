@@ -20,9 +20,11 @@ describe('App', () => {
   it('presents the workflow foundation after restoring a firm session', async () => {
     localStorage.setItem('forgeboard.selectedFirmId', 'firm-1')
     vi.mocked(session.currentSession).mockResolvedValue({ email: 'owner@example.com' })
+    vi.mocked(session.listAccessibleFirms).mockResolvedValue([{ id: 'firm-1', name: 'Hearth Accounting', slug: 'hearth', role: 'OWNER' }])
     render(<App />)
     expect(await screen.findByRole('heading', { name: 'Workflows' })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: 'No workflow yet' })).toBeInTheDocument()
+    expect(screen.getByText('Hearth Accounting')).toBeInTheDocument()
   })
 
   it('signs an existing owner in', async () => {

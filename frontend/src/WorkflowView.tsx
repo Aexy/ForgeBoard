@@ -16,7 +16,7 @@ export function WorkflowView({ firmId }: { firmId: string }) {
     {error && <p className="form-error" role="alert">{error}</p>}{creatingBoard && <form className="workflow-form" onSubmit={makeBoard}><label>Workflow name<input name="name" required maxLength={160} /></label><label>Stages, separated by commas<input name="stages" required defaultValue="Waiting on client, In preparation, Ready for review, Complete" /></label><button className="primary-action">Create workflow</button></form>}
     {workflows.length > 1 && <label className="workflow-picker">Workflow<select value={board?.id ?? ''} onChange={(event) => getWorkflow(firmId, event.target.value).then(setBoard)}>{workflows.map((workflow) => <option key={workflow.id} value={workflow.id}>{workflow.name}</option>)}</select></label>}
     {!board ? <div className="empty-state"><h2>No workflow yet</h2><p>Create a workflow with the stages your firm uses every day.</p></div> : <div className="board" role="region" aria-label={`${board.name} workflow`}>{board.stages.map((stage, stageIndex) => <section className="column" aria-label={`${stage.name} stage`} key={stage.id} onDragOver={(event) => event.preventDefault()} onDrop={(event) => drop(event.dataTransfer.getData('text/forgeboard-item'), stage.id)}><div className="column-title"><span className="dot green" /><h2>{stage.name}</h2><span>{stage.items.length}</span></div>{stage.items.map((item) => <article className="work-card" draggable onDragStart={(event) => event.dataTransfer.setData('text/forgeboard-item', item.id)} key={item.id}><span className="client">{clients.find((client) => client.id === item.clientId)?.displayName ?? 'Client'}</span><h3>{item.title}</h3><div className="card-actions"><button disabled={stageIndex === 0} aria-label={`Move ${item.title} left`} onClick={() => move(item.id, stageIndex, -1)}>{'<'}</button>{item.dueDate && <span className="due">Due {item.dueDate}</span>}<button disabled={stageIndex === board.stages.length - 1} aria-label={`Move ${item.title} right`} onClick={() => move(item.id, stageIndex, 1)}>{'>'}</button></div></article>)}{addingTo === stage.id ? <form className="item-form" onSubmit={(event) => addItem(event, stage.id)}><label>Client<select name="clientId" required>{clients.map((client) => <option value={client.id} key={client.id}>{client.displayName}</option>)}</select></label><label>Title<input name="title" required maxLength={200} /></label><label>Due date<input name="dueDate" type="date" /></label><label>Priority<select name="priority" defaultValue="NORMAL"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label><label>Description<textarea name="description" maxLength={10000} /></label><button className="primary-action" disabled={!clients.length}>Save work item</button></form> : <button className="add-card" onClick={() => setAddingTo(stage.id)}>+ Add work item</button>}</section>)}</div>}
-    <aside className="activity-panel" aria-labelledby="activity-title"><div><p className="eyebrow">Audit trail</p><h2 id="activity-title">Recent activity</h2></div>{activity.length === 0 ? <p>No activity recorded yet.</p> : <ol>{activity.slice(0, 10).map((entry, index) => <li key={`${entry.occurredAt}-${entry.targetId}-${index}`}><strong>{describeAction(entry.action)}</strong><span>{describeSummary(entry.summary)}</span><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time><small>{entry.actorType.toLowerCase()} via {entry.source.toLowerCase()}</small></li>)}</ol>}</aside>
+    <aside className="activity-panel" aria-labelledby="activity-title"><div><p className="eyebrow">Audit trail</p><h2 id="activity-title">Recent activity</h2></div>{activity.length === 0 ? <p>No activity recorded yet.</p> : <ol>{activity.slice(0, 10).map((entry, index) => <li key={`${entry.occurredAt}-${entry.targetId}-${index}`}><strong>{describeAction(entry.action)}</strong><span>{describeSummary(entry.action, entry.summary, board)}</span><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time><small>{entry.actorType.toLowerCase()} via {entry.source.toLowerCase()}</small></li>)}</ol>}</aside>
   </section>
 }
 
@@ -24,7 +24,21 @@ function describeAction(action: string) {
   const known: Record<string, string> = { 'workflow.created': 'Workflow created', 'work-item.created': 'Work item created', 'work-item.moved': 'Work item moved', 'client.created': 'Client created', 'client.archived': 'Client archived', 'firm.created': 'Firm created' }
   return known[action] ?? action.replaceAll('.', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
-function describeSummary(summary: Record<string, unknown>) {
-  const values = Object.values(summary).filter((value) => typeof value === 'string' || typeof value === 'number')
-  return values.length ? values.join(' / ') : 'ForgeBoard activity'
+function describeSummary(action: string, summary: Record<string, unknown>, board: WorkflowBoard | null) {
+  const text = (key: string) => typeof summary[key] === 'string' ? summary[key] as string : null
+  if (action === 'work-item.created') return text('title') ?? 'New work item'
+  if (action === 'work-item.moved') {
+    const stageName = (id: string | null) => board?.stages.find((stage) => stage.id === id)?.name
+    const from = stageName(text('fromStageId'))
+    const to = stageName(text('toStageId'))
+    return from && to ? `${from} to ${to}` : to ? `Moved to ${to}` : 'Workflow stage changed'
+  }
+  if (action === 'workflow.created') {
+    const name = text('name') ?? 'New workflow'
+    const stageCount = typeof summary.stageCount === 'number' ? summary.stageCount : null
+    return stageCount === null ? name : `${name} - ${stageCount} stages`
+  }
+  if (action === 'client.created' || action === 'client.archived') return text('displayName') ?? 'Client record updated'
+  if (action === 'firm.created') return text('firmName') ?? 'Firm workspace created'
+  return 'ForgeBoard activity'
 }

@@ -32,4 +32,17 @@ describe('WorkflowView', () => {
     fireEvent.drop(screen.getByLabelText('Review stage'), { dataTransfer: { getData: () => 'item-1' } })
     await waitFor(() => expect(workflows.moveWorkItem).toHaveBeenCalledWith('firm-1', 'flow-1', 'item-1', 'review'))
   })
+
+  it('renders readable activity summaries without exposing internal ids', async () => {
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo-id', name: 'Preparation', position: 0, items: [] }, { id: 'review-id', name: 'Review', position: 1, items: [] }] }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }]); vi.mocked(workflows.getWorkflow).mockResolvedValue(board)
+    vi.mocked(activity.listActivity).mockResolvedValue([
+      { actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.created', targetType: 'work_item', targetId: 'item-id', summary: { title: 'July close', workflowId: 'flow-1' }, occurredAt: '2026-07-12T12:00:00Z' },
+      { actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.moved', targetType: 'work_item', targetId: 'item-id', summary: { fromStageId: 'todo-id', toStageId: 'review-id' }, occurredAt: '2026-07-12T12:01:00Z' }
+    ])
+    render(<WorkflowView firmId="firm-1" />)
+    expect(await screen.findByText('July close')).toBeInTheDocument()
+    expect(await screen.findByText('Preparation to Review')).toBeInTheDocument()
+    expect(screen.queryByText(/flow-1|todo-id|review-id/)).not.toBeInTheDocument()
+  })
 })

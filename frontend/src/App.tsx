@@ -28,8 +28,8 @@ function Access({ onAuthenticated }: { onAuthenticated: (identity: SessionIdenti
 
 export function App() {
   const [identity, setIdentity] = useState<SessionIdentity | null>(null); const [checking, setChecking] = useState(true); const [firmName, setFirmName] = useState('Your firm'); const [firmId, setFirmId] = useState<string | null>(() => localStorage.getItem(FIRM_KEY))
-  useEffect(() => { currentSession().then(setIdentity).catch(() => undefined).finally(() => setChecking(false)) }, [])
-  if (checking) return <main className="loading-shell" aria-live="polite">Opening ForgeBoard…</main>
+  useEffect(() => { currentSession().then(async (next) => { setIdentity(next); const accessible = await listAccessibleFirms(); const selected = accessible.find((firm) => firm.id === firmId) ?? accessible[0]; if (selected) { setFirmName(selected.name); setFirmId(selected.id); localStorage.setItem(FIRM_KEY, selected.id) } }).catch(() => undefined).finally(() => setChecking(false)) }, [])
+  if (checking) return <main className="loading-shell" aria-live="polite">Opening ForgeBoard...</main>
   if (!identity) return <Access onAuthenticated={async (next, firm, selected) => { let resolvedId = selected; let resolvedName = firm; if (!resolvedId) { const accessible = await listAccessibleFirms(); resolvedId = accessible[0]?.id; resolvedName = accessible[0]?.name } setIdentity(next); if (resolvedName) setFirmName(resolvedName); if (resolvedId) { localStorage.setItem(FIRM_KEY, resolvedId); setFirmId(resolvedId) } }} />
   return <Shell identity={identity} firmName={firmName} firmId={firmId} onLogout={async () => { await logout(); setIdentity(null) }} />
 }

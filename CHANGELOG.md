@@ -51,6 +51,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Recent activity now replaces internal workflow and stage IDs with work-item titles, stage names, and readable fallback descriptions. (`M1`)
+- Restored sessions now resolve the selected firm's display name instead of showing a generic placeholder. (`M1`)
 - Enabled Spring Boot 4 Flyway auto-configuration with `spring-boot-starter-flyway`, fixing PostgreSQL integration-test startup before Hibernate schema validation. (`M1`)
 
 ### Security
