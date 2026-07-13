@@ -26,6 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added database metadata comments that document the metadata-only external reference and generated engagement board-work-item link. (`M2`, migration `V008`)
 - Engagement templates and recurring engagement records, with firm-scoped workflow/client references, period normalization, due-date generation, REST endpoints, and audit events. (`M2`, migration `V004`)
 - Client document-request tracking with metadata-only external references, received status, tenant scope, and audit events. (`M2`, migration `V005`)
 - Initial manager deadline dashboard API for overdue, due-soon, blocked, and awaiting-review work. (`M2`)
@@ -33,7 +34,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
-- Restored visible dark text on secondary actions, including the Engagements â€œNew templateâ€ button, which had inherited the white header-button text color. (`M2`)
+- Return a clear conflict before creating any board work when an engagement for the same client, template, and period already exists. (`M2`)
+- Made document-request receipt idempotent, supplied tenant-safe not-found responses, corrected nested request labels, and disabled work-item creation until an active client exists. (`M2`)
+- Restored visible dark text on secondary actions, including the Engagements "+ New template" button, which had inherited the white header-button text color. (`M2`)
 - Aligned the engagement-template due-day migration with Hibernate's integer mapping, restoring PostgreSQL application-context startup and CI integration coverage. (`M2`, migration `V006`)
 
 - Product and architecture baseline for LedgerFlow, targeting independent accounting firms. (`M0`)

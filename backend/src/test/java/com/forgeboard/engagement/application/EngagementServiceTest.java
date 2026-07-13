@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
@@ -94,5 +95,25 @@ class EngagementServiceTest {
         assertThatThrownBy(() -> service.createEngagement(tenant, templateId,
                 new CreateEngagementRequest(UUID.randomUUID(), LocalDate.of(2026, 7, 1))))
                 .isInstanceOf(EngagementNotFoundException.class);
+    }
+
+    @Test
+    void rejectsDuplicateEngagementBeforeCreatingBoardWork() {
+        UUID templateId = UUID.randomUUID();
+        UUID workflowId = UUID.randomUUID();
+        UUID clientId = UUID.randomUUID();
+        EngagementTemplate template = new EngagementTemplate(templateId, tenant.firmId(), workflowId,
+                "Monthly bookkeeping", Recurrence.MONTHLY, "Bookkeeping {{period}}", 20, now);
+        when(templates.findByIdAndFirmId(templateId, tenant.firmId())).thenReturn(Optional.of(template));
+        when(clients.exists(tenant.firmId(), clientId)).thenReturn(true);
+        when(engagements.existsByFirmIdAndTemplateIdAndClientIdAndPeriodStart(
+                tenant.firmId(), templateId, clientId, LocalDate.of(2026, 7, 1))).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createEngagement(tenant, templateId,
+                new CreateEngagementRequest(clientId, LocalDate.of(2026, 7, 16))))
+                .isInstanceOf(EngagementAlreadyExistsException.class)
+                .hasMessage("An engagement already exists for this client and period");
+
+        verifyNoInteractions(workflows);
     }
 }

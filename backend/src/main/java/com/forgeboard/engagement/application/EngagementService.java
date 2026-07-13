@@ -69,6 +69,10 @@ public class EngagementService {
         if (!clients.exists(tenant.firmId(), request.clientId()))
             throw new EngagementNotFoundException("Client was not found in the selected firm");
         LocalDate periodStart = normalizedPeriodStart(request.periodStart(), template.recurrence());
+        if (engagements.existsByFirmIdAndTemplateIdAndClientIdAndPeriodStart(
+                tenant.firmId(), template.id(), request.clientId(), periodStart)) {
+            throw new EngagementAlreadyExistsException("An engagement already exists for this client and period");
+        }
         LocalDate periodEnd = periodEnd(periodStart, template.recurrence());
         LocalDate dueDate = YearMonth.from(periodEnd).atDay(Math.min(template.dueDay(), periodEnd.lengthOfMonth()));
         String workItemTitle = workItemTitle(template, periodStart);
