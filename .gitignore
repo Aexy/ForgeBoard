@@ -5,6 +5,8 @@
 Thumbs.db
 backend/target/
 frontend/node_modules/
+node_modules/
+.vite/
 frontend/dist/
 output/
 tmp/
