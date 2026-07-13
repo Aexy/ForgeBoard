@@ -2,8 +2,11 @@ package com.forgeboard.engagement.application;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
@@ -21,6 +24,7 @@ import com.forgeboard.work.WorkflowDirectory;
 
 @Service
 public class EngagementService {
+    private static final DateTimeFormatter PERIOD_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
     private final EngagementTemplateRepository templates;
     private final EngagementRepository engagements;
     private final WorkflowDirectory workflows;
@@ -67,10 +71,16 @@ public class EngagementService {
         LocalDate periodStart = normalizedPeriodStart(request.periodStart(), template.recurrence());
         LocalDate periodEnd = periodEnd(periodStart, template.recurrence());
         LocalDate dueDate = YearMonth.from(periodEnd).atDay(Math.min(template.dueDay(), periodEnd.lengthOfMonth()));
+        String workItemTitle = workItemTitle(template, periodStart);
+        UUID workItemId = workflows.createInitialWorkItem(tenant.firmId(), request.clientId(), template.workflowId(),
+                workItemTitle, workItemDescription(template, periodStart, periodEnd), dueDate, clock.instant());
         Engagement created = engagements.save(new Engagement(UUID.randomUUID(), tenant.firmId(), template.id(), request.clientId(),
-                template.workflowId(), periodStart, periodEnd, dueDate, clock.instant()));
+                template.workflowId(), workItemId, periodStart, periodEnd, dueDate, clock.instant()));
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.created", "work-item", workItemId,
+                Map.of("title", workItemTitle, "workflowId", template.workflowId().toString(), "source", "engagement"));
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "engagement.created", "engagement", created.id(),
-                Map.of("templateName", template.name(), "periodStart", periodStart.toString(), "dueDate", dueDate.toString()));
+                Map.of("templateName", template.name(), "periodStart", periodStart.toString(),
+                        "dueDate", dueDate.toString(), "workItemId", workItemId.toString()));
         return engagementView(created);
     }
 
@@ -93,8 +103,23 @@ public class EngagementService {
                 template.defaultWorkItemTitle(), template.dueDay(), template.version());
     }
     private EngagementView engagementView(Engagement engagement) {
-        return new EngagementView(engagement.id(), engagement.templateId(), engagement.clientId(), engagement.workflowId(),
+        return new EngagementView(engagement.id(), engagement.templateId(), engagement.clientId(), engagement.workflowId(), engagement.workItemId(),
                 engagement.periodStart(), engagement.periodEnd(), engagement.dueDate(), engagement.status(), engagement.version());
+    }
+    private String workItemTitle(EngagementTemplate template, LocalDate periodStart) {
+        return template.defaultWorkItemTitle().replace("{{period}}", periodLabel(periodStart, template.recurrence())).strip();
+    }
+    private String periodLabel(LocalDate periodStart, Recurrence recurrence) {
+        return switch (recurrence) {
+            case MONTHLY -> periodStart.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+                    + " " + periodStart.getYear();
+            case QUARTERLY -> "Q" + (((periodStart.getMonthValue() - 1) / 3) + 1) + " " + periodStart.getYear();
+            case ANNUAL -> String.valueOf(periodStart.getYear());
+        };
+    }
+    private String workItemDescription(EngagementTemplate template, LocalDate periodStart, LocalDate periodEnd) {
+        return "Generated from " + template.name() + " for " + PERIOD_FORMAT.format(periodStart)
+                + " to " + PERIOD_FORMAT.format(periodEnd) + ".";
     }
     private void requireWrite(SelectedTenant tenant) {
         if (!tenant.canWrite()) throw new AccessDeniedException("Read-only members cannot change engagements");

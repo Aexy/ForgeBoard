@@ -16,6 +16,7 @@ export type Engagement = {
   templateId: string
   clientId: string
   workflowId: string
+  workItemId: string | null
   periodStart: string
   periodEnd: string
   dueDate: string

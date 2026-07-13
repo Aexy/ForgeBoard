@@ -3,6 +3,7 @@ package com.forgeboard.engagement.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +16,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.forgeboard.client.ClientDirectory;
@@ -61,10 +63,13 @@ class EngagementServiceTest {
     @Test
     void createsQuarterlyEngagementWithNormalizedPeriodAndDueDate() {
         UUID templateId = UUID.randomUUID(); UUID workflowId = UUID.randomUUID(); UUID clientId = UUID.randomUUID();
+        UUID workItemId = UUID.randomUUID();
         EngagementTemplate template = new EngagementTemplate(templateId, tenant.firmId(), workflowId,
                 "VAT returns", Recurrence.QUARTERLY, "VAT {{period}}", 20, now);
         when(templates.findByIdAndFirmId(templateId, tenant.firmId())).thenReturn(Optional.of(template));
         when(clients.exists(tenant.firmId(), clientId)).thenReturn(true);
+        when(workflows.createInitialWorkItem(eq(tenant.firmId()), eq(clientId), eq(workflowId), any(), any(), any(), any()))
+                .thenReturn(workItemId);
         when(engagements.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         EngagementView engagement = service.createEngagement(tenant, templateId,
@@ -73,6 +78,12 @@ class EngagementServiceTest {
         assertThat(engagement.periodStart()).isEqualTo(LocalDate.of(2026, 4, 1));
         assertThat(engagement.periodEnd()).isEqualTo(LocalDate.of(2026, 6, 30));
         assertThat(engagement.dueDate()).isEqualTo(LocalDate.of(2026, 6, 20));
+        assertThat(engagement.workItemId()).isEqualTo(workItemId);
+        ArgumentCaptor<String> title = ArgumentCaptor.forClass(String.class);
+        verify(workflows).createInitialWorkItem(eq(tenant.firmId()), eq(clientId), eq(workflowId), title.capture(),
+                eq("Generated from VAT returns for Apr 1, 2026 to Jun 30, 2026."),
+                eq(LocalDate.of(2026, 6, 20)), eq(now));
+        assertThat(title.getValue()).isEqualTo("VAT Q2 2026");
     }
 
     @Test

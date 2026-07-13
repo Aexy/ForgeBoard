@@ -29,6 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Engagement templates and recurring engagement records, with firm-scoped workflow/client references, period normalization, due-date generation, REST endpoints, and audit events. (`M2`, migration `V004`)
 - Client document-request tracking with metadata-only external references, received status, tenant scope, and audit events. (`M2`, migration `V005`)
 - Initial manager deadline dashboard API for overdue, due-soon, blocked, and awaiting-review work. (`M2`)
+- Linked started engagements to generated board work items, including a persisted `work_item_id`, generated first-stage work item, API exposure, and non-ID frontend confirmation. (`M2`, migration `V007`)
 
 ### Fixed
 
