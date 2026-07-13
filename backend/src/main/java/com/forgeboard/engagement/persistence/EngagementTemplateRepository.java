@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.forgeboard.engagement.domain.EngagementTemplate;
 
 public interface EngagementTemplateRepository extends JpaRepository<EngagementTemplate, UUID> {
+    boolean existsByFirmIdAndName(UUID firmId, String name);
+
     List<EngagementTemplate> findAllByFirmIdOrderByNameAsc(UUID firmId);
     Optional<EngagementTemplate> findByIdAndFirmId(UUID id, UUID firmId);
 }

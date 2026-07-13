@@ -48,8 +48,12 @@ public class EngagementService {
         requireWrite(tenant);
         if (!workflows.exists(tenant.firmId(), request.workflowId()))
             throw new EngagementNotFoundException("Workflow was not found in the selected firm");
+        String name = request.name().strip();
+        if (templates.existsByFirmIdAndName(tenant.firmId(), name)) {
+            throw new EngagementAlreadyExistsException("An engagement template with this name already exists");
+        }
         EngagementTemplate created = templates.save(new EngagementTemplate(UUID.randomUUID(), tenant.firmId(),
-                request.workflowId(), request.name().strip(), request.recurrence(), request.defaultWorkItemTitle().strip(),
+                request.workflowId(), name, request.recurrence(), request.defaultWorkItemTitle().strip(),
                 request.dueDay(), clock.instant()));
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "engagement-template.created", "engagement-template",
                 created.id(), Map.of("name", created.name(), "recurrence", created.recurrence().name()));

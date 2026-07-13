@@ -90,4 +90,28 @@ describe('App', () => {
     expect(screen.getByText(/Create at least one active client/)).toBeInTheDocument()
     expect(documentApi.listDocumentRequests).toHaveBeenCalledWith('firm-1')
   })
+
+  it('keeps template creation available when document requests cannot be loaded', async () => {
+    localStorage.setItem('forgeboard.selectedFirmId', 'firm-1')
+    vi.mocked(session.currentSession).mockResolvedValue({ email: 'owner@example.com' })
+    vi.mocked(session.listAccessibleFirms).mockResolvedValue([{ id: 'firm-1', name: 'Hearth Accounting', slug: 'hearth', role: 'OWNER' }])
+    vi.mocked(workflowApi.listWorkflows).mockResolvedValue([{ id: 'workflow-1', name: 'Bookkeeping' }])
+    vi.mocked(documentApi.listDocumentRequests).mockRejectedValue(new Error('temporarily unavailable'))
+    vi.mocked(engagementApi.createEngagementTemplate).mockResolvedValue({ id: 'template-1', name: 'Monthly bookkeeping', workflowId: 'workflow-1', recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare {{period}}', dueDay: 20, version: 0 })
+    render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Engagements' }))
+    const newTemplate = await screen.findByRole('button', { name: '+ New template' })
+    expect(newTemplate).toBeEnabled()
+    fireEvent.click(newTemplate)
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Monthly bookkeeping' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Workflow' }), { target: { value: 'workflow-1' } })
+    fireEvent.change(screen.getByLabelText('Default work item'), { target: { value: 'Prepare {{period}}' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save template' }))
+
+    await waitFor(() => expect(engagementApi.createEngagementTemplate).toHaveBeenCalledWith('firm-1', expect.objectContaining({
+      name: 'Monthly bookkeeping', workflowId: 'workflow-1', defaultWorkItemTitle: 'Prepare {{period}}',
+    })))
+    expect(screen.getByText(/Some data could not be loaded: document requests/)).toBeInTheDocument()
+  })
 })

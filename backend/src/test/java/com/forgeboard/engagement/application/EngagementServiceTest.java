@@ -62,6 +62,21 @@ class EngagementServiceTest {
     }
 
     @Test
+    void rejectsDuplicateTemplateNameBeforeSaving() {
+        UUID workflowId = UUID.randomUUID();
+        when(workflows.exists(tenant.firmId(), workflowId)).thenReturn(true);
+        when(templates.existsByFirmIdAndName(tenant.firmId(), "Monthly bookkeeping")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.createTemplate(tenant,
+                new EngagementTemplateRequest(" Monthly bookkeeping ", workflowId, Recurrence.MONTHLY,
+                        "Bookkeeping {{period}}", 20)))
+                .isInstanceOf(EngagementAlreadyExistsException.class)
+                .hasMessage("An engagement template with this name already exists");
+
+        verifyNoInteractions(activity);
+    }
+
+    @Test
     void createsQuarterlyEngagementWithNormalizedPeriodAndDueDate() {
         UUID templateId = UUID.randomUUID(); UUID workflowId = UUID.randomUUID(); UUID clientId = UUID.randomUUID();
         UUID workItemId = UUID.randomUUID();
