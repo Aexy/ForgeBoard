@@ -15,7 +15,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Changed
+
+- Reworked the project README around the ForgeBoard identity, current M2 capabilities, architecture, security model, and streamlined contributor setup. (`M2`)
+
+- Reframed the roadmap as sequential outcome and evidence gates: expanded M2 into a complete accounting operating loop, moved production pilot readiness ahead of automation in M3, and made M4 a security, privacy, and compliance-hardening milestone. MCP remains in the architecture and deferred backlog, outside the active M4 scope. Added launch criteria, product risks, lifecycle decisions, SaaS operations, GDPR/recovery requirements, and measurable pilot learning goals. (`M2`–`M4`)
+- Rolled out the ForgeBoard visual identity across sign-in, onboarding, and the authenticated workspace, including the new production logo and responsive brand layout. (`M2`)
+- Excluded generated `output/` brand artifacts from Git while keeping the website logo as a tracked frontend asset. (`M2`)
+
 ### Added
+
+- Engagement templates and recurring engagement records, with firm-scoped workflow/client references, period normalization, due-date generation, REST endpoints, and audit events. (`M2`, migration `V004`)
+- Client document-request tracking with metadata-only external references, received status, tenant scope, and audit events. (`M2`, migration `V005`)
+- Initial manager deadline dashboard API for overdue, due-soon, blocked, and awaiting-review work. (`M2`)
+
+### Fixed
+
+- Aligned the engagement-template due-day migration with Hibernate's integer mapping, restoring PostgreSQL application-context startup and CI integration coverage. (`M2`, migration `V006`)
 
 - Product and architecture baseline for LedgerFlow, targeting independent accounting firms. (`M0`)
 - Milestone exit criteria and decision guardrails to prevent uncontrolled scope expansion. (`M0`)

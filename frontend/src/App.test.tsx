@@ -6,6 +6,8 @@ import * as session from './api/session'
 import * as clientApi from './api/clients'
 import * as workflowApi from './api/workflows'
 import * as activityApi from './api/activity'
+import * as engagementApi from './api/engagements'
+import * as documentApi from './api/documentRequests'
 
 vi.mock('./api/session', () => ({
   currentSession: vi.fn(), login: vi.fn(), logout: vi.fn(), createFirm: vi.fn(), listAccessibleFirms: vi.fn(),
@@ -13,9 +15,11 @@ vi.mock('./api/session', () => ({
 vi.mock('./api/clients', () => ({ listClients: vi.fn(), createClient: vi.fn(), archiveClient: vi.fn() }))
 vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn() }))
 vi.mock('./api/activity', () => ({ listActivity: vi.fn().mockResolvedValue([]) }))
+vi.mock('./api/engagements', () => ({ listEngagements: vi.fn(), listEngagementTemplates: vi.fn(), createEngagementTemplate: vi.fn(), createEngagementInstance: vi.fn() }))
+vi.mock('./api/documentRequests', () => ({ listDocumentRequests: vi.fn(), createDocumentRequest: vi.fn(), markDocumentRequestReceived: vi.fn() }))
 
 describe('App', () => {
-  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]) })
+  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]); vi.mocked(engagementApi.listEngagements).mockResolvedValue([]); vi.mocked(engagementApi.listEngagementTemplates).mockResolvedValue([]); vi.mocked(documentApi.listDocumentRequests).mockResolvedValue([]) })
 
   it('presents the workflow foundation after restoring a firm session', async () => {
     localStorage.setItem('forgeboard.selectedFirmId', 'firm-1')
@@ -74,5 +78,16 @@ describe('App', () => {
 
     await waitFor(() => expect(clientApi.archiveClient).toHaveBeenCalledWith('firm-1', 'client-1'))
     expect(await screen.findByText('archived')).toBeInTheDocument()
+  })
+
+  it('opens the engagement workspace and explains its setup requirements', async () => {
+    localStorage.setItem('forgeboard.selectedFirmId', 'firm-1')
+    vi.mocked(session.currentSession).mockResolvedValue({ email: 'owner@example.com' })
+    vi.mocked(session.listAccessibleFirms).mockResolvedValue([{ id: 'firm-1', name: 'Hearth Accounting', slug: 'hearth', role: 'OWNER' }])
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Engagements' }))
+    expect(await screen.findByRole('heading', { name: 'Engagements' })).toBeInTheDocument()
+    expect(screen.getByText(/Create at least one active client/)).toBeInTheDocument()
+    expect(documentApi.listDocumentRequests).toHaveBeenCalledWith('firm-1')
   })
 })
