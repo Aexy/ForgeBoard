@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Changed
 
+- Updated ForgeBoard's primary README tagline to “From deadline to done.” (`M2`)
 - Reworked the project README around the ForgeBoard identity, current M2 capabilities, architecture, security model, and streamlined contributor setup. (`M2`)
 
 - Reframed the roadmap as sequential outcome and evidence gates: expanded M2 into a complete accounting operating loop, moved production pilot readiness ahead of automation in M3, and made M4 a security, privacy, and compliance-hardening milestone. MCP remains in the architecture and deferred backlog, outside the active M4 scope. Added launch criteria, product risks, lifecycle decisions, SaaS operations, GDPR/recovery requirements, and measurable pilot learning goals. (`M2`–`M4`)

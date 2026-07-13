@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Client work, clearly moving forward.</strong>
+  <strong>From deadline to done.</strong>
 </p>
 
 <p align="center">
