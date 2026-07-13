@@ -6,6 +6,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.forgeboard.client.application.ClientNotFoundException;
+import com.forgeboard.client.application.ClientImportValidationException;
 
 @RestControllerAdvice(assignableTypes = ClientController.class)
 class ClientExceptionHandler {
@@ -18,5 +19,9 @@ class ClientExceptionHandler {
     ProblemDetail forbidden(AccessDeniedException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
     }
-}
 
+    @ExceptionHandler(ClientImportValidationException.class)
+    ProblemDetail invalidImport(ClientImportValidationException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+}

@@ -11,6 +11,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -70,5 +71,55 @@ class ClientServiceTest {
         assertThatThrownBy(() -> service.create(tenant, new ClientRequest("Legal", "Display", null)))
                 .isInstanceOf(AccessDeniedException.class);
         verify(clients, never()).save(any());
+    }
+
+    @Test
+    void previewsValidCsvWithoutPersisting() {
+        SelectedTenant tenant = new SelectedTenant(firmId, userId, "owner@example.com", MembershipRole.OWNER);
+        when(clients.findAllByFirmIdOrderByDisplayNameAsc(firmId)).thenReturn(List.of());
+
+        ClientImportResult result = service.importCsv(tenant,
+                "legalName,displayName,primaryEmail\nNorthstar GmbH,Northstar,HELLO@NORTHSTAR.AT\n", true);
+
+        assertThat(result.readyToCommit()).isTrue();
+        assertThat(result.importedRows()).isZero();
+        assertThat(result.rows().getFirst().primaryEmail()).isEqualTo("hello@northstar.at");
+        verify(clients, never()).saveAll(any());
+        verify(activity, never()).recordRestUserAction(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void reportsRowErrorsAndDoesNotPartiallyCommit() {
+        SelectedTenant tenant = new SelectedTenant(firmId, userId, "owner@example.com", MembershipRole.OWNER);
+        when(clients.findAllByFirmIdOrderByDisplayNameAsc(firmId)).thenReturn(List.of());
+
+        ClientImportResult result = service.importCsv(tenant,
+                "legalName,displayName,primaryEmail\nNorthstar GmbH,Northstar,hello@example.com\n,Missing legal,not-an-email", false);
+
+        assertThat(result.validRows()).isEqualTo(1);
+        assertThat(result.importedRows()).isZero();
+        assertThat(result.rows().get(1).errors()).contains("legalName is required", "primaryEmail is invalid");
+        verify(clients, never()).saveAll(any());
+    }
+
+    @Test
+    void commitsValidCsvAndAuditsTheBatch() {
+        SelectedTenant tenant = new SelectedTenant(firmId, userId, "owner@example.com", MembershipRole.OWNER);
+        when(clients.findAllByFirmIdOrderByDisplayNameAsc(firmId)).thenReturn(List.of());
+
+        ClientImportResult result = service.importCsv(tenant,
+                "legalName,displayName,primaryEmail\nNorthstar GmbH,Northstar,hello@example.com", false);
+
+        assertThat(result.importedRows()).isEqualTo(1);
+        verify(clients).saveAll(any());
+        verify(activity).recordRestUserAction(firmId, userId, "client.imported", "client-import", firmId,
+                java.util.Map.of("importedCount", 1));
+    }
+
+    @Test
+    void rejectsAnUnexpectedHeader() {
+        SelectedTenant tenant = new SelectedTenant(firmId, userId, "owner@example.com", MembershipRole.OWNER);
+        assertThatThrownBy(() -> service.importCsv(tenant, "name,email\nNorthstar,hello@example.com", true))
+                .isInstanceOf(ClientImportValidationException.class);
     }
 }

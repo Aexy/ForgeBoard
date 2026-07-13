@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.forgeboard.client.application.ClientRequest;
+import com.forgeboard.client.application.ClientImportResult;
 import com.forgeboard.client.application.ClientService;
 import com.forgeboard.client.application.ClientView;
 import com.forgeboard.identity.SelectedTenant;
@@ -49,6 +50,14 @@ public class ClientController {
         return ResponseEntity.created(URI.create("/api/clients/" + created.id())).body(created);
     }
 
+    @PostMapping(value = "/import", consumes = {"text/csv", "text/plain"})
+    ClientImportResult importCsv(
+            @RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+            @RequestBody String csv,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean dryRun) {
+        return clients.importCsv(tenant, csv, dryRun);
+    }
+
     @PutMapping("/{clientId}")
     ClientView update(@RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
             @PathVariable UUID clientId, @Valid @RequestBody ClientRequest request) {
@@ -61,4 +70,3 @@ public class ClientController {
         return clients.archive(tenant, clientId);
     }
 }
-

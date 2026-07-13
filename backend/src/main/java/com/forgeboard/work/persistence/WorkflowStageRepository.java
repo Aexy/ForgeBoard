@@ -8,6 +8,6 @@ import com.forgeboard.work.domain.WorkflowStage;
 
 public interface WorkflowStageRepository extends JpaRepository<WorkflowStage, UUID> {
     List<WorkflowStage> findAllByFirmIdAndWorkflowIdOrderByPositionAsc(UUID firmId, UUID workflowId);
+    List<WorkflowStage> findAllByFirmIdOrderByWorkflowIdAscPositionAsc(UUID firmId);
     Optional<WorkflowStage> findByIdAndFirmIdAndWorkflowId(UUID id, UUID firmId, UUID workflowId);
 }
-
