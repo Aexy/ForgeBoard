@@ -33,6 +33,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Restored visible dark text on secondary actions, including the Engagements â€œNew templateâ€ button, which had inherited the white header-button text color. (`M2`)
 - Aligned the engagement-template due-day migration with Hibernate's integer mapping, restoring PostgreSQL application-context startup and CI integration coverage. (`M2`, migration `V006`)
 
 - Product and architecture baseline for LedgerFlow, targeting independent accounting firms. (`M0`)
