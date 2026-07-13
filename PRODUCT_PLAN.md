@@ -1,8 +1,16 @@
 # LedgerFlow Product Plan
 
-**Status:** Approved baseline for product and engineering decisions  
-**Last updated:** 2026-07-12  
+**Status:** Approved outcome-led roadmap for product and engineering decisions  
+**Last updated:** 2026-07-13  
 **Initial market:** Independent accounting and bookkeeping firms with 5–50 staff
+
+### Planning principles
+
+- Prove the browser workflow with real firms before exposing write automation.
+- Ship complete operating loops, not isolated entities or endpoints.
+- Treat security, recoverability, support, and migration as product capabilities.
+- Separate launch blockers from experiments and later scale work.
+- Promote a milestone only when its measurable exit gate is demonstrated end to end.
 
 ## 1. Product thesis
 
@@ -40,6 +48,18 @@ The primary promise is:
 3. Identify work blocked by missing client documents.
 4. Hand work from preparer to reviewer with a complete history.
 5. Automate routine updates without giving an agent unrestricted access.
+
+### Primary operating loop
+
+The product wins when a firm can repeat this loop without a parallel spreadsheet:
+
+1. Configure a reusable service template and its default owners, stages, document requirements, and deadline rules.
+2. Generate the next client engagement reliably and surface it to the responsible team.
+3. Collect prerequisites, complete preparation, hand off review, resolve exceptions, and finish the engagement.
+4. Give managers an accurate portfolio view of risk, capacity, blockers, and next actions.
+5. Preserve a searchable history of who or what changed every material state.
+
+The roadmap prioritizes breaks in this loop over breadth elsewhere.
 
 ## 3. Why accounting first
 
@@ -79,6 +99,17 @@ Core entities:
 - Activity event
 - Personal/service access token
 
+Product rules that must be decided before M2 exits:
+
+- Engagement lifecycle, including cancel, reopen, complete, and archive
+- Whether an engagement owns one workflow instance or may span several
+- How template edits affect engagements already created
+- Completion semantics versus simply entering a final workflow stage
+- Owner/reviewer defaults, reassignment, absence, and workload visibility
+- Deadline timezone, weekend/holiday, override, and escalation rules
+- Document reminder, expiry, and external-reference safety rules
+- Firm data export, retention, deletion, and offboarding
+
 ## 5. MVP scope
 
 ### Included
@@ -114,6 +145,10 @@ Core entities:
 - Microservices or Kubernetes
 
 Excluded work requires an explicit amendment to this document before implementation.
+
+### MVP launch definition
+
+The MVP is not complete merely because all named features exist. It is complete when at least two design-partner firms can onboard representative data, operate one recurring service cycle, recover from common mistakes, and obtain support without engineering editing production data. MCP is post-pilot unless a design partner validates a specific automation job and its risk controls.
 
 ## 6. Web and MCP architecture decision
 
@@ -264,6 +299,8 @@ The provider should be selected during the deployment milestone based on verifie
 
 ## 11. Delivery milestones
 
+Milestones are sequential risk-reduction gates. Work may be prepared early, but a later milestone cannot be complete while an earlier exit gate remains open.
+
 ### M0 — Foundation and walking skeleton
 
 **Status: Complete (2026-07-12)**
@@ -292,43 +329,122 @@ Verified by the PostgreSQL integration test and React workflow tests, including 
 
 ### M2 — Accounting workflow value
 
-- Engagement templates and recurrence
-- Owner/reviewer handoff
-- Document request tracking
-- Deadline dashboard, filters, and CSV import
+- Define engagement states: draft, active, blocked, awaiting review, complete, cancelled, reopened, and archived
+- Version-aware templates with default stages, owners/reviewers, due-date rules, and document requirements
+- Idempotent recurrence with timezone-aware scheduling, failure visibility, retry, and duplicate prevention
+- Explicit preparer-to-reviewer handoff, review outcome, reassignment, and completion rules
+- Document requests with due dates, reminder/escalation state, and metadata-only external references
+- Manager dashboard for overdue, due soon, blocked, unassigned, and awaiting-review work
+- Search and saved portfolio filters by client, service, owner, and filing period
+- Validated CSV import with preview, row errors, duplicate handling, and correction flow
+- Complete browser flows for templates, engagements, requests, and dashboards—not API-only delivery
+- End-to-end tests from recurrence through completion, including tenant isolation
 
-**Exit criterion:** a small accounting firm can model and operate a monthly bookkeeping workflow without external task spreadsheets.
+**Exit criterion:** with representative data, a small accounting firm can configure and run a monthly bookkeeping cycle from recurrence through review and completion without a parallel task spreadsheet; a manager can identify all overdue, blocked, unassigned, and awaiting-review engagements in one view.
 
-### M3 — MCP and automation
+**Evidence required:** scripted end-to-end acceptance, recurrence idempotency tests, authorization and tenant-isolation tests, import failure tests, and a design-partner walkthrough with unresolved gaps recorded.
 
-- Scoped tokens
-- Initial MCP tools
-- MCP authorization, audit, rate-limit, and contract tests
-- Agent-oriented setup documentation
+### M3 — Pilot-ready SaaS operations
 
-**Exit criterion:** an authorized MCP client can perform the M1 workflow with exactly the same rules and audit visibility as the browser.
+- Guided onboarding, sample templates, useful empty states, and a first-value checklist
+- Invitations, role management, membership removal/suspension, password reset, and session revocation
+- Firm lifecycle: pilot/trial state, limits, suspension, export, deletion request, and offboarding; billing remains feature-flagged
+- EU production deployment with environment separation and controlled migrations
+- Logs, metrics, traces, uptime checks, alert ownership, and support correlation IDs
+- Encrypted backups and a timed restore drill with recorded recovery results
+- Security review of tenant isolation, permission matrix, secrets, sessions, dependencies, rate limits, abuse cases, and audit integrity
+- GDPR operating basics: retention, export/delete procedures, subprocessors, privacy terms, and incident response
+- Safe, audited support diagnostics without silent tenant impersonation
+- Pilot analytics for activation, adoption, completion, deadline visibility, errors, retention, and support burden
+- Accessibility, browser compatibility, performance budgets, and critical-path CI checks
 
-### M4 — SaaS readiness
+**Exit criterion:** two pilot firms can be onboarded, operated, supported, isolated, exported, and recovered safely in production for one complete recurring cycle, without engineers manually mutating tenant data.
 
-- Subscription-ready tenant lifecycle (billing integration may remain feature-flagged)
-- Production observability, backup/restore verification, and security review
-- EU production deployment
-- Onboarding and sample accounting templates
+**Evidence required:** production-readiness review, successful restore drill, tenant-boundary report, incident/offboarding tabletop exercises, pilot analytics, and acceptance notes from each pilot.
 
-**Exit criterion:** pilot firms can be onboarded, supported, isolated, and recovered safely.
+### M4 — Security, privacy, and compliance hardening
+
+M4 makes LedgerFlow suitable for broader EU SaaS use. It establishes demonstrable controls and operating evidence; it does not claim legal certification or replace advice from qualified counsel.
+
+- Data inventory and classification for every stored field, export, log, backup, and third-party processor; document purpose, owner, lawful basis, retention period, and access path
+- Privacy-by-design controls: collect only required data, separate operational metadata from sensitive notes, mask personal data in logs and support views, and prohibit secrets or document content in audit summaries
+- Firm-managed retention schedules with safe deletion/erasure workflows, legal-hold handling, deletion certificates, and verification that deleted data is absent from primary stores and accessible exports
+- Self-service data-subject request workflow for access, rectification, export, and erasure, with identity verification, auditable fulfilment, and defined response ownership
+- Security posture: MFA for privileged roles, hardened password and session controls, device/session visibility, suspicious-login detection, and immediate administrator revocation
+- Authorization hardening: documented role-permission matrix, deny-by-default authorization tests, periodic membership/access review, and sensitive-action re-authentication
+- Encryption and secret management: TLS enforcement, managed encryption at rest, secret rotation, least-privilege production access, and an inventory of keys, certificates, and dependencies
+- Audit integrity: append-only mutation history, protected audit access, tamper-evidence strategy, retention policy, and exportable audit reports for a firm
+- Secure delivery: dependency and container scanning, SBOM, critical-vulnerability triage SLA, branch protections, environment-specific configuration, and release approval evidence
+- Resilience and incident readiness: tested backup restores, disaster-recovery runbook, incident severity model, breach-assessment workflow, customer-notification templates, and annual tabletop exercise
+- Vendor and transfer controls: processor register, data-processing agreement checklist, EU data-residency verification, subprocessors review, and transfer-impact review where applicable
+- Independent penetration test or equivalent external security assessment; remediate critical/high findings before broader launch
+
+**Exit criterion:** the team can demonstrate, for a representative firm, least-privilege access, protected and exportable audit history, timely data-subject fulfilment, verified deletion, tested recovery, and a rehearsed security-incident response; no unresolved critical or high-risk findings remain from the M4 assessment.
+
+**Evidence required:** data map and retention schedule, permission matrix and automated authorization suite, deletion and data-subject-request test records, restore and incident exercises, vulnerability/SBOM report, processor register, and independent assessment report or documented equivalent.
+
+### Post-MVP candidates
+
+- Billing and self-service subscriptions after willingness-to-pay is validated
+- Restricted client portal and secure exchange after storage, malware scanning, retention, and consent are designed
+- Email/calendar and accounting-platform integrations selected from pilot demand and backed by a transactional outbox
+- Capacity planning and richer reporting after workflow data is proven trustworthy
+- Separate worker or MCP deployment only when section 6 extraction triggers are met
+- MCP automation, retained as an architectural option and revisited only after a specific pilot-proven automation job, threat model, and product amendment
 
 ## 12. Success measures
 
-Pilot targets:
+### Activation and value
 
 - A firm configures its first workflow in under 30 minutes.
+- A firm creates or imports 20 clients and launches its first engagement in one session.
+- At least 70% of generated engagements reach an explicit terminal outcome.
 - At least 80% of active engagements are represented in LedgerFlow after four weeks.
 - Managers can identify overdue and blocked work without maintaining a parallel spreadsheet.
-- At least 30% of pilot users return weekly.
-- MCP automation produces no authorization bypasses or unaudited mutations.
+- At least 60% of invited operational users are weekly active during a live filing cycle.
+
+### Reliability and trust
+
+- Recurrence creates no duplicate engagements across retries or restarts.
+- Every tenant mutation has an attributable, queryable audit event.
+- Pilot restore target: RPO ≤ 24 hours and RTO ≤ 4 hours; tighten before general availability.
+- No unresolved critical tenant-isolation or authentication findings at pilot launch.
+- No unresolved critical or high-risk finding from the M4 security and privacy assessment at broader launch.
 - Board updates complete in under 300 ms at the API p95 under expected pilot load.
 
-## 13. Decision guardrails
+### Learning and commercial signal
+
+- Every pilot has a named buyer, champion, target workflow, baseline pain, and weekly feedback owner.
+- At least two pilots complete a recurring cycle and request continued use.
+- Track time-to-first-value, weekly active firms, engagements per firm, completion rate, overdue aging, support requests, and willingness to pay.
+
+Targets remain hypotheses until pilot baselines exist and are reviewed after two complete cycles.
+
+## 13. Product risks and missing decisions
+
+| Risk or missing decision | Why it matters | Resolve by |
+| --- | --- | --- |
+| No design-partner evidence is recorded | The roadmap may optimize an imagined workflow | Before M2 scope locks |
+| Engagement lifecycle and template-version rules are unspecified | Recurrence and reporting will conflict | Early M2 |
+| Deadline and calendar rules are unspecified | Accounting deadlines cannot be trusted | Early M2 |
+| Roles lack an explicit permission matrix | Browser/MCP parity cannot be proven | M2 |
+| Invitations, reset, removal, export, and deletion are absent | Pilots cannot be operated safely | M3 |
+| Recovery lacks RPO/RTO and restore evidence | Backups alone are not a usable promise | M3 |
+| GDPR is intent rather than procedure | EU pilots create immediate obligations | M3 |
+| MCP tools are solution-led rather than job-led | Tool breadth adds risk without proven value | Post-MVP product amendment |
+| Pricing, packaging, and limits are undecided | Commercial learning and abuse controls suffer | During M3 pilots |
+| Incident, migration, and support ownership is unspecified | Failures become customer-visible chaos | Before first pilot |
+
+## 14. Release gates and roadmap governance
+
+- Each milestone has an accountable owner, target user, measurable outcome, risks, acceptance evidence, and non-goals.
+- A feature includes its browser flow, authorization, audit behavior, failure recovery, observability, and documentation in proportion to risk.
+- New scope states which milestone outcome improves and what existing work moves out.
+- Pilot feedback records frequency, severity, affected role, workaround, and decision.
+- Security or tenant-isolation defects can stop a release regardless of schedule.
+- MCP remains deferred; it cannot enter production without a new product amendment, threat model, and release gates.
+
+## 15. Decision guardrails
 
 Before adding a feature, answer:
 
@@ -340,7 +456,7 @@ Before adding a feature, answer:
 
 If the answer to 1 or 4 is no, do not implement it. If the answer to 2 or 5 is no, place it in the later backlog rather than the active milestone.
 
-## 14. Plan maintenance
+## 16. Plan maintenance
 
 - This file is the product and architecture baseline.
 - Material scope, market, architecture, database, or deployment changes require a dated entry in `CHANGELOG.md` and an update to the relevant section here.
