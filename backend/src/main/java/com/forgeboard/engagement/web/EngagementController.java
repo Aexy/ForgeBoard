@@ -17,7 +17,6 @@ import com.forgeboard.engagement.application.EngagementTemplateRequest;
 import com.forgeboard.engagement.application.EngagementTemplateView;
 import com.forgeboard.engagement.application.EngagementView;
 import com.forgeboard.identity.SelectedTenant;
-import com.forgeboard.identity.security.TenantSelectionFilter;
 import jakarta.validation.Valid;
 
 @RestController
@@ -27,19 +26,19 @@ public class EngagementController {
     public EngagementController(EngagementService engagements) { this.engagements = engagements; }
 
     @GetMapping
-    List<EngagementView> list(@RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant) {
+    List<EngagementView> list(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
         return engagements.listEngagements(tenant);
     }
 
     @GetMapping("/templates")
     List<EngagementTemplateView> listTemplates(
-            @RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant) {
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
         return engagements.listTemplates(tenant);
     }
 
     @PostMapping("/templates")
     ResponseEntity<EngagementTemplateView> createTemplate(
-            @RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @Valid @RequestBody EngagementTemplateRequest request) {
         EngagementTemplateView created = engagements.createTemplate(tenant, request);
         return ResponseEntity.created(URI.create("/api/engagements/templates/" + created.id())).body(created);
@@ -47,7 +46,7 @@ public class EngagementController {
 
     @PostMapping("/templates/{templateId}/instances")
     ResponseEntity<EngagementView> createEngagement(
-            @RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @PathVariable UUID templateId, @Valid @RequestBody CreateEngagementRequest request) {
         EngagementView created = engagements.createEngagement(tenant, templateId, request);
         return ResponseEntity.created(URI.create("/api/engagements/" + created.id())).body(created);

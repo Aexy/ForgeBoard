@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.forgeboard.work.application.WorkNotFoundException;
 import com.forgeboard.work.application.WorkItemConflictException;
 
-@RestControllerAdvice(assignableTypes = WorkflowController.class)
+@RestControllerAdvice(assignableTypes = {WorkflowController.class, EmployeeDashboardController.class})
 class WorkflowExceptionHandler {
     @ExceptionHandler(WorkNotFoundException.class)
     ProblemDetail notFound(WorkNotFoundException exception) {

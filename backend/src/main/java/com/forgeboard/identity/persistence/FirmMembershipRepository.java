@@ -8,5 +8,7 @@ import com.forgeboard.identity.domain.FirmMembership;
 
 public interface FirmMembershipRepository extends JpaRepository<FirmMembership, UUID> {
     Optional<FirmMembership> findByFirmIdAndUserId(UUID firmId, UUID userId);
+    boolean existsByFirmIdAndUserId(UUID firmId, UUID userId);
+    List<FirmMembership> findAllByFirmIdOrderByCreatedAtAsc(UUID firmId);
     List<FirmMembership> findAllByUserId(UUID userId);
 }

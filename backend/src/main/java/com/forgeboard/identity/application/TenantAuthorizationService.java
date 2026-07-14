@@ -30,4 +30,14 @@ public class TenantAuthorizationService {
                 .orElseThrow(() -> new AccessDeniedException("User is not a member of this firm"));
         return new SelectedTenant(firmId, user.id(), user.email(), membership.role());
     }
+
+    public void requireMembershipManagement(SelectedTenant tenant) {
+        if (!tenant.role().canManageMemberships())
+            throw new AccessDeniedException("Only owners and administrators can manage employees");
+    }
+
+    public void requireAssignmentManagement(SelectedTenant tenant) {
+        if (!tenant.role().canManageAssignments())
+            throw new AccessDeniedException("Only owners and administrators can assign work items");
+    }
 }

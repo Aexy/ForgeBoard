@@ -10,7 +10,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.forgeboard.identity.application.DuplicateIdentityException;
 import com.forgeboard.identity.application.InvalidIdentityException;
 
-@RestControllerAdvice(assignableTypes = OnboardingController.class)
+@RestControllerAdvice(assignableTypes = {OnboardingController.class, IdentityController.class})
 class IdentityExceptionHandler {
     @ExceptionHandler(DuplicateIdentityException.class)
     ProblemDetail duplicate(DuplicateIdentityException exception) {

@@ -1,5 +1,5 @@
 export type WorkPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
-export type WorkItem = { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number }
+export type WorkItem = { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId?: string | null }
 export type WorkflowStage = { id: string; name: string; position: number; items: WorkItem[] }
 export type WorkflowBoard = { id: string; name: string; stages: WorkflowStage[] }
 export type WorkflowSummary = { id: string; name: string }
@@ -21,3 +21,4 @@ export const getWorkflow = (firmId: string, id: string) => request<WorkflowBoard
 export const createWorkflow = (firmId: string, details: { name: string; stages: string[] }) => mutate<WorkflowBoard>(firmId, '/api/workflows', 'POST', details)
 export const createWorkItem = (firmId: string, workflowId: string, details: { clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority }) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items`, 'POST', details)
 export const moveWorkItem = (firmId: string, workflowId: string, itemId: string, targetStageId: string, expectedVersion: number) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items/${itemId}/position`, 'PATCH', { targetStageId, beforeItemId: null, afterItemId: null, expectedVersion })
+export const assignWorkItem = (firmId: string, workflowId: string, itemId: string, ownerUserId: string) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items/${itemId}/owner`, 'PUT', { ownerUserId })

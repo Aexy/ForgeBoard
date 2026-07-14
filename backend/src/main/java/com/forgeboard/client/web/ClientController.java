@@ -20,7 +20,6 @@ import com.forgeboard.client.application.ClientImportResult;
 import com.forgeboard.client.application.ClientService;
 import com.forgeboard.client.application.ClientView;
 import com.forgeboard.identity.SelectedTenant;
-import com.forgeboard.identity.security.TenantSelectionFilter;
 
 import jakarta.validation.Valid;
 
@@ -32,19 +31,19 @@ public class ClientController {
     public ClientController(ClientService clients) { this.clients = clients; }
 
     @GetMapping
-    List<ClientView> list(@RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant) {
+    List<ClientView> list(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
         return clients.list(tenant);
     }
 
     @GetMapping("/{clientId}")
-    ClientView get(@RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+    ClientView get(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @PathVariable UUID clientId) {
         return clients.get(tenant, clientId);
     }
 
     @PostMapping
     ResponseEntity<ClientView> create(
-            @RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @Valid @RequestBody ClientRequest request) {
         ClientView created = clients.create(tenant, request);
         return ResponseEntity.created(URI.create("/api/clients/" + created.id())).body(created);
@@ -52,20 +51,20 @@ public class ClientController {
 
     @PostMapping(value = "/import", consumes = {"text/csv", "text/plain"})
     ClientImportResult importCsv(
-            @RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @RequestBody String csv,
             @org.springframework.web.bind.annotation.RequestParam(defaultValue = "true") boolean dryRun) {
         return clients.importCsv(tenant, csv, dryRun);
     }
 
     @PutMapping("/{clientId}")
-    ClientView update(@RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+    ClientView update(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @PathVariable UUID clientId, @Valid @RequestBody ClientRequest request) {
         return clients.update(tenant, clientId, request);
     }
 
     @PatchMapping("/{clientId}/archive")
-    ClientView archive(@RequestAttribute(TenantSelectionFilter.TENANT_PRINCIPAL_ATTRIBUTE) SelectedTenant tenant,
+    ClientView archive(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @PathVariable UUID clientId) {
         return clients.archive(tenant, clientId);
     }

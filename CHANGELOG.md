@@ -15,7 +15,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Added
+
+- Added owner/administrator employee provisioning, firm-scoped work-item ownership, and a server-filtered employee “My work” dashboard. Creation and assignment are auditable, and the browser includes role-sensitive employee and assignment controls. (`M2`, migration `V010`)
+
 ### Changed
+
+- Exposed the selected-firm request attribute through the public identity contract, so tenant-aware REST controllers no longer depend on identity's internal security adapter. (`M2`)
 
 - Updated ForgeBoard's primary README tagline to “From deadline to done.” (`M2`)
 - Reworked the project README around the ForgeBoard identity, current M2 capabilities, architecture, security model, and streamlined contributor setup. (`M2`)
@@ -23,6 +29,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Reframed the roadmap as sequential outcome and evidence gates: expanded M2 into a complete accounting operating loop, moved production pilot readiness ahead of automation in M3, and made M4 a security, privacy, and compliance-hardening milestone. MCP remains in the architecture and deferred backlog, outside the active M4 scope. Added launch criteria, product risks, lifecycle decisions, SaaS operations, GDPR/recovery requirements, and measurable pilot learning goals. (`M2`–`M4`)
 - Rolled out the ForgeBoard visual identity across sign-in, onboarding, and the authenticated workspace, including the new production logo and responsive brand layout. (`M2`)
 - Excluded generated `output/` brand artifacts from Git while keeping the website logo as a tracked frontend asset. (`M2`)
+
+### Fixed
+
+- Corrected the document-request status enum package and its view/entity imports, restoring clean backend compilation and document-request status responses. (`M2`)
 
 ### Added
 

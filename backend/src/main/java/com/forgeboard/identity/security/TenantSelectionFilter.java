@@ -22,7 +22,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class TenantSelectionFilter extends OncePerRequestFilter {
     public static final String FIRM_HEADER = "X-ForgeBoard-Firm";
-    public static final String TENANT_PRINCIPAL_ATTRIBUTE = "forgeboard.selectedTenant";
+    public static final String TENANT_PRINCIPAL_ATTRIBUTE = SelectedTenant.REQUEST_ATTRIBUTE;
 
     private final TenantAuthorizationService authorization;
 

@@ -5,6 +5,13 @@ public enum MembershipRole {
     ADMINISTRATOR,
     MANAGER,
     MEMBER,
-    READ_ONLY
-}
+    READ_ONLY;
 
+    public boolean canManageMemberships() {
+        return this == OWNER || this == ADMINISTRATOR;
+    }
+
+    public boolean canManageAssignments() {
+        return this == OWNER || this == ADMINISTRATOR;
+    }
+}

@@ -11,16 +11,20 @@ import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.SelectedTenant;
+import com.forgeboard.identity.MembershipAccess;
+import com.forgeboard.work.domain.AssignmentRole;
 import com.forgeboard.work.domain.WorkItem;
 import com.forgeboard.work.domain.WorkflowBoard;
 import com.forgeboard.work.domain.WorkflowStage;
 import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
+import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
 
 @Service
 public class WorkflowService {
@@ -31,11 +35,22 @@ public class WorkflowService {
     private final ClientDirectory clients;
     private final ActivityRecorder activity;
     private final Clock clock;
+    private final MembershipAccess membershipAccess;
+    private final WorkItemAssignmentRepository assignments;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages,
             WorkItemRepository items, ClientDirectory clients, ActivityRecorder activity, Clock clock) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients;
         this.activity = activity; this.clock = clock;
+        this.membershipAccess = null; this.assignments = null;
+    }
+
+    @Autowired
+    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
+            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
+            WorkItemAssignmentRepository assignments) {
+        this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
+        this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments;
     }
 
     @Transactional(readOnly = true)
@@ -63,9 +78,8 @@ public class WorkflowService {
     @Transactional(readOnly = true)
     public BoardView getBoard(SelectedTenant tenant, UUID workflowId) {
         WorkflowBoard workflow = requireWorkflow(tenant, workflowId);
-        return board(workflow,
-                stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId),
-                items.findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(tenant.firmId(), workflowId));
+        List<WorkItem> boardItems = items.findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(tenant.firmId(), workflowId);
+        return board(workflow, stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId), boardItems);
     }
 
     @Transactional
@@ -99,6 +113,20 @@ public class WorkflowService {
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.moved", "work-item", item.id(),
                 Map.of("fromStageId", previousStage.toString(), "toStageId", request.targetStageId().toString()));
         return view(item);
+    }
+
+    @Transactional
+    public WorkItemView assign(SelectedTenant tenant, UUID workflowId, UUID itemId, AssignWorkItemRequest request) {
+        membershipAccess.requireAssignmentManagement(tenant);
+        WorkItem item = requireItem(tenant, workflowId, itemId);
+        if (!membershipAccess.belongsToFirm(tenant.firmId(), request.ownerUserId()))
+            throw new WorkNotFoundException("Employee was not found in the selected firm");
+        assignments.deleteByFirmIdAndWorkItemIdAndAssignmentRole(tenant.firmId(), item.id(), AssignmentRole.OWNER);
+        assignments.save(new com.forgeboard.work.domain.WorkItemAssignment(UUID.randomUUID(), tenant.firmId(), item.id(),
+                request.ownerUserId(), AssignmentRole.OWNER, clock.instant(), tenant.userId()));
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.assigned", "work-item", item.id(),
+                Map.of("ownerUserId", request.ownerUserId().toString()));
+        return view(item, request.ownerUserId());
     }
 
     private WorkItem neighbor(SelectedTenant tenant, UUID workflowId, UUID stageId, UUID movingItemId, UUID neighborId) {
@@ -139,15 +167,21 @@ public class WorkflowService {
     }
 
     private BoardView board(WorkflowBoard workflow, List<WorkflowStage> stageList, List<WorkItem> itemList) {
+        Map<UUID, UUID> owners = assignments == null || itemList.isEmpty() ? Map.of() : assignments
+                .findOwnersByFirmIdAndWorkItemIdIn(workflow.firmId(), itemList.stream().map(WorkItem::id).toList()).stream()
+                .collect(java.util.stream.Collectors.toMap(OwnerAssignmentView::workItemId, OwnerAssignmentView::userId));
         List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(),
                 stage.position(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
-                        .map(this::view).toList())).toList();
+                        .map(item -> view(item, owners.get(item.id()))).toList())).toList();
         return new BoardView(workflow.id(), workflow.name(), stageViews);
     }
 
     private WorkItemView view(WorkItem item) {
+        return view(item, null);
+    }
+    private WorkItemView view(WorkItem item, UUID ownerUserId) {
         return new WorkItemView(item.id(), item.clientId(), item.stageId(), item.title(), item.description(),
-                item.dueDate(), item.priority(), item.rank(), item.version());
+                item.dueDate(), item.priority(), item.rank(), item.version(), ownerUserId);
     }
 
     private String normalizeDescription(String description) { return description == null ? "" : description.strip(); }

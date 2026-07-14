@@ -335,6 +335,7 @@ Verified by the PostgreSQL integration test and React workflow tests, including 
 - Explicit preparer-to-reviewer handoff, review outcome, reassignment, and completion rules
 - Document requests with due dates, reminder/escalation state, and metadata-only external references
 - Manager dashboard for overdue, due soon, blocked, unassigned, and awaiting-review work
+- Employee provisioning, tenant-consistent work-item ownership, and a server-filtered assigned-work dashboard, covered by authorization and tenant-isolation tests.
 - Search and saved portfolio filters by client, service, owner, and filing period
 - Validated CSV import with preview, row errors, duplicate handling, and correction flow
 - Complete browser flows for templates, engagements, requests, and dashboards—not API-only delivery

@@ -42,7 +42,7 @@ public class FirmMembership {
     }
 
     public UUID firmId() { return firmId; }
+    public UUID id() { return id; }
     public UUID userId() { return userId; }
     public MembershipRole role() { return role; }
 }
-
