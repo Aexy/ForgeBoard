@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -70,7 +71,7 @@ class WorkflowServiceTest {
         UUID clientId = UUID.randomUUID();
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
                 new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
-        when(stages.findByIdAndFirmIdAndWorkflowId(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
                 new WorkflowStage(stageId, tenant.firmId(), workflowId, "Waiting", 0, now)));
         when(clients.exists(tenant.firmId(), clientId)).thenReturn(true);
         when(items.maximumRank(tenant.firmId(), workflowId, stageId)).thenReturn(Optional.empty());
@@ -100,15 +101,33 @@ class WorkflowServiceTest {
         WorkItem after = item(UUID.randomUUID(), workflowId, stageId, "2000");
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
                 new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
-        when(stages.findByIdAndFirmIdAndWorkflowId(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
                 new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", 2, now)));
         when(items.findByIdAndFirmIdAndWorkflowId(movingId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
         when(items.findByIdAndFirmIdAndWorkflowId(before.id(), tenant.firmId(), workflowId)).thenReturn(Optional.of(before));
         when(items.findByIdAndFirmIdAndWorkflowId(after.id(), tenant.firmId(), workflowId)).thenReturn(Optional.of(after));
 
         WorkItemView moved = service.moveItem(tenant, workflowId, movingId,
-                new MoveWorkItemRequest(stageId, before.id(), after.id()));
+                new MoveWorkItemRequest(stageId, before.id(), after.id(), moving.version()));
         assertThat(moved.rank()).isEqualByComparingTo("1500");
+    }
+
+    @Test
+    void rejectsAStaleMoveBeforeRecordingAnAuditEvent() {
+        UUID workflowId = UUID.randomUUID();
+        UUID stageId = UUID.randomUUID();
+        UUID movingId = UUID.randomUUID();
+        WorkItem moving = item(movingId, workflowId, stageId, "1000");
+        when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", 2, now)));
+        when(items.findByIdAndFirmIdAndWorkflowId(movingId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
+
+        assertThatThrownBy(() -> service.moveItem(tenant, workflowId, movingId,
+                new MoveWorkItemRequest(stageId, null, null, moving.version() + 1)))
+                .isInstanceOf(WorkItemConflictException.class);
+        verify(activity, never()).recordRestUserAction(any(), any(), any(), any(), any(), any());
     }
 
     private WorkItem item(UUID id, UUID workflowId, UUID stageId, String rank) {

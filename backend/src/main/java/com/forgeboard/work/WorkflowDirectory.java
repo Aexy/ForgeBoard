@@ -28,6 +28,8 @@ public class WorkflowDirectory {
         if (!exists(firmId, workflowId)) throw new IllegalArgumentException("Workflow was not found in the selected firm");
         WorkflowStage firstStage = stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(firmId, workflowId).stream()
                 .findFirst().orElseThrow(() -> new IllegalStateException("Workflow has no stages"));
+        stages.findByIdAndFirmIdAndWorkflowIdForUpdate(firstStage.id(), firmId, workflowId)
+                .orElseThrow(() -> new IllegalStateException("Workflow stage was not found"));
         BigDecimal rank = items.maximumRank(firmId, workflowId, firstStage.id()).orElse(BigDecimal.ZERO).add(RANK_STEP);
         WorkItem item = items.save(new WorkItem(UUID.randomUUID(), firmId, clientId, workflowId, firstStage.id(),
                 title.strip(), description == null ? "" : description.strip(), dueDate, WorkPriority.NORMAL, rank, now));

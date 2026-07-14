@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 import com.forgeboard.work.domain.WorkItem;
 
 public interface WorkItemRepository extends JpaRepository<WorkItem, UUID> {
-    List<WorkItem> findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAsc(UUID firmId, UUID workflowId);
+    List<WorkItem> findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(UUID firmId, UUID workflowId);
     List<WorkItem> findAllByFirmIdOrderByDueDateAsc(UUID firmId);
     Optional<WorkItem> findByIdAndFirmIdAndWorkflowId(UUID id, UUID firmId, UUID workflowId);
 

@@ -16,3 +16,6 @@ frontend/*.tsbuildinfo
 .env
 .env.local
 !.env.example
+.agents/
+docs/
+skills-lock.json

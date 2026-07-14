@@ -34,6 +34,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Reject stale board moves with a conflict, refresh the browser board for retry, and serialize concurrent rank allocation for deterministic work-item ordering. (`M2`, migration `V009`)
+
 - Decoupled engagement-template setup from unrelated document-request loading, added actionable template creation errors and duplicate-name conflict handling, and prevented repeat template submissions. (`M2`)
 - Return a clear conflict before creating any board work when an engagement for the same client, template, and period already exists. (`M2`)
 - Made document-request receipt idempotent, supplied tenant-safe not-found responses, corrected nested request labels, and disabled work-item creation until an active client exists. (`M2`)

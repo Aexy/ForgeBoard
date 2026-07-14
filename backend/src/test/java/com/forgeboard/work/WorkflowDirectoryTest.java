@@ -44,8 +44,11 @@ class WorkflowDirectoryTest {
         UUID clientId = UUID.randomUUID();
         UUID stageId = UUID.randomUUID();
         when(workflows.existsByIdAndFirmId(workflowId, firmId)).thenReturn(true);
+        WorkflowStage firstStage = new WorkflowStage(stageId, firmId, workflowId, "Intake", 0, now);
         when(stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(firmId, workflowId))
-                .thenReturn(List.of(new WorkflowStage(stageId, firmId, workflowId, "Intake", 0, now)));
+                .thenReturn(List.of(firstStage));
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, firmId, workflowId))
+                .thenReturn(Optional.of(firstStage));
         when(items.maximumRank(firmId, workflowId, stageId)).thenReturn(Optional.of(new BigDecimal("2000")));
         when(items.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 

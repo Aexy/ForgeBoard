@@ -65,14 +65,14 @@ public class WorkflowService {
         WorkflowBoard workflow = requireWorkflow(tenant, workflowId);
         return board(workflow,
                 stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId),
-                items.findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAsc(tenant.firmId(), workflowId));
+                items.findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(tenant.firmId(), workflowId));
     }
 
     @Transactional
     public WorkItemView createItem(SelectedTenant tenant, UUID workflowId, WorkItemRequest request) {
         requireWrite(tenant);
         requireWorkflow(tenant, workflowId);
-        requireStage(tenant, workflowId, request.stageId());
+        lockStage(tenant.firmId(), workflowId, request.stageId());
         if (!clients.exists(tenant.firmId(), request.clientId()))
             throw new WorkNotFoundException("Client was not found in the selected firm");
         BigDecimal rank = nextRank(tenant.firmId(), workflowId, request.stageId());
@@ -88,8 +88,9 @@ public class WorkflowService {
     public WorkItemView moveItem(SelectedTenant tenant, UUID workflowId, UUID itemId, MoveWorkItemRequest request) {
         requireWrite(tenant);
         requireWorkflow(tenant, workflowId);
-        requireStage(tenant, workflowId, request.targetStageId());
+        lockStage(tenant.firmId(), workflowId, request.targetStageId());
         WorkItem item = requireItem(tenant, workflowId, itemId);
+        if (!Long.valueOf(item.version()).equals(request.expectedVersion())) throw new WorkItemConflictException();
         WorkItem before = neighbor(tenant, workflowId, request.targetStageId(), itemId, request.beforeItemId());
         WorkItem after = neighbor(tenant, workflowId, request.targetStageId(), itemId, request.afterItemId());
         BigDecimal rank = rankBetween(tenant.firmId(), workflowId, request.targetStageId(), before, after);
@@ -127,8 +128,8 @@ public class WorkflowService {
                 .orElseThrow(() -> new WorkNotFoundException("Workflow was not found in the selected firm"));
     }
 
-    private WorkflowStage requireStage(SelectedTenant tenant, UUID workflowId, UUID stageId) {
-        return stages.findByIdAndFirmIdAndWorkflowId(stageId, tenant.firmId(), workflowId)
+    private void lockStage(UUID firmId, UUID workflowId, UUID stageId) {
+        stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, firmId, workflowId)
                 .orElseThrow(() -> new WorkNotFoundException("Stage was not found in the selected workflow"));
     }
 

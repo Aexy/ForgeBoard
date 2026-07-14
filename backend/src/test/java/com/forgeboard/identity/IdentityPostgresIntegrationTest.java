@@ -61,7 +61,7 @@ class IdentityPostgresIntegrationTest {
         WorkItemView item = workflows.createItem(tenant, board.id(), new WorkItemRequest(client.id(),
                 board.stages().get(0).id(), "June bookkeeping", "", null, WorkPriority.NORMAL));
         workflows.moveItem(tenant, board.id(), item.id(),
-                new MoveWorkItemRequest(board.stages().get(1).id(), null, null));
+                new MoveWorkItemRequest(board.stages().get(1).id(), null, null, item.version()));
 
         assertThat(count("firms")).isEqualTo(1);
         assertThat(count("users")).isEqualTo(1);

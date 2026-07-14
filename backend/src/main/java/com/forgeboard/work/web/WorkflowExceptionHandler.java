@@ -6,6 +6,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.forgeboard.work.application.WorkNotFoundException;
+import com.forgeboard.work.application.WorkItemConflictException;
 
 @RestControllerAdvice(assignableTypes = WorkflowController.class)
 class WorkflowExceptionHandler {
@@ -20,5 +21,9 @@ class WorkflowExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     ProblemDetail invalidMove(IllegalArgumentException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+    @ExceptionHandler(WorkItemConflictException.class)
+    ProblemDetail conflict(WorkItemConflictException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
 }
