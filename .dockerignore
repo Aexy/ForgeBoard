@@ -16,4 +16,3 @@ docs
 .env.*
 !apps/web/.env.example
 !frontend/.env.example
-
