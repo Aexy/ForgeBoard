@@ -680,7 +680,6 @@ object-position: left center;
 }
 .sidebar .brand .language-toggle {
   position: absolute;
-  right: 26px;
   bottom: 82px;
   z-index: 2;
   margin: 0;
@@ -1387,8 +1386,8 @@ gap: 12px;
 }
 .sidebar:has(nav[data-mobile-open="true"]) .brand .language-toggle {
   display: inline-flex;
-  top: 76px;
-  right: 20px;
+  top: 380px;
+  right: 22px;
   bottom: auto;
 }
 .sidebar .desktop-only {
