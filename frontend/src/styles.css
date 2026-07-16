@@ -678,6 +678,13 @@ object-position: left center;
   outline: 3px solid #ffffff;
   outline-offset: -3px;
 }
+.sidebar .brand .language-toggle {
+  position: absolute;
+  right: 26px;
+  bottom: 82px;
+  z-index: 2;
+  margin: 0;
+}
 .brand-inverse {
   color: #fff;
 }
@@ -1367,6 +1374,15 @@ gap: 12px;
 }
 .mobile-menu-toggle {
   margin: 0 0 0 auto;
+}
+.sidebar .brand .language-toggle {
+  display: none;
+}
+.sidebar:has(nav[data-mobile-open="true"]) .brand .language-toggle {
+  display: inline-flex;
+  top: 76px;
+  right: 20px;
+  bottom: auto;
 }
 .sidebar .desktop-only {
   display: none;
