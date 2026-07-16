@@ -1,0 +1,7 @@
+.navigation { display: grid; gap: 1.25rem; padding: 1.5rem 1rem; }
+.brand { color: white; font-size: 1.2rem; font-weight: 750; text-decoration: none; }
+.caption { color: #9fd8b7; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; margin: 0; text-transform: uppercase; }
+.links { display: grid; gap: 0.3rem; list-style: none; margin: 0; padding: 0; }
+.links a { border-radius: 0.45rem; color: #e8f5ed; display: block; padding: 0.65rem 0.75rem; text-decoration: none; }
+.links a:hover { background: #214b3a; }
+.links a:focus-visible { outline: 3px solid #7dd3a7; outline-offset: 2px; }

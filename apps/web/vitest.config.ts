@@ -1,7 +1,9 @@
 import { fileURLToPath } from 'node:url'
+import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  plugins: [react()],
   resolve: {
     alias: [
       { find: 'next-auth/providers/credentials', replacement: fileURLToPath(new URL('./test/credentials.ts', import.meta.url)) },
@@ -12,6 +14,6 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', '../packages/ui/src/**/*.test.ts', '../packages/ui/src/**/*.test.tsx'],
   },
 })

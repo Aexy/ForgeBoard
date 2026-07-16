@@ -1,0 +1,14 @@
+.shell {
+  background: #f7faf8;
+  color: var(--forge-green-950, #10291f);
+  display: grid;
+  min-height: 100dvh;
+}
+
+.navigation { background: var(--forge-green-950, #10291f); color: white; }
+.content { min-width: 0; padding: clamp(1.25rem, 4vw, 3rem); }
+
+@media (min-width: 52rem) {
+  .shell { grid-template-columns: minmax(14rem, 17vw) minmax(0, 1fr); }
+  .navigation { min-height: 100dvh; position: sticky; top: 0; }
+}

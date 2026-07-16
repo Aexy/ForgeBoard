@@ -1,0 +1,27 @@
+.button {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-weight: 650;
+  gap: 0.4rem;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+}
+
+.button:focus-visible {
+  outline: 3px solid #7dd3a7;
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.primary { background: var(--forge-green-800, #176c47); color: white; }
+.secondary { background: var(--forge-surface, #fff); border-color: var(--forge-border, #c7d9ce); color: var(--forge-green-950, #10291f); }
+.quiet { background: transparent; color: var(--forge-green-950, #10291f); }
