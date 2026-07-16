@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.domain.MembershipRole;
+import com.forgeboard.work.domain.StageAttention;
 import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,9 +25,11 @@ class EmployeeDashboardServiceTest {
     void dashboardUsesFirmAndAuthenticatedEmployee() {
         SelectedTenant tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "employee@example.com", MembershipRole.MEMBER);
         LocalDate today = LocalDate.of(2026, 7, 14); UUID itemId = UUID.randomUUID();
-        when(assignments.findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId(), today)).thenReturn(List.of(new EmployeeWorkItemView(itemId, "Prepare July VAT return", UUID.randomUUID(), UUID.randomUUID(), "Preparation", null)));
+        when(assignments.findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId())).thenReturn(List.of(
+                new EmployeeWorkItemView(itemId, "Chase bank feed", UUID.randomUUID(), UUID.randomUUID(),
+                        "Client dependency", StageAttention.BLOCKED, null)));
         EmployeeDashboardView dashboard = new EmployeeDashboardService(assignments, Clock.fixed(Instant.parse("2026-07-14T00:00:00Z"), ZoneOffset.UTC)).dashboard(tenant);
-        assertThat(dashboard.active()).extracting(EmployeeWorkItemView::id).containsExactly(itemId);
-        verify(assignments).findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId(), today);
+        assertThat(dashboard.blocked()).extracting(EmployeeWorkItemView::id).containsExactly(itemId);
+        verify(assignments).findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId());
     }
 }

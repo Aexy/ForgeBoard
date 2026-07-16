@@ -17,10 +17,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added local `.env` loading for Spring Boot through `spring-dotenv`, so backend database credentials can remain in the gitignored environment file. (`M2`)
 - Added owner/administrator employee provisioning, firm-scoped work-item ownership, and a server-filtered employee “My work” dashboard. Creation and assignment are auditable, and the browser includes role-sensitive employee and assignment controls. (`M2`, migration `V010`)
 
 ### Changed
 
+- Improved the mobile signed-in header, made the access form immediately usable on phones, added a mobile firm-creation prompt, unified native-select styling, and added ForgeBoard tab branding. (`M2`)
 - Exposed the selected-firm request attribute through the public identity contract, so tenant-aware REST controllers no longer depend on identity's internal security adapter. (`M2`)
 
 - Updated ForgeBoard's primary README tagline to “From deadline to done.” (`M2`)
@@ -31,6 +33,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Excluded generated `output/` brand artifacts from Git while keeping the website logo as a tracked frontend asset. (`M2`)
 
 ### Fixed
+
+- Added a dedicated, tenant-scoped audit trail with structured filters and pagination for firm owners and managers. (`M2`)
+- Prevented employee provisioning from silently ignoring a supplied temporary password for an existing account, and cleared tenant-scoped employee and workflow UI state immediately when switching firms. (`M2`)
+- Made ForgeBoard navigation available on small screens through an accessible Menu control while retaining the fixed desktop sidebar. (`M2`)
+- Kept desktop navigation and signed-in user controls fixed while workspace content scrolls, and removed the redundant My Work refresh control. (`M2`)
+- Kept My Work synchronized with persisted workflow moves and owner changes, and bypassed browser caching when refreshing the employee dashboard. (`M2`)
+- Removed an untyped PostgreSQL query parameter that prevented company owners from loading My Work. (`M2`)
+- Made My Work and deadline attention groups use explicitly configured workflow-stage attention, enabled clearing a work-item owner, and added recoverable employee-dashboard loading coverage. (`M2`, migration `V011`)
 
 - Corrected the document-request status enum package and its view/entity imports, restoring clean backend compilation and document-request status responses. (`M2`)
 
@@ -52,7 +62,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Restored visible dark text on secondary actions, including the Engagements "+ New template" button, which had inherited the white header-button text color. (`M2`)
 - Aligned the engagement-template due-day migration with Hibernate's integer mapping, restoring PostgreSQL application-context startup and CI integration coverage. (`M2`, migration `V006`)
 
-- Product and architecture baseline for LedgerFlow, targeting independent accounting firms. (`M0`)
+- Product and architecture baseline for ForgeBoard, targeting independent accounting firms. (`M0`)
 - Milestone exit criteria and decision guardrails to prevent uncontrolled scope expansion. (`M0`)
 - Change-log convention requiring updates alongside meaningful code additions. (`M0`)
 - Spring Boot backend foundation with security defaults, platform metadata, PostgreSQL configuration, and module architecture verification. (`M0`)

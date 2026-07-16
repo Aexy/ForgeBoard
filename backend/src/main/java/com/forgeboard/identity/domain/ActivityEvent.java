@@ -46,6 +46,7 @@ public class ActivityEvent {
     }
 
     public UUID firmId() { return firmId; }
+    public UUID id() { return id; }
     public UUID actorUserId() { return actorUserId; }
     public ActivityActorType actorType() { return actorType; }
     public ActivitySource source() { return source; }

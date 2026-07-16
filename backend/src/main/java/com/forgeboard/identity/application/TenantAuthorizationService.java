@@ -40,4 +40,9 @@ public class TenantAuthorizationService {
         if (!tenant.role().canManageAssignments())
             throw new AccessDeniedException("Only owners and administrators can assign work items");
     }
+
+    public void requireAuditTrailAccess(SelectedTenant tenant) {
+        if (!tenant.role().canViewAuditTrail())
+            throw new AccessDeniedException("Only owners and managers can view the audit trail");
+    }
 }

@@ -8,6 +8,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.forgeboard.identity.SelectedTenant;
+import com.forgeboard.work.domain.StageAttention;
 import com.forgeboard.work.domain.WorkItem;
 import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
@@ -20,9 +21,14 @@ public class DeadlineDashboardService {
     @Transactional(readOnly = true)
     public DeadlineDashboardView overview(SelectedTenant tenant) {
         LocalDate today = LocalDate.now(clock); LocalDate dueSoon = today.plusDays(7);
-        Map<UUID, String> stageNames = stages.findAllByFirmIdOrderByWorkflowIdAscPositionAsc(tenant.firmId()).stream().collect(java.util.stream.Collectors.toMap(stage -> stage.id(), stage -> stage.name()));
+        var workflowStages = stages.findAllByFirmIdOrderByWorkflowIdAscPositionAsc(tenant.firmId());
+        Map<UUID, String> stageNames = workflowStages.stream()
+                .collect(java.util.stream.Collectors.toMap(stage -> stage.id(), stage -> stage.name()));
+        Map<UUID, StageAttention> stageAttention = workflowStages.stream()
+                .collect(java.util.stream.Collectors.toMap(stage -> stage.id(), stage -> stage.attention()));
         List<DeadlineWorkItemView> attention = items.findAllByFirmIdOrderByDueDateAsc(tenant.firmId()).stream()
-                .map(item -> attention(item, stageNames.getOrDefault(item.stageId(), "Workflow stage"), today, dueSoon))
+                .map(item -> attention(item, stageNames.getOrDefault(item.stageId(), "Workflow stage"),
+                        stageAttention.getOrDefault(item.stageId(), StageAttention.NONE), today, dueSoon))
                 .filter(java.util.Objects::nonNull).toList();
         return new DeadlineDashboardView(today,
                 attention.stream().filter(item -> item.attention().equals("OVERDUE")).count(),
@@ -30,9 +36,10 @@ public class DeadlineDashboardService {
                 attention.stream().filter(item -> item.attention().equals("BLOCKED")).count(),
                 attention.stream().filter(item -> item.attention().equals("AWAITING_REVIEW")).count(), attention);
     }
-    private DeadlineWorkItemView attention(WorkItem item, String stageName, LocalDate today, LocalDate dueSoon) {
-        String normalized = stageName.toLowerCase(); String status = item.dueDate() != null && item.dueDate().isBefore(today) ? "OVERDUE"
-                : normalized.contains("block") ? "BLOCKED" : normalized.contains("review") ? "AWAITING_REVIEW"
+    private DeadlineWorkItemView attention(WorkItem item, String stageName, StageAttention stageAttention, LocalDate today, LocalDate dueSoon) {
+        String status = item.dueDate() != null && item.dueDate().isBefore(today) ? "OVERDUE"
+                : stageAttention == StageAttention.BLOCKED ? "BLOCKED"
+                : stageAttention == StageAttention.AWAITING_REVIEW ? "AWAITING_REVIEW"
                 : item.dueDate() != null && !item.dueDate().isAfter(dueSoon) ? "DUE_SOON" : null;
         return status == null ? null : new DeadlineWorkItemView(item.id(), item.title(), item.workflowId(), item.stageId(), stageName, item.dueDate(), status);
     }

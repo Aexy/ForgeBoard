@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.forgeboard.work.domain.WorkItem;
 import com.forgeboard.work.domain.WorkPriority;
 import com.forgeboard.work.domain.WorkflowStage;
+import com.forgeboard.work.domain.StageAttention;
 import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
@@ -44,7 +45,7 @@ class WorkflowDirectoryTest {
         UUID clientId = UUID.randomUUID();
         UUID stageId = UUID.randomUUID();
         when(workflows.existsByIdAndFirmId(workflowId, firmId)).thenReturn(true);
-        WorkflowStage firstStage = new WorkflowStage(stageId, firmId, workflowId, "Intake", 0, now);
+        WorkflowStage firstStage = new WorkflowStage(stageId, firmId, workflowId, "Intake", StageAttention.NONE, 0, now);
         when(stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(firmId, workflowId))
                 .thenReturn(List.of(firstStage));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, firmId, workflowId))

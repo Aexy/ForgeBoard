@@ -1,4 +1,4 @@
-# LedgerFlow Product Plan
+# ForgeBoard Product Plan
 
 **Status:** Approved outcome-led roadmap for product and engineering decisions  
 **Last updated:** 2026-07-13  
@@ -14,7 +14,7 @@
 
 ## 1. Product thesis
 
-LedgerFlow is a secure, deadline-driven client-work platform for accounting firms. It combines configurable workflow boards with client records, recurring engagements, document requests, approvals, and an auditable automation interface for AI agents.
+ForgeBoard is a secure, deadline-driven client-work platform for accounting firms. It combines configurable workflow boards with client records, recurring engagements, document requests, approvals, and an auditable automation interface for AI agents.
 
 It should feel as direct as a GitLab issue board, but its language and defaults must match accounting work rather than software development.
 
@@ -365,7 +365,7 @@ Verified by the PostgreSQL integration test and React workflow tests, including 
 
 ### M4 — Security, privacy, and compliance hardening
 
-M4 makes LedgerFlow suitable for broader EU SaaS use. It establishes demonstrable controls and operating evidence; it does not claim legal certification or replace advice from qualified counsel.
+M4 makes ForgeBoard suitable for broader EU SaaS use. It establishes demonstrable controls and operating evidence; it does not claim legal certification or replace advice from qualified counsel.
 
 - Data inventory and classification for every stored field, export, log, backup, and third-party processor; document purpose, owner, lawful basis, retention period, and access path
 - Privacy-by-design controls: collect only required data, separate operational metadata from sensitive notes, mask personal data in logs and support views, and prohibit secrets or document content in audit summaries
@@ -400,7 +400,7 @@ M4 makes LedgerFlow suitable for broader EU SaaS use. It establishes demonstrabl
 - A firm configures its first workflow in under 30 minutes.
 - A firm creates or imports 20 clients and launches its first engagement in one session.
 - At least 70% of generated engagements reach an explicit terminal outcome.
-- At least 80% of active engagements are represented in LedgerFlow after four weeks.
+- At least 80% of active engagements are represented in ForgeBoard after four weeks.
 - Managers can identify overdue and blocked work without maintaining a parallel spreadsheet.
 - At least 60% of invited operational users are weekly active during a live filing cycle.
 

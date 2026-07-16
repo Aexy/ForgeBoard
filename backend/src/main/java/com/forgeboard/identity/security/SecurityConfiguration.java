@@ -2,6 +2,7 @@ package com.forgeboard.identity.security;
 
 import java.time.Clock;
 
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -12,9 +13,11 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
 @Configuration
 @EnableWebSecurity
@@ -31,8 +34,18 @@ public class SecurityConfiguration {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         .ignoringRequestMatchers("/api/onboarding/firms"))
-                .addFilterAfter(tenantSelectionFilter, BasicAuthenticationFilter.class)
+                .exceptionHandling(exceptions -> exceptions
+                        .defaultAuthenticationEntryPointFor(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
+                                request -> request.getRequestURI().startsWith("/api/")))
+                .addFilterAfter(tenantSelectionFilter, SecurityContextHolderFilter.class)
                 .build();
+    }
+
+    @Bean
+    FilterRegistrationBean<TenantSelectionFilter> tenantSelectionFilterRegistration(TenantSelectionFilter tenantSelectionFilter) {
+        FilterRegistrationBean<TenantSelectionFilter> registration = new FilterRegistrationBean<>(tenantSelectionFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }

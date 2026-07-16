@@ -12,6 +12,6 @@ public class EmployeeDashboardService {
     @Transactional(readOnly = true)
     public EmployeeDashboardView dashboard(SelectedTenant tenant) {
         LocalDate today = LocalDate.now(clock);
-        return EmployeeDashboardView.group(assignments.findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId(), today), today);
+        return EmployeeDashboardView.group(assignments.findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId()), today);
     }
 }

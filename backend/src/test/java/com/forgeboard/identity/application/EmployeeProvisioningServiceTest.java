@@ -49,5 +49,18 @@ class EmployeeProvisioningServiceTest {
         assertThatThrownBy(() -> service().create(tenant, new CreateEmployeeRequest("Mira", "mira@example.com", "secure temporary password", MembershipRole.MEMBER))).isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void rejectsAnExistingAccountInsteadOfIgnoringItsTemporaryPassword() {
+        SelectedTenant tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
+        ForgeBoardUser existing = new ForgeBoardUser(UUID.randomUUID(), "mira@example.com", "Mira", "existing-hash", Instant.now());
+        when(users.findByEmail("mira@example.com")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> service().create(tenant,
+                new CreateEmployeeRequest("Mira Miller", "mira@example.com", "new temporary password", MembershipRole.MEMBER)))
+                .isInstanceOf(DuplicateIdentityException.class);
+        verify(memberships, org.mockito.Mockito.never()).save(any());
+        verify(passwords, org.mockito.Mockito.never()).encode(any());
+    }
+
     private EmployeeProvisioningService service() { return new EmployeeProvisioningService(policy, users, memberships, passwords, activity, Clock.fixed(Instant.parse("2026-07-14T00:00:00Z"), ZoneOffset.UTC)); }
 }

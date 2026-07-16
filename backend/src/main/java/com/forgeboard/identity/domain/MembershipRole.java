@@ -14,4 +14,8 @@ public enum MembershipRole {
     public boolean canManageAssignments() {
         return this == OWNER || this == ADMINISTRATOR;
     }
+
+    public boolean canViewAuditTrail() {
+        return this == OWNER || this == MANAGER;
+    }
 }

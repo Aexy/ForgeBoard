@@ -105,6 +105,8 @@ On macOS or Linux:
 cp .env.example .env
 ```
 
+The backend automatically reads this local, gitignored `.env` file when it starts. It supplies both the PostgreSQL container settings and the `DB_*` values used by Spring Boot; edit the copied file for your local credentials only.
+
 ### 2. Start PostgreSQL
 
 ```bash

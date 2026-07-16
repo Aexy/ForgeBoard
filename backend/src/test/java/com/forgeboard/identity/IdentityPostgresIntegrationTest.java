@@ -25,6 +25,8 @@ import com.forgeboard.work.application.MoveWorkItemRequest;
 import com.forgeboard.work.application.WorkItemRequest;
 import com.forgeboard.work.application.WorkItemView;
 import com.forgeboard.work.application.WorkflowRequest;
+import com.forgeboard.work.application.WorkflowStageRequest;
+import com.forgeboard.work.domain.StageAttention;
 import com.forgeboard.work.application.WorkflowService;
 import com.forgeboard.work.domain.WorkPriority;
 import java.util.List;
@@ -57,7 +59,10 @@ class IdentityPostgresIntegrationTest {
         ClientView client = clients.create(tenant,
                 new ClientRequest("Northstar Studio GmbH", "Northstar Studio", "hello@northstar.at"));
         BoardView board = workflows.createWorkflow(tenant,
-                new WorkflowRequest("Monthly bookkeeping", List.of("Waiting", "Preparation", "Review")));
+                new WorkflowRequest("Monthly bookkeeping", List.of(
+                        new WorkflowStageRequest("Waiting", StageAttention.NONE),
+                        new WorkflowStageRequest("Preparation", StageAttention.NONE),
+                        new WorkflowStageRequest("Review", StageAttention.AWAITING_REVIEW))));
         WorkItemView item = workflows.createItem(tenant, board.id(), new WorkItemRequest(client.id(),
                 board.stages().get(0).id(), "June bookkeeping", "", null, WorkPriority.NORMAL));
         workflows.moveItem(tenant, board.id(), item.id(),

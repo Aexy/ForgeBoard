@@ -68,7 +68,7 @@ public class WorkflowService {
         List<WorkflowStage> createdStages = new ArrayList<>();
         for (int position = 0; position < request.stages().size(); position++) {
             createdStages.add(stages.save(new WorkflowStage(UUID.randomUUID(), tenant.firmId(), workflow.id(),
-                    request.stages().get(position).strip(), position, now)));
+                    request.stages().get(position).name().strip(), request.stages().get(position).attention(), position, now)));
         }
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "workflow.created", "workflow",
                 workflow.id(), Map.of("name", workflow.name(), "stageCount", createdStages.size()));
@@ -119,9 +119,14 @@ public class WorkflowService {
     public WorkItemView assign(SelectedTenant tenant, UUID workflowId, UUID itemId, AssignWorkItemRequest request) {
         membershipAccess.requireAssignmentManagement(tenant);
         WorkItem item = requireItem(tenant, workflowId, itemId);
+        assignments.deleteByFirmIdAndWorkItemIdAndAssignmentRole(tenant.firmId(), item.id(), AssignmentRole.OWNER);
+        if (request.ownerUserId() == null) {
+            activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.unassigned", "work-item", item.id(),
+                    Map.of());
+            return view(item, null);
+        }
         if (!membershipAccess.belongsToFirm(tenant.firmId(), request.ownerUserId()))
             throw new WorkNotFoundException("Employee was not found in the selected firm");
-        assignments.deleteByFirmIdAndWorkItemIdAndAssignmentRole(tenant.firmId(), item.id(), AssignmentRole.OWNER);
         assignments.save(new com.forgeboard.work.domain.WorkItemAssignment(UUID.randomUUID(), tenant.firmId(), item.id(),
                 request.ownerUserId(), AssignmentRole.OWNER, clock.instant(), tenant.userId()));
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.assigned", "work-item", item.id(),
@@ -170,7 +175,7 @@ public class WorkflowService {
         Map<UUID, UUID> owners = assignments == null || itemList.isEmpty() ? Map.of() : assignments
                 .findOwnersByFirmIdAndWorkItemIdIn(workflow.firmId(), itemList.stream().map(WorkItem::id).toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(OwnerAssignmentView::workItemId, OwnerAssignmentView::userId));
-        List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(),
+        List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(), stage.attention(),
                 stage.position(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
                         .map(item -> view(item, owners.get(item.id()))).toList())).toList();
         return new BoardView(workflow.id(), workflow.name(), stageViews);

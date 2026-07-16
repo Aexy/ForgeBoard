@@ -37,9 +37,10 @@ public class EmployeeProvisioningService {
         if (request.role() == com.forgeboard.identity.domain.MembershipRole.OWNER)
             throw new IllegalArgumentException("Employee provisioning cannot create an owner membership");
         String email = request.email().strip().toLowerCase(Locale.ROOT);
-        ForgeBoardUser user = users.findByEmail(email).orElseGet(() -> users.save(new ForgeBoardUser(
-                UUID.randomUUID(), email, request.displayName().strip(),
-                passwordEncoder.encode(request.temporaryPassword()), clock.instant())));
+        if (users.findByEmail(email).isPresent())
+            throw new DuplicateIdentityException("An account with this email already exists");
+        ForgeBoardUser user = users.save(new ForgeBoardUser(UUID.randomUUID(), email,
+                request.displayName().strip(), passwordEncoder.encode(request.temporaryPassword()), clock.instant()));
         if (memberships.existsByFirmIdAndUserId(actor.firmId(), user.id()))
             throw new DuplicateIdentityException("Employee already belongs to this firm");
         FirmMembership membership = memberships.save(new FirmMembership(UUID.randomUUID(), actor.firmId(), user.id(),

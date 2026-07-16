@@ -6,5 +6,4 @@ import jakarta.validation.constraints.Size;
 
 public record WorkflowRequest(
         @NotBlank @Size(max = 160) String name,
-        @Size(min = 2, max = 10) List<@NotBlank @Size(max = 120) String> stages) {}
-
+        @Size(min = 2, max = 10) List<@jakarta.validation.Valid WorkflowStageRequest> stages) {}

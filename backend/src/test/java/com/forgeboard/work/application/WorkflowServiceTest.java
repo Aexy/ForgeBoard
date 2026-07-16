@@ -23,13 +23,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.identity.SelectedTenant;
+import com.forgeboard.work.domain.AssignmentRole;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.work.domain.WorkItem;
 import com.forgeboard.work.domain.WorkPriority;
+import com.forgeboard.work.domain.StageAttention;
 import com.forgeboard.work.domain.WorkflowBoard;
 import com.forgeboard.work.domain.WorkflowStage;
 import com.forgeboard.work.persistence.WorkItemRepository;
+import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
 
@@ -40,6 +44,8 @@ class WorkflowServiceTest {
     @Mock WorkItemRepository items;
     @Mock ClientDirectory clients;
     @Mock ActivityRecorder activity;
+    @Mock MembershipAccess membershipAccess;
+    @Mock WorkItemAssignmentRepository assignments;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -49,7 +55,7 @@ class WorkflowServiceTest {
         now = Instant.parse("2026-07-12T22:00:00Z");
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
         service = new WorkflowService(workflows, stages, items, clients, activity,
-                Clock.fixed(now, ZoneOffset.UTC));
+                Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments);
     }
 
     @Test
@@ -58,9 +64,13 @@ class WorkflowServiceTest {
         when(stages.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         BoardView board = service.createWorkflow(tenant,
-                new WorkflowRequest("Monthly bookkeeping", List.of("Waiting", "Preparation", "Review")));
+                new WorkflowRequest("Monthly bookkeeping", List.of(
+                        new WorkflowStageRequest("Client dependency", StageAttention.BLOCKED),
+                        new WorkflowStageRequest("Quality check", StageAttention.AWAITING_REVIEW))));
 
-        assertThat(board.stages()).extracting(StageView::position).containsExactly(0, 1, 2);
+        assertThat(board.stages()).extracting(StageView::position).containsExactly(0, 1);
+        assertThat(board.stages()).extracting(StageView::attention)
+                .containsExactly(StageAttention.BLOCKED, StageAttention.AWAITING_REVIEW);
         verify(activity).recordRestUserAction(any(), any(), any(), any(), any(), any());
     }
 
@@ -72,7 +82,7 @@ class WorkflowServiceTest {
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
                 new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
-                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Waiting", 0, now)));
+                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Waiting", StageAttention.NONE, 0, now)));
         when(clients.exists(tenant.firmId(), clientId)).thenReturn(true);
         when(items.maximumRank(tenant.firmId(), workflowId, stageId)).thenReturn(Optional.empty());
         when(items.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
@@ -102,7 +112,7 @@ class WorkflowServiceTest {
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
                 new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
-                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", 2, now)));
+                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", StageAttention.AWAITING_REVIEW, 2, now)));
         when(items.findByIdAndFirmIdAndWorkflowId(movingId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
         when(items.findByIdAndFirmIdAndWorkflowId(before.id(), tenant.firmId(), workflowId)).thenReturn(Optional.of(before));
         when(items.findByIdAndFirmIdAndWorkflowId(after.id(), tenant.firmId(), workflowId)).thenReturn(Optional.of(after));
@@ -121,13 +131,46 @@ class WorkflowServiceTest {
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
                 new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
-                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", 2, now)));
+                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", StageAttention.AWAITING_REVIEW, 2, now)));
         when(items.findByIdAndFirmIdAndWorkflowId(movingId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
 
         assertThatThrownBy(() -> service.moveItem(tenant, workflowId, movingId,
                 new MoveWorkItemRequest(stageId, null, null, moving.version() + 1)))
                 .isInstanceOf(WorkItemConflictException.class);
         verify(activity, never()).recordRestUserAction(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void removesTheCurrentOwnerAndRecordsAnUnassignmentAuditEvent() {
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        WorkItem item = item(itemId, workflowId, UUID.randomUUID(), "1000");
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(item));
+
+        WorkItemView unassigned = service.assign(tenant, workflowId, itemId, new AssignWorkItemRequest(null));
+
+        assertThat(unassigned.ownerUserId()).isNull();
+        verify(assignments).deleteByFirmIdAndWorkItemIdAndAssignmentRole(tenant.firmId(), itemId, AssignmentRole.OWNER);
+        verify(assignments, never()).save(any());
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.unassigned", "work-item", itemId,
+                java.util.Map.of());
+    }
+
+    @Test
+    void assignsOnlyAnEmployeeFromTheSelectedFirm() {
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID employeeId = UUID.randomUUID();
+        WorkItem item = item(itemId, workflowId, UUID.randomUUID(), "1000");
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(item));
+        when(membershipAccess.belongsToFirm(tenant.firmId(), employeeId)).thenReturn(true);
+
+        WorkItemView assigned = service.assign(tenant, workflowId, itemId, new AssignWorkItemRequest(employeeId));
+
+        assertThat(assigned.ownerUserId()).isEqualTo(employeeId);
+        verify(assignments).save(any());
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.assigned", "work-item", itemId,
+                java.util.Map.of("ownerUserId", employeeId.toString()));
     }
 
     private WorkItem item(UUID id, UUID workflowId, UUID stageId, String rank) {
