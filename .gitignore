@@ -12,6 +12,7 @@ output/
 tmp/
 tools/
 frontend/*.tsbuildinfo
+apps/web/*.tsbuildinfo
 .next/
 apps/web/.env.local
 playwright-report/
