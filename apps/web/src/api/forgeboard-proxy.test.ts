@@ -45,6 +45,7 @@ describe('ForgeBoard BFF proxy', () => {
     vi.stubEnv('FORGEBOARD_API_BASE_URL', 'http://spring:8080')
     vi.stubEnv('FORGEBOARD_TOKEN_ISSUER', 'forgeboard')
     vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://localhost:3000')
+    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', '')
     mocks.auth.mockResolvedValue(session)
     mocks.apiSessionFromRequest.mockResolvedValue(apiSession)
     mocks.upstreamResponse.mockResolvedValue(new Response(JSON.stringify({ items: [] }), {
@@ -77,6 +78,15 @@ describe('ForgeBoard BFF proxy', () => {
     }), routeContext)
 
     expect(response.status).toBe(404)
+    expect(mocks.apiSessionFromRequest).not.toHaveBeenCalled()
+    expect(mocks.upstreamResponse).not.toHaveBeenCalled()
+  })
+
+  it('rejects a stale signed context for a firm removed from the preview allow-list', async () => {
+    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'other-firm')
+    const response = await GET(await request(), routeContext)
+
+    expect(response.status).toBe(403)
     expect(mocks.apiSessionFromRequest).not.toHaveBeenCalled()
     expect(mocks.upstreamResponse).not.toHaveBeenCalled()
   })

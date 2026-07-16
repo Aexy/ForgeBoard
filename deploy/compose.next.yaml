@@ -1,0 +1,51 @@
+# Dedicated-host Next preview for the migration pilot. It connects to the existing
+# private Spring deployment and database; it never creates a parallel data plane.
+# Copy deployment values into an untracked file and pass it explicitly, for example:
+# docker compose --env-file /run/secrets/forgeboard-preview.env -f deploy/compose.next.yaml up -d --build
+services:
+  next:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET:?set in the deployment secret file}
+      AUTH_URL: https://${NEXT_PREVIEW_HOST:?set in the deployment secret file}
+      FORGEBOARD_PUBLIC_ORIGIN: https://${NEXT_PREVIEW_HOST}
+      FORGEBOARD_API_BASE_URL: ${FORGEBOARD_API_BASE_URL:?set to the existing private Spring service URL}
+      FORGEBOARD_TOKEN_ISSUER: ${FORGEBOARD_TOKEN_ISSUER:?set in the deployment secret file}
+      FORGEBOARD_PREVIEW_FIRM_SLUGS: ${FORGEBOARD_PREVIEW_FIRM_SLUGS:?set in the deployment secret file}
+    networks:
+      - default
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch(process.env.FORGEBOARD_API_BASE_URL + '/actuator/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  gateway:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?set in the deployment secret file}
+      NEXT_PREVIEW_HOST: ${NEXT_PREVIEW_HOST:?set in the deployment secret file}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      next:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  backend:
+    external: true
+    name: ${FORGEBOARD_BACKEND_NETWORK:?set to the existing private Spring network}

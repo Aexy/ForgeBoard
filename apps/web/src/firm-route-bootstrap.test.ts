@@ -43,4 +43,13 @@ describe('direct firm-route bootstrap', () => {
       firmSlug: 'hearth',
     })
   })
+
+  it('redirects an accessible but disabled firm to the preview access notice', async () => {
+    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'another-firm')
+
+    const response = await runMiddleware(new NextRequest('http://localhost:3000/firms/hearth/workflow/workflow-1'))
+
+    expect(response.headers.get('location')).toBe('http://localhost:3000/preview-unavailable')
+    expect(response.cookies.get(FIRM_CONTEXT_COOKIE)).toBeUndefined()
+  })
 })

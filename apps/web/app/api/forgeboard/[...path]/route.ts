@@ -6,6 +6,7 @@ import { apiSessionFromRequest } from '@/lib/auth-session'
 import { firmContextFromCookie } from '@/lib/firm-context-cookie'
 import { firmContextForSlug } from '@/lib/firm-context'
 import { serverEnvironment } from '@/lib/env'
+import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 
 const SAFE_RESPONSE_HEADERS = [
   'content-type',
@@ -63,6 +64,7 @@ async function proxy(request: Request, context: RouteContext): Promise<NextRespo
   // browser header never controls the backend tenant identity.
   const firm = cookieFirm && firmContextForSlug(session, cookieFirm.firmSlug)
   if (!firm || firm.firmId !== cookieFirm.firmId) return jsonError(404, 'Firm not found')
+  if (!isPreviewFirmEnabled(firm.firmSlug)) return jsonError(403, 'This firm is not enabled for the preview')
 
   const apiSession = await apiSessionFromRequest(request, session)
   if (!apiSession) return jsonError(401, 'Authentication is required')

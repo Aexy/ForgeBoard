@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { auth } from '@/auth'
 import { createFirmContextValue, firmContextFromCookie, FIRM_CONTEXT_COOKIE } from '@/lib/firm-context-cookie'
 import { firmContextForSlug } from '@/lib/firm-context'
+import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 
 function signInRedirect(request: NextRequest): NextResponse {
   const target = new URL('/sign-in', request.url)
@@ -17,6 +18,7 @@ export default auth(async (request) => {
   const firmSlug = request.nextUrl.pathname.split('/')[2] ?? null
   const firm = firmContextForSlug(session, firmSlug)
   if (!firm) return NextResponse.rewrite(new URL('/not-found', request.url))
+  if (!isPreviewFirmEnabled(firm.firmSlug)) return NextResponse.redirect(new URL('/preview-unavailable', request.url))
 
   const currentFirm = await firmContextFromCookie(request.headers.get('cookie'), session.user.id)
   if (currentFirm?.firmId === firm.firmId && currentFirm.firmSlug === firm.firmSlug) return NextResponse.next()

@@ -159,6 +159,18 @@ The check starts Next.js, creates an isolated local firm through the onboarding 
 
 PostgreSQL integration tests use Testcontainers and require a working Docker environment.
 
+## Dual-stack preview deployment
+
+The migration pilot adds a dedicated Next preview hostname while the existing legacy Vite/Spring deployment remains unchanged. The preview connects to that existing private Spring service over the deployment-supplied `FORGEBOARD_BACKEND_NETWORK`, so pilot firms use the same data plane. It permits only the server-configured `FORGEBOARD_PREVIEW_FIRM_SLUGS` and fails closed in production without that allow-list.
+
+Provide the deployment variables through an external secret file or secret store, then start the dual stack from the repository root:
+
+```bash
+docker compose --env-file /run/secrets/forgeboard-preview.env -f deploy/compose.next.yaml up -d --build
+```
+
+Use disposable pilot credentials to run the [preview smoke check](deploy/README.next-preview.md). To roll back, remove the preview hostname's gateway/DNS route or stop the Next service; the legacy host remains available and no database rollback is needed.
+
 ## API conventions
 
 Browser clients authenticate with an HTTP session. Every tenant request explicitly selects a firm:

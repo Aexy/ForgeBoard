@@ -33,3 +33,6 @@ jobs:
         run: pnpm --dir frontend test && pnpm --dir frontend build
       - name: Next frontend test, typecheck, and build
         run: pnpm web:test && pnpm web:check && pnpm web:build
+      - name: Build Next preview deployment image
+        run: |
+          docker build --file apps/web/Dockerfile --tag forgeboard-next:ci .

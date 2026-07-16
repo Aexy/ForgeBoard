@@ -1,0 +1,9 @@
+{
+  # TLS is managed here for the dedicated preview name. Do not route a firm by a
+  # browser-controlled header or cookie; preview eligibility is enforced by Next.
+  email {$ACME_EMAIL}
+}
+
+{$NEXT_PREVIEW_HOST} {
+  reverse_proxy next:3000
+}
