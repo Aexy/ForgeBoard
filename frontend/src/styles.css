@@ -685,6 +685,13 @@ object-position: left center;
   z-index: 2;
   margin: 0;
 }
+.access-intro .brand .language-toggle {
+  position: absolute;
+  top: 44px;
+  right: clamp(42px, 6vw, 92px);
+  margin: 0;
+  z-index: 2;
+}
 .brand-inverse {
   color: #fff;
 }
