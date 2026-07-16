@@ -89,4 +89,45 @@ describe('ForgeBoard RTK Query tenant cache', () => {
     expect(await post?.json()).toEqual(expect.objectContaining({ email: 'mira@example.com', role: 'MEMBER' }))
     expect(requests.filter((request) => request.url.includes('identity/employees'))).toHaveLength(4)
   })
+
+  it('refreshes only the generated engagement workflow board', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const request = input as Request
+      const engagement = request.url.includes('/instances')
+      return new Response(JSON.stringify(engagement ? { id: 'engagement-1', workflowId: 'workflow-1' } : { id: 'workflow-1' }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }))
+    const store = makeStore()
+    await Promise.all([
+      store.dispatch(forgeboardApi.endpoints.getWorkflowBoard.initiate({ firm: firmA, workflowId: 'workflow-1' })),
+      store.dispatch(forgeboardApi.endpoints.getWorkflowBoard.initiate({ firm: firmB, workflowId: 'workflow-1' })),
+    ])
+    await store.dispatch(forgeboardApi.endpoints.createEngagement.initiate({
+      firm: firmA,
+      templateId: 'template-1',
+      details: { clientId: 'client-1', periodStart: '2026-07-01' },
+    }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const workflowRequests = vi.mocked(fetch).mock.calls
+      .map(([input]) => input as Request)
+      .filter((request) => request.url.includes('workflows/workflow-1'))
+    expect(workflowRequests).toHaveLength(3)
+  })
+
+  it('refreshes linked task details only in the firm receiving a document request', async () => {
+    const store = makeStore()
+    await Promise.all([
+      store.dispatch(forgeboardApi.endpoints.getWorkItemDetail.initiate({ firm: firmA, workflowId: 'workflow-1', itemId: 'item-1' })),
+      store.dispatch(forgeboardApi.endpoints.getWorkItemDetail.initiate({ firm: firmB, workflowId: 'workflow-1', itemId: 'item-1' })),
+    ])
+    await store.dispatch(forgeboardApi.endpoints.receiveDocumentRequest.initiate({ firm: firmA, requestId: 'request-1' }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const detailRequests = vi.mocked(fetch).mock.calls
+      .map(([input]) => input as Request)
+      .filter((request) => request.url.includes('workflows/workflow-1/items/item-1'))
+    expect(detailRequests).toHaveLength(3)
+  })
 })

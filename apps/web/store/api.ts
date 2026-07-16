@@ -33,6 +33,11 @@ export interface AuditTrailFilters { action?: string; actorType?: AuditActorType
 export interface AuditTrailPage { items: AuditTrailActivity[]; nextCursor: string | null }
 export interface WorkItemDetail { item: WorkItem; clientDisplayName: string; documentRequests: DocumentRequestSummary[]; activity: ActivitySummary[] }
 export interface Employee { membershipId: string; userId: string; displayName: string; email: string; role: 'OWNER' | 'ADMINISTRATOR' | 'MANAGER' | 'MEMBER' | 'READ_ONLY' }
+export interface WorkflowSummary { id: string; name: string; version: number }
+export type Recurrence = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL'
+export interface EngagementTemplate { id: string; name: string; workflowId: string; recurrence: Recurrence; defaultWorkItemTitle: string; dueDay: number; version: number }
+export interface Engagement { id: string; templateId: string; clientId: string; workflowId: string; workItemId: string | null; periodStart: string; periodEnd: string; dueDate: string; status: 'OPEN' | 'COMPLETE' | 'CANCELLED'; version: number }
+export interface DocumentRequest { id: string; clientId: string; label: string; externalReference: string | null; dueDate: string | null; status: 'REQUESTED' | 'RECEIVED'; receivedAt: string | null; version: number }
 export interface WorkflowFilterView { id: string; name: string; clientId: string | null; ownerUserId: string | null; dueState: 'OVERDUE' | 'DUE_TODAY' | 'DUE_SOON' | 'NO_DUE_DATE' | null; priority: WorkPriority | null; unassigned: boolean | null }
 
 const firmTag = (firmId: string, id?: string) => id ? `${firmId}:${id}` : firmId
@@ -45,7 +50,7 @@ const proxyBaseUrl = typeof window === 'undefined'
 export const forgeboardApi = createApi({
   reducerPath: 'forgeboardApi',
   baseQuery: fetchBaseQuery({ baseUrl: proxyBaseUrl, credentials: 'same-origin' }),
-  tagTypes: ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail'],
+  tagTypes: ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail', 'Engagement', 'EngagementTemplate', 'DocumentRequest'],
   endpoints: (build) => ({
     getWorkflowBoard: build.query<WorkflowBoard, WorkflowRequest>({
       query: ({ firm, workflowId }) => ({
@@ -68,6 +73,7 @@ export const forgeboardApi = createApi({
     getWorkItemDetail: build.query<WorkItemDetail, WorkflowRequest & { itemId: string }>({
       query: ({ workflowId, itemId }) => ({ url: `workflows/${encodeURIComponent(workflowId)}/items/${encodeURIComponent(itemId)}` }),
       providesTags: (_result, _error, { firm, workflowId, itemId }) => [
+        { type: 'WorkItem', id: firmTag(firm.firmId) },
         { type: 'WorkItem', id: firmTag(firm.firmId, itemId) },
         { type: 'Workflow', id: firmTag(firm.firmId, workflowId) },
       ],
@@ -112,6 +118,45 @@ export const forgeboardApi = createApi({
       query: () => ({ url: 'identity/employees' }),
       providesTags: (_result, _error, { firm }) => [{ type: 'Employee', id: firmTag(firm.firmId) }],
     }),
+    getWorkflows: build.query<WorkflowSummary[], { firm: FirmContext }>({
+      query: () => ({ url: 'workflows' }),
+      providesTags: (_result, _error, { firm }) => [{ type: 'Workflow', id: firmTag(firm.firmId) }],
+    }),
+    getEngagementTemplates: build.query<EngagementTemplate[], { firm: FirmContext }>({
+      query: () => ({ url: 'engagements/templates' }),
+      providesTags: (_result, _error, { firm }) => [{ type: 'EngagementTemplate', id: firmTag(firm.firmId) }],
+    }),
+    createEngagementTemplate: build.mutation<EngagementTemplate, { firm: FirmContext; template: Omit<EngagementTemplate, 'id' | 'version'> }>({
+      query: ({ template }) => ({ url: 'engagements/templates', method: 'POST', body: template }),
+      invalidatesTags: (_result, _error, { firm }) => [{ type: 'EngagementTemplate', id: firmTag(firm.firmId) }],
+    }),
+    getEngagements: build.query<Engagement[], { firm: FirmContext }>({
+      query: () => ({ url: 'engagements' }),
+      providesTags: (_result, _error, { firm }) => [{ type: 'Engagement', id: firmTag(firm.firmId) }],
+    }),
+    createEngagement: build.mutation<Engagement, { firm: FirmContext; templateId: string; details: { clientId: string; periodStart: string } }>({
+      query: ({ templateId, details }) => ({ url: `engagements/templates/${encodeURIComponent(templateId)}/instances`, method: 'POST', body: details }),
+      invalidatesTags: (result, _error, { firm }) => [
+        { type: 'Engagement', id: firmTag(firm.firmId) },
+        { type: 'MyWork', id: firmTag(firm.firmId) },
+        ...(result ? [{ type: 'Workflow' as const, id: firmTag(firm.firmId, result.workflowId) }] : []),
+      ],
+    }),
+    getDocumentRequests: build.query<DocumentRequest[], { firm: FirmContext }>({
+      query: () => ({ url: 'document-requests' }),
+      providesTags: (_result, _error, { firm }) => [{ type: 'DocumentRequest', id: firmTag(firm.firmId) }],
+    }),
+    createDocumentRequest: build.mutation<DocumentRequest, { firm: FirmContext; request: Omit<DocumentRequest, 'id' | 'status' | 'receivedAt' | 'version'> }>({
+      query: ({ request }) => ({ url: 'document-requests', method: 'POST', body: request }),
+      invalidatesTags: (_result, _error, { firm }) => [{ type: 'DocumentRequest', id: firmTag(firm.firmId) }],
+    }),
+    receiveDocumentRequest: build.mutation<DocumentRequest, { firm: FirmContext; requestId: string }>({
+      query: ({ requestId }) => ({ url: `document-requests/${encodeURIComponent(requestId)}/received`, method: 'PATCH' }),
+      invalidatesTags: (_result, _error, { firm }) => [
+        { type: 'DocumentRequest', id: firmTag(firm.firmId) },
+        { type: 'WorkItem', id: firmTag(firm.firmId) },
+      ],
+    }),
     createEmployee: build.mutation<Employee, { firm: FirmContext; employee: Omit<Employee, 'membershipId' | 'userId'> & { temporaryPassword: string } }>({
       query: ({ employee }) => ({ url: 'identity/employees', method: 'POST', body: employee }),
       invalidatesTags: (_result, _error, { firm }) => [{ type: 'Employee', id: firmTag(firm.firmId) }],
@@ -148,4 +193,4 @@ export const forgeboardApi = createApi({
   }),
 })
 
-export const { useArchiveClientMutation, useCreateClientMutation, useCreateEmployeeMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetEmployeesQuery, useGetMyWorkQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi
+export const { useArchiveClientMutation, useCreateClientMutation, useCreateDocumentRequestMutation, useCreateEmployeeMutation, useCreateEngagementMutation, useCreateEngagementTemplateMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetDocumentRequestsQuery, useGetEmployeesQuery, useGetEngagementsQuery, useGetEngagementTemplatesQuery, useGetMyWorkQuery, useGetWorkflowsQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useReceiveDocumentRequestMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi
