@@ -1,5 +1,9 @@
+import { getToken } from 'next-auth/jwt'
+
 import type { ApiGrant, BrowserSession } from '@forgeboard/api-client'
 import type { ServerApiSession } from '@forgeboard/api-client/server'
+
+import { serverEnvironment } from '@/lib/env'
 
 export interface PrivateAuthToken extends ServerApiSession {
   error?: BrowserSession['error']
@@ -23,35 +27,44 @@ export function toBrowserSession(token: PrivateAuthToken): BrowserSession {
   }
 }
 
-/**
- * Auth.js serializes only enumerable session properties. Keep the Spring grant
- * non-enumerable so server-side `auth()` can proxy an API request without ever
- * exposing credentials from `/api/auth/session` to browser JavaScript.
- */
-export function attachPrivateApiSession<T extends BrowserSession>(
-  browserSession: T,
-  token: PrivateAuthToken,
-): T {
-  Object.defineProperty(browserSession, '__forgeboardApiSession', {
-    configurable: false,
-    enumerable: false,
-    value: {
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      accessTokenExpiresAt: token.accessTokenExpiresAt,
-      user: token.user,
-      firms: token.firms,
-    } satisfies ServerApiSession,
-    writable: false,
-  })
-  return browserSession
+function privateGrantFrom(token: unknown): PrivateAuthToken | undefined {
+  if (!token || typeof token !== 'object') return undefined
+
+  const candidate = token as Partial<PrivateAuthToken> & { sub?: unknown; email?: unknown }
+  const hasGrant = typeof candidate.accessToken === 'string'
+    && typeof candidate.refreshToken === 'string'
+    && typeof candidate.accessTokenExpiresAt === 'number'
+    && Number.isFinite(candidate.accessTokenExpiresAt)
+    && Array.isArray(candidate.firms)
+  if (!hasGrant) return undefined
+
+  const user = candidate.user
+    ?? (typeof candidate.sub === 'string' && typeof candidate.email === 'string'
+      ? { id: candidate.sub, email: candidate.email }
+      : undefined)
+  if (!user || typeof user.id !== 'string' || typeof user.email !== 'string') return undefined
+
+  return {
+    accessToken: candidate.accessToken!,
+    accessTokenExpiresAt: candidate.accessTokenExpiresAt!,
+    refreshToken: candidate.refreshToken!,
+    user,
+    firms: candidate.firms!,
+    ...(candidate.error ? { error: candidate.error } : {}),
+  }
 }
 
-export function apiSessionFromRequest(
-  _request: Request,
+export async function apiSessionFromRequest(
+  request: Request,
   browserSession: BrowserSession,
-): ServerApiSession | undefined {
-  const candidate = (browserSession as BrowserSession & { __forgeboardApiSession?: ServerApiSession }).__forgeboardApiSession
-  if (!candidate || candidate.user.id !== browserSession.user.id) return undefined
-  return candidate
+): Promise<ServerApiSession | undefined> {
+  const environment = serverEnvironment()
+  const privateToken = privateGrantFrom(await getToken({
+    req: request,
+    secret: environment.AUTH_SECRET,
+    secureCookie: new URL(environment.AUTH_URL).protocol === 'https:',
+  }))
+  if (!privateToken || privateToken.user.id !== browserSession.user.id) return undefined
+
+  return privateToken
 }

@@ -12,7 +12,9 @@ export default defineConfig({
   },
   webServer: {
     command: 'node ./node_modules/next/dist/bin/next dev --port 3000',
-    url: baseURL,
+    // The App Router intentionally has no public root route. Probe the
+    // available sign-in route so Playwright can reuse or start Next reliably.
+    url: new URL('/sign-in', baseURL).toString(),
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
     env: {

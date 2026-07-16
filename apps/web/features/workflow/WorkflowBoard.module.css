@@ -1,0 +1,9 @@
+.workspace { display: grid; gap: 1rem; padding: 1.5rem; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; align-items: start; overflow-x: auto; }
+.column { border: 2px solid var(--forge-border); border-radius: .75rem; padding: .75rem; min-height: 12rem; background: var(--forge-surface); }
+.column[data-attention='BLOCKED'] { border-color: #b54832; }
+.column[data-attention='AWAITING_REVIEW'] { border-color: #b48616; }
+.card { margin: .75rem 0; padding: .75rem; border: 1px solid var(--forge-border); border-radius: .5rem; background: #fff; cursor: pointer; }
+.card:focus-visible, .card button:focus-visible { outline: 3px solid var(--forge-green-800); outline-offset: 2px; }
+.taskPanel { padding: 1rem; border: 1px solid var(--forge-border); border-radius: .75rem; background: var(--forge-surface); }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
