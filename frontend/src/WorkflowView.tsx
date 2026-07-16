@@ -1,365 +1,68 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Activity, listActivity } from './api/activity'
 import { Client, listClients } from './api/clients'
 import { Employee, listEmployees, MembershipRole } from './api/employees'
 import { employeeDashboardKey } from './api/employeeDashboard'
 import { useLanguage } from './i18n'
-import {
-  assignWorkItem,
-  createWorkflow,
-  createWorkItem,
-  getWorkflow,
-  listWorkflows,
-  moveWorkItem,
-  StageAttention,
-  WorkflowBoard,
-} from './api/workflows'
+import { assignWorkItem, assignWorkItemReviewer, createWorkItem, createWorkflow, getWorkItemDetail, getWorkflow, listWorkflows, moveWorkItem, StageAttention, WorkItemDetail, WorkflowBoard } from './api/workflows'
+import { BoardFilters, WorkflowFilters } from './WorkflowFilters'
+import { WorkflowTaskPanel } from './WorkflowTaskPanel'
+import { WorkflowTaskWorkspace } from './WorkflowTaskWorkspace'
+import { readWorkflowUrlState, writeWorkflowUrlState, WorkflowUrlState } from './workflowUrlState'
 
-const defaultStages: Array<{ name: string; attention: StageAttention }> = [
-  { name: 'Waiting on client', attention: 'NONE' },
-  { name: 'In preparation', attention: 'NONE' },
-  { name: 'Ready for review', attention: 'AWAITING_REVIEW' },
-  { name: 'Complete', attention: 'NONE' },
-]
-
+const defaultStages: Array<{ name: string; attention: StageAttention }> = [{ name: 'Waiting on client', attention: 'NONE' }, { name: 'In preparation', attention: 'NONE' }, { name: 'Ready for review', attention: 'AWAITING_REVIEW' }, { name: 'Complete', attention: 'NONE' }]
 type WorkItem = WorkflowBoard['stages'][number]['items'][number]
+const managers = (role: MembershipRole) => role === 'OWNER' || role === 'ADMINISTRATOR'
+const blankFilters: BoardFilters = { client: '', owner: '', due: '', priority: '', unassigned: false }
 
-export function WorkflowView({ firmId, role = 'MEMBER' }: {
-  firmId: string
-  role?: MembershipRole
-}) {
-  const queryClient = useQueryClient()
-  const { t } = useLanguage()
-  const currentFirmId = useRef(firmId)
-  currentFirmId.current = firmId
-  const [dataFirmId, setDataFirmId] = useState(firmId)
-  const [workflows, setWorkflows] = useState<Array<{ id: string; name: string }>>([])
-  const [board, setBoard] = useState<WorkflowBoard | null>(null)
-  const [clients, setClients] = useState<Client[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [activity, setActivity] = useState<Activity[]>([])
-  const [error, setError] = useState('')
-  const [creatingBoard, setCreatingBoard] = useState(false)
-  const [addingTo, setAddingTo] = useState<string | null>(null)
-  const hasCurrentFirmData = dataFirmId === firmId
-  const visibleBoard = hasCurrentFirmData ? board : null
-  const visibleWorkflows = hasCurrentFirmData ? workflows : []
-  const visibleActivity = hasCurrentFirmData ? activity : []
+function dueState(date: string | null) {
+  if (!date) return 'none'
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const due = new Date(`${date}T00:00:00`); const days = Math.round((due.getTime() - today.getTime()) / 86400000)
+  return days < 0 ? 'overdue' : days === 0 ? 'today' : days <= 7 ? 'soon' : 'later'
+}
+function attention(attention: StageAttention) { return attention === 'BLOCKED' ? ['!', 'Blocked'] : attention === 'AWAITING_REVIEW' ? ['✓', 'Awaiting review'] : ['•', 'In progress'] }
 
-  function isCurrentFirm() {
-    return currentFirmId.current === firmId
-  }
+export function WorkflowView({ firmId, role = 'MEMBER' }: { firmId: string; role?: MembershipRole }) {
+  const queryClient = useQueryClient(); const { t } = useLanguage(); const currentFirmId = useRef(firmId); currentFirmId.current = firmId
+  const [dataFirmId, setDataFirmId] = useState(firmId); const [workflows, setWorkflows] = useState<Array<{ id: string; name: string }>>([]); const [board, setBoard] = useState<WorkflowBoard | null>(null)
+  const [clients, setClients] = useState<Client[]>([]); const [employees, setEmployees] = useState<Employee[]>([]); const [activity, setActivity] = useState<Activity[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
+  const [creatingBoard, setCreatingBoard] = useState(false); const [addingTo, setAddingTo] = useState<string | null>(null); const [state, setState] = useState<WorkflowUrlState>(readWorkflowUrlState); const [detail, setDetail] = useState<WorkItemDetail | null>(null); const [detailLoading, setDetailLoading] = useState(false); const [toast, setToast] = useState(''); const [mobile, setMobile] = useState(() => window.matchMedia?.('(max-width: 800px)').matches ?? false)
+  const activeFilters: BoardFilters = { client: state.client ?? '', owner: state.owner ?? '', due: state.due ?? '', priority: state.priority ?? '', unassigned: state.unassigned }
+  const hasCurrentFirmData = dataFirmId === firmId; const visibleBoard = hasCurrentFirmData ? board : null
+  const setUrlState = (next: WorkflowUrlState, replace = false) => { setState(next); writeWorkflowUrlState(next, replace) }
+  const isCurrentFirm = () => currentFirmId.current === firmId
+  const refreshActivity = () => listActivity(firmId).then((entries) => isCurrentFirm() && setActivity(entries)).catch(() => isCurrentFirm() && setError('Recent activity could not be loaded.'))
+  const refreshBoard = async () => { if (!board) return; const loaded = await getWorkflow(firmId, board.id); if (isCurrentFirm()) setBoard(loaded) }
 
-  useEffect(() => {
-    let cancelled = false
-    setDataFirmId(firmId)
-    setWorkflows([])
-    setBoard(null)
-    setClients([])
-    setEmployees([])
-    setActivity([])
-    setError('')
-    setCreatingBoard(false)
-    setAddingTo(null)
+  useEffect(() => { const onPop = () => setState(readWorkflowUrlState()); window.addEventListener('popstate', onPop); return () => window.removeEventListener('popstate', onPop) }, [])
+  useEffect(() => { if (!window.matchMedia) return; const media = window.matchMedia('(max-width: 800px)'); const update = () => setMobile(media.matches); media.addEventListener('change', update); return () => media.removeEventListener('change', update) }, [])
+  useEffect(() => { let cancelled = false; setDataFirmId(firmId); setBoard(null); setWorkflows([]); setDetail(null); setLoading(true); setError(''); Promise.all([listWorkflows(firmId), listClients(firmId)]).then(async ([found, foundClients]) => { if (cancelled || !isCurrentFirm()) return; setWorkflows(found); setClients(foundClients.filter((client) => client.status === 'ACTIVE')); const id = state.workflow && found.some((workflow) => workflow.id === state.workflow) ? state.workflow : found[0]?.id; if (!id) return; const loaded = await getWorkflow(firmId, id); if (!cancelled && isCurrentFirm()) { setBoard(loaded); if (id !== state.workflow) setUrlState({ ...state, workflow: id }, true) } }).catch(() => !cancelled && isCurrentFirm() && setError('The workflow could not be loaded.')).finally(() => !cancelled && isCurrentFirm() && setLoading(false)); return () => { cancelled = true } }, [firmId])
+  useEffect(() => { refreshActivity() }, [firmId])
+  useEffect(() => { if (!managers(role)) { setEmployees([]); return }; listEmployees(firmId).then((found) => isCurrentFirm() && setEmployees(found)).catch(() => isCurrentFirm() && setError('Employees could not be loaded.')) }, [firmId, role])
+  useEffect(() => { if (!visibleBoard || !state.item) { setDetail(null); return }; let cancelled = false; setDetailLoading(true); getWorkItemDetail(firmId, visibleBoard.id, state.item).then((found) => !cancelled && setDetail(found)).catch(() => !cancelled && setError('The task details could not be loaded.')).finally(() => !cancelled && setDetailLoading(false)); return () => { cancelled = true } }, [firmId, visibleBoard?.id, state.item])
 
-    Promise.all([listWorkflows(firmId), listClients(firmId)])
-      .then(async ([found, clientList]) => {
-        if (cancelled || !isCurrentFirm()) return
-        setWorkflows(found)
-        setClients(clientList.filter((client) => client.status === 'ACTIVE'))
-        if (!found[0]) return
-        const loadedBoard = await getWorkflow(firmId, found[0].id)
-        if (!cancelled && isCurrentFirm()) setBoard(loadedBoard)
-      })
-      .catch(() => {
-        if (!cancelled && isCurrentFirm()) setError('The workflow could not be loaded.')
-      })
+  const filteredStages = useMemo(() => visibleBoard?.stages.map((stage) => ({ ...stage, items: stage.items.filter((item) => (!activeFilters.client || item.clientId === activeFilters.client) && (!activeFilters.owner || item.ownerUserId === activeFilters.owner) && (!activeFilters.due || dueState(item.dueDate) === activeFilters.due) && (!activeFilters.priority || item.priority === activeFilters.priority) && (!activeFilters.unassigned || !item.ownerUserId)) })) ?? [], [visibleBoard, activeFilters.client, activeFilters.owner, activeFilters.due, activeFilters.priority, activeFilters.unassigned])
+  function changeFilters(filters: BoardFilters) { setUrlState({ ...state, client: filters.client || null, owner: filters.owner || null, due: filters.due || null, priority: filters.priority || null, unassigned: filters.unassigned }) }
+  function openItem(itemId: string, workspace = false) { setUrlState({ ...state, item: itemId, workspace }) }
+  function closeItem() { setUrlState({ ...state, item: null, workspace: false }) }
+  async function makeBoard(event: FormEvent<HTMLFormElement>) { event.preventDefault(); const data = new FormData(event.currentTarget); const stages = defaultStages.map((_, index) => ({ name: String(data.get(`stage-${index}-name`)).trim(), attention: String(data.get(`stage-${index}-attention`)) as StageAttention })).filter((stage) => stage.name); try { const created = await createWorkflow(firmId, { name: String(data.get('name')), stages }); if (!isCurrentFirm()) return; setBoard(created); setWorkflows((all) => [...all, { id: created.id, name: created.name }]); setCreatingBoard(false); setUrlState({ ...state, workflow: created.id }, true); refreshActivity() } catch { setError('The workflow could not be created. Use at least two stages.') } }
+  async function addItem(event: FormEvent<HTMLFormElement>, stageId: string) { event.preventDefault(); if (!board) return; const data = new FormData(event.currentTarget); try { const item = await createWorkItem(firmId, board.id, { clientId: String(data.get('clientId')), stageId, title: String(data.get('title')), description: String(data.get('description')), dueDate: String(data.get('dueDate')) || null, priority: String(data.get('priority')) as WorkItem['priority'] }); if (!isCurrentFirm()) return; setBoard({ ...board, stages: board.stages.map((stage) => stage.id === stageId ? { ...stage, items: [...stage.items, item] } : stage) }); setAddingTo(null); refreshActivity() } catch { setError('The work item could not be created.') } }
+  async function persistMove(item: WorkItem, targetStageId: string) { if (!board) return; try { await moveWorkItem(firmId, board.id, item.id, targetStageId, item.version); await queryClient.invalidateQueries({ queryKey: employeeDashboardKey(firmId) }); await refreshBoard(); refreshActivity() } catch (caught) { if (caught instanceof Error && caught.message.includes('409')) { await refreshBoard(); setError('This work item was changed by another user. The board was refreshed; retry your move.') } else setError('The work item could not be moved.') } }
+  async function assign(item: WorkItem, ownerUserId: string) { if (!board) return; try { await assignWorkItem(firmId, board.id, item.id, ownerUserId || null); await queryClient.invalidateQueries({ queryKey: employeeDashboardKey(firmId) }); await refreshBoard(); refreshActivity() } catch { setError('The work item could not be assigned.') } }
+  async function assignReviewer(userId: string) { if (!board || !detail) return; try { const updated = await assignWorkItemReviewer(firmId, board.id, detail.item.id, userId || null); setDetail({ ...detail, item: updated }); await refreshBoard(); if (updated.ownerUserId && updated.ownerUserId === updated.reviewerUserId) { setToast('The owner is also the reviewer.'); window.setTimeout(() => setToast(''), 4000) } } catch { setError('The reviewer could not be assigned.') } }
 
-    return () => {
-      cancelled = true
-    }
-  }, [firmId])
-
-  useEffect(() => {
-    let cancelled = false
-    listActivity(firmId)
-      .then((entries) => {
-        if (!cancelled && isCurrentFirm()) setActivity(entries)
-      })
-      .catch(() => {
-        if (!cancelled && isCurrentFirm()) setError('Recent activity could not be loaded.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [firmId])
-
-  useEffect(() => {
-    if (role !== 'OWNER' && role !== 'ADMINISTRATOR') {
-      setEmployees([])
-      return
-    }
-    let cancelled = false
-    listEmployees(firmId)
-      .then((found) => {
-        if (!cancelled && isCurrentFirm()) setEmployees(found)
-      })
-      .catch(() => {
-        if (!cancelled && isCurrentFirm()) setError('Employees could not be loaded.')
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [firmId, role])
-
-  function refreshActivity() {
-    listActivity(firmId)
-      .then((entries) => {
-        if (isCurrentFirm()) setActivity(entries)
-      })
-      .catch(() => {
-        if (isCurrentFirm()) setError('Recent activity could not be loaded.')
-      })
-  }
-
-  async function makeBoard(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const form = event.currentTarget
-    const data = new FormData(form)
-    const stages = defaultStages
-      .map((_, index) => ({
-        name: String(data.get(`stage-${index}-name`)).trim(),
-        attention: String(data.get(`stage-${index}-attention`)) as StageAttention,
-      }))
-      .filter((stage) => stage.name)
-    try {
-      const created = await createWorkflow(firmId, { name: String(data.get('name')), stages })
-      if (!isCurrentFirm()) return
-      setBoard(created)
-      setWorkflows((all) => [...all, { id: created.id, name: created.name }])
-      setCreatingBoard(false)
-      form.reset()
-      refreshActivity()
-    } catch {
-      if (isCurrentFirm()) setError('The workflow could not be created. Use at least two stages.')
-    }
-  }
-
-  async function addItem(event: FormEvent<HTMLFormElement>, stageId: string) {
-    event.preventDefault()
-    if (!board) return
-    const form = event.currentTarget
-    const data = new FormData(form)
-    try {
-      const item = await createWorkItem(firmId, board.id, {
-        clientId: String(data.get('clientId')),
-        stageId,
-        title: String(data.get('title')),
-        description: String(data.get('description')),
-        dueDate: String(data.get('dueDate')) || null,
-        priority: String(data.get('priority')) as 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT',
-      })
-      if (!isCurrentFirm()) return
-      setBoard({
-        ...board,
-        stages: board.stages.map((stage) => stage.id === stageId
-          ? { ...stage, items: [...stage.items, item] }
-          : stage),
-      })
-      setAddingTo(null)
-      refreshActivity()
-    } catch {
-      if (isCurrentFirm()) setError('The work item could not be created.')
-    }
-  }
-
-  async function move(item: WorkItem, stageIndex: number, direction: -1 | 1) {
-    if (!board) return
-    const target = board.stages[stageIndex + direction]
-    if (target) await persistMove(item, target.id)
-  }
-
-  async function drop(itemId: string, targetStageId: string) {
-    if (!board || board.stages.some((stage) => (
-      stage.id === targetStageId && stage.items.some((item) => item.id === itemId)
-    ))) return
-    const item = board.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === itemId)
-    if (item) await persistMove(item, targetStageId)
-  }
-
-  async function persistMove(item: WorkItem, targetStageId: string) {
-    if (!board) return
-    try {
-      await moveWorkItem(firmId, board.id, item.id, targetStageId, item.version)
-      if (!isCurrentFirm()) return
-      await queryClient.invalidateQueries({ queryKey: employeeDashboardKey(firmId) })
-      const loadedBoard = await getWorkflow(firmId, board.id)
-      if (!isCurrentFirm()) return
-      setBoard(loadedBoard)
-      refreshActivity()
-    } catch (caught) {
-      if (!isCurrentFirm()) return
-      if (caught instanceof Error && caught.message.includes('409')) {
-        setBoard(await getWorkflow(firmId, board.id))
-        setError('This work item was changed by another user. The board was refreshed; retry your move.')
-        return
-      }
-      setError('The work item could not be moved.')
-    }
-  }
-
-  async function assign(item: WorkItem, ownerUserId: string) {
-    if (!board) return
-    try {
-      await assignWorkItem(firmId, board.id, item.id, ownerUserId || null)
-      if (!isCurrentFirm()) return
-      await queryClient.invalidateQueries({ queryKey: employeeDashboardKey(firmId) })
-      const loadedBoard = await getWorkflow(firmId, board.id)
-      if (!isCurrentFirm()) return
-      setBoard(loadedBoard)
-      refreshActivity()
-    } catch {
-      if (isCurrentFirm()) setError('The work item could not be assigned.')
-    }
-  }
-
-  return (
-    <section className="workspace">
-      <header>
-        <div>
-          <p className="eyebrow">Client work</p>
-          <h1>{visibleBoard?.name ?? 'Workflows'}</h1>
-          <p>Track every engagement from client request through review.</p>
-        </div>
-        <button onClick={() => setCreatingBoard(!creatingBoard)}>
-          {creatingBoard ? 'Cancel' : '+ New workflow'}
-        </button>
-      </header>
-      {hasCurrentFirmData && error && <p className="form-error" role="alert">{error}</p>}
-      {hasCurrentFirmData && creatingBoard && (
-        <form className="workflow-form" onSubmit={makeBoard}>
-          <label>Workflow name<input name="name" required maxLength={160} /></label>
-          {defaultStages.map((stage, index) => (
-            <fieldset key={index}>
-              <legend>Stage {index + 1}</legend>
-              <label>
-                Stage {index + 1} name
-                <input name={`stage-${index}-name`} required={index < 2} maxLength={120} defaultValue={stage.name} />
-              </label>
-              <label>
-                Stage {index + 1} attention
-                <select name={`stage-${index}-attention`} defaultValue={stage.attention}>
-                  <option value="NONE">Normal flow</option>
-                  <option value="BLOCKED">Blocked</option>
-                  <option value="AWAITING_REVIEW">Awaiting review</option>
-                </select>
-              </label>
-            </fieldset>
-          ))}
-          <button className="primary-action">Create workflow</button>
-        </form>
-      )}
-      {visibleWorkflows.length > 1 && (
-        <label className="workflow-picker">
-          Workflow
-          <select
-            value={visibleBoard?.id ?? ''}
-            onChange={(event) => getWorkflow(firmId, event.target.value).then((loadedBoard) => {
-              if (isCurrentFirm()) setBoard(loadedBoard)
-            })}
-          >
-            {visibleWorkflows.map((workflow) => (
-              <option key={workflow.id} value={workflow.id}>{workflow.name}</option>
-            ))}
-          </select>
-        </label>
-      )}
-      {!visibleBoard ? (
-        <div className="empty-state">
-          <h2>No workflow yet</h2>
-          <p>Create a workflow with the stages your firm uses every day.</p>
-        </div>
-      ) : (
-        <div className="board" role="region" aria-label={`${visibleBoard.name} workflow`}>
-          {visibleBoard.stages.map((stage, stageIndex) => (
-            <section
-              className="column"
-              aria-label={`${stage.name} stage`}
-              key={stage.id}
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => drop(event.dataTransfer.getData('text/forgeboard-item'), stage.id)}
-            >
-              <div className="column-title"><span className="dot green" /><h2>{stage.name}</h2><span>{stage.items.length}</span></div>
-              {stage.items.map((item) => (
-                <article className="work-card" draggable onDragStart={(event) => event.dataTransfer.setData('text/forgeboard-item', item.id)} key={item.id}>
-                  <span className="client">{clients.find((client) => client.id === item.clientId)?.displayName ?? 'Client'}</span>
-                  <h3>{item.title}</h3>
-                  <p className="assignment">{t('Assigned')}: {item.ownerDisplayName ?? t('Unassigned')}</p>
-                  {(role === 'OWNER' || role === 'ADMINISTRATOR') && (
-                    <label>
-                      Owner
-                      <select aria-label={`Assign ${item.title}`} value={item.ownerUserId ?? ''} onChange={(event) => assign(item, event.target.value)}>
-                        <option value="">Unassigned</option>
-                        {employees.map((employee) => <option value={employee.userId} key={employee.userId}>{employee.displayName}</option>)}
-                      </select>
-                    </label>
-                  )}
-                  <div className="card-actions">
-                    <button disabled={stageIndex === 0} aria-label={`Move ${item.title} left`} onClick={() => move(item, stageIndex, -1)}>{'<'}</button>
-                    {item.dueDate && <span className="due">Due {item.dueDate}</span>}
-                    <button disabled={stageIndex === visibleBoard.stages.length - 1} aria-label={`Move ${item.title} right`} onClick={() => move(item, stageIndex, 1)}>{'>'}</button>
-                  </div>
-                </article>
-              ))}
-              {addingTo === stage.id ? (
-                <form className="item-form" onSubmit={(event) => addItem(event, stage.id)}>
-                  <label>Client<select name="clientId" required>{clients.map((client) => <option value={client.id} key={client.id}>{client.displayName}</option>)}</select></label>
-                  <label>Title<input name="title" required maxLength={200} /></label>
-                  <label>Due date<input name="dueDate" type="date" /></label>
-                  <label>Priority<select name="priority" defaultValue="NORMAL"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label>
-                  <label>Description<textarea name="description" maxLength={10000} /></label>
-                  <button className="primary-action" disabled={!clients.length}>Save work item</button>
-                </form>
-              ) : (
-                <button className="add-card" disabled={!clients.length} onClick={() => setAddingTo(stage.id)}>+ Add work item</button>
-              )}
-            </section>
-          ))}
-        </div>
-      )}
-      <aside className="activity-panel" aria-labelledby="activity-title">
-        <div><p className="eyebrow">Audit trail</p><h2 id="activity-title">Recent activity</h2></div>
-        {visibleActivity.length === 0 ? <p>No activity recorded yet.</p> : (
-          <ol>{visibleActivity.slice(0, 10).map((entry, index) => <li key={`${entry.occurredAt}-${entry.targetId}-${index}`}><strong>{describeAction(entry.action)}</strong><span>{describeSummary(entry.action, entry.summary, visibleBoard)}</span><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time><small>{entry.actorType.toLowerCase()} via {entry.source.toLowerCase()}</small></li>)}</ol>
-        )}
-      </aside>
-    </section>
-  )
+  if (state.workspace && detail) return <WorkflowTaskWorkspace detail={detail} employees={employees} canManage={managers(role)} onBack={() => closeItem()} onReviewerChange={assignReviewer} error={error}/>
+  return <section className="workspace workflow-workspace"><header><div><p className="eyebrow">Client work</p><h1>{visibleBoard?.name ?? 'Workflows'}</h1><p>Track every engagement from client request through review.</p></div><button type="button" onClick={() => setCreatingBoard(!creatingBoard)}>{creatingBoard ? 'Cancel' : '+ New workflow'}</button></header>
+    {error && <p className="form-error" role="alert">{error}</p>}{toast && <p className="workflow-toast" role="status">{toast}</p>}
+    {creatingBoard && <form className="workflow-form" onSubmit={makeBoard}><label>Workflow name<input name="name" required maxLength={160}/></label>{defaultStages.map((stage, index) => <fieldset key={index}><legend>Stage {index + 1}</legend><label>Stage {index + 1} name<input name={`stage-${index}-name`} required={index < 2} maxLength={120} defaultValue={stage.name}/></label><label>Stage {index + 1} attention<select name={`stage-${index}-attention`} defaultValue={stage.attention}><option value="NONE">Normal flow</option><option value="BLOCKED">Blocked</option><option value="AWAITING_REVIEW">Awaiting review</option></select></label></fieldset>)}<button className="primary-action">Create workflow</button></form>}
+    {workflows.length > 1 && <label className="workflow-picker">Workflow<select value={visibleBoard?.id ?? ''} onChange={(e) => { setUrlState({ ...state, workflow: e.target.value, item: null, workspace: false }); getWorkflow(firmId, e.target.value).then(setBoard) }}>{workflows.map((workflow) => <option key={workflow.id} value={workflow.id}>{workflow.name}</option>)}</select></label>}
+    {visibleBoard && <WorkflowFilters clients={clients} employees={employees} filters={activeFilters} onChange={changeFilters} onReset={() => changeFilters(blankFilters)}/>}
+    {loading ? <div className="empty-state" aria-live="polite">Loading workflow…<h2 className="sr-only">{t('No workflow yet')}</h2></div> : !visibleBoard ? <div className="empty-state"><h2>{t('No workflow yet')}</h2><p>Create a workflow with the stages your firm uses every day.</p></div> : <div className="board-and-panel"><div className="board" role="region" aria-label={`${visibleBoard.name} workflow`}>{filteredStages.map((stage, stageIndex) => { const [icon, label] = attention(stage.attention); return <section className={`column attention-${stage.attention.toLowerCase()}`} aria-label={`${stage.name} stage`} key={stage.id} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { const id = e.dataTransfer.getData('text/forgeboard-item'); const item = visibleBoard.stages.flatMap((s) => s.items).find((candidate) => candidate.id === id); if (item && item.stageId !== stage.id) persistMove(item, stage.id) }}><div className="column-title"><span className="stage-icon" aria-label={label} title={label}>{icon}</span><h2>{stage.name}</h2><span aria-label={`${stage.items.length} work items`}>{stage.items.length}</span></div>{stage.items.map((item) => <article className="work-card" draggable onDragStart={(e) => e.dataTransfer.setData('text/forgeboard-item', item.id)} onClick={() => openItem(item.id)} onDoubleClick={() => openItem(item.id, true)} key={item.id} tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') openItem(item.id) }}><span className="client">{clients.find((client) => client.id === item.clientId)?.displayName ?? 'Client'}</span><h3>{item.title}</h3><p className="assignment">{t('Assigned')}: {item.ownerDisplayName ?? t('Unassigned')}</p><div className="card-badges"><span className={`due due-${dueState(item.dueDate)}`}>{item.dueDate ? `Due ${item.dueDate}` : 'No due date'}</span><span className={`priority priority-${item.priority.toLowerCase()}`}>{item.priority.toLowerCase()}</span></div>{managers(role) && <label>Owner<select aria-label={`Assign ${item.title}`} value={item.ownerUserId ?? ''} onClick={(e) => e.stopPropagation()} onChange={(e) => assign(item, e.target.value)}><option value="">Unassigned</option>{employees.map((employee) => <option value={employee.userId} key={employee.userId}>{employee.displayName}</option>)}</select></label>}<div className="card-actions"><button type="button" disabled={stageIndex === 0} aria-label={`Move ${item.title} left`} onClick={(e) => { e.stopPropagation(); const target = visibleBoard.stages[stageIndex - 1]; if (target) persistMove(item, target.id) }}>{'<'}</button><button type="button" aria-label={`Open ${item.title} task workspace`} onClick={(e) => { e.stopPropagation(); openItem(item.id, true) }}>Open task workspace</button><button type="button" disabled={stageIndex === visibleBoard.stages.length - 1} aria-label={`Move ${item.title} right`} onClick={(e) => { e.stopPropagation(); const target = visibleBoard.stages[stageIndex + 1]; if (target) persistMove(item, target.id) }}>{'>'}</button></div></article>)}{stage.items.length === 0 && <p className="empty-stage">No work items in this stage.</p>}{addingTo === stage.id ? <form className="item-form" onSubmit={(e) => addItem(e, stage.id)}><label>Client<select name="clientId" required>{clients.map((client) => <option value={client.id} key={client.id}>{client.displayName}</option>)}</select></label><label>Title<input name="title" required maxLength={200}/></label><label>Due date<input name="dueDate" type="date"/></label><label>Priority<select name="priority" defaultValue="NORMAL"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label><label>Description<textarea name="description" maxLength={10000}/></label><button className="primary-action" disabled={!clients.length}>Save work item</button></form> : <button className="add-card" disabled={!clients.length} onClick={() => setAddingTo(stage.id)}>+ Add work item</button>}</section> })}</div>{detailLoading && <p className="task-panel-loading">Loading task details…</p>}{detail && <WorkflowTaskPanel detail={detail} onClose={closeItem} onOpenWorkspace={() => openItem(detail.item.id, true)} mobile={mobile}/>}</div>}
+    <aside className="activity-panel" aria-labelledby="activity-title"><div><p className="eyebrow">Audit trail</p><h2 id="activity-title">Recent activity</h2></div>{activity.length === 0 ? <p>No activity recorded yet.</p> : <ol>{activity.slice(0, 10).map((entry, index) => <li key={`${entry.occurredAt}-${index}`}><strong>{describeAction(entry.action)}</strong><span>{describeSummary(entry.action, entry.summary, visibleBoard)}</span><time dateTime={entry.occurredAt}>{new Date(entry.occurredAt).toLocaleString()}</time></li>)}</ol>}</aside>
+  </section>
 }
 
-function describeAction(action: string) {
-  const known: Record<string, string> = {
-    'workflow.created': 'Workflow created', 'work-item.created': 'Work item created', 'work-item.moved': 'Work item moved', 'client.created': 'Client created', 'client.archived': 'Client archived', 'firm.created': 'Firm created',
-  }
-  return known[action] ?? action.replaceAll('.', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function describeSummary(action: string, summary: Record<string, unknown>, board: WorkflowBoard | null) {
-  const text = (key: string) => typeof summary[key] === 'string' ? summary[key] as string : null
-  if (action === 'work-item.created') return text('title') ?? 'New work item'
-  if (action === 'work-item.moved') {
-    const stageName = (id: string | null) => board?.stages.find((stage) => stage.id === id)?.name
-    const from = stageName(text('fromStageId'))
-    const to = stageName(text('toStageId'))
-    return from && to ? `${from} to ${to}` : to ? `Moved to ${to}` : 'Workflow stage changed'
-  }
-  if (action === 'workflow.created') {
-    const name = text('name') ?? 'New workflow'
-    const stageCount = typeof summary.stageCount === 'number' ? summary.stageCount : null
-    return stageCount === null ? name : `${name} - ${stageCount} stages`
-  }
-  if (action === 'client.created' || action === 'client.archived') return text('displayName') ?? 'Client record updated'
-  if (action === 'firm.created') return text('firmName') ?? 'Firm workspace created'
-  return 'ForgeBoard activity'
-}
+function describeAction(action: string) { return ({ 'work-item.created': 'Work item created', 'work-item.moved': 'Work item moved' } as Record<string, string>)[action] ?? action.replaceAll('.', ' ') }
+function describeSummary(action: string, summary: Record<string, unknown>, board: WorkflowBoard | null) { if (action === 'work-item.created') return typeof summary.title === 'string' ? summary.title : 'New work item'; if (action === 'work-item.moved') { const name = (id: unknown) => typeof id === 'string' ? board?.stages.find((stage) => stage.id === id)?.name : undefined; const from = name(summary.fromStageId); const to = name(summary.toStageId); return from && to ? `${from} to ${to}` : 'Workflow stage changed' } return 'ForgeBoard activity' }

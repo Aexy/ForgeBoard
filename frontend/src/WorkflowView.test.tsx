@@ -11,7 +11,7 @@ import { employeeDashboardKey } from './api/employeeDashboard'
 import { LANGUAGE_STORAGE_KEY, LanguageProvider } from './i18n'
 
 vi.mock('./api/clients', () => ({ listClients: vi.fn() }))
-vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn(), assignWorkItem: vi.fn() }))
+vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), getWorkItemDetail: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn(), assignWorkItem: vi.fn(), assignWorkItemReviewer: vi.fn() }))
 vi.mock('./api/activity', () => ({ listActivity: vi.fn() }))
 vi.mock('./api/employees', () => ({ listEmployees: vi.fn() }))
 
@@ -23,7 +23,7 @@ function renderWorkflow(firmId = 'firm-1', role: 'OWNER' | 'MEMBER' = 'MEMBER') 
 }
 
 describe('WorkflowView', () => {
-  beforeEach(() => { vi.resetAllMocks(); vi.mocked(clients.listClients).mockResolvedValue([{ id: 'client-1', legalName: 'Northstar GmbH', displayName: 'Northstar', primaryEmail: null, status: 'ACTIVE', version: 0 }]); vi.mocked(activity.listActivity).mockResolvedValue([{ actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.created', targetType: 'work_item', targetId: 'item-1', summary: { title: 'July close' }, occurredAt: '2026-07-12T12:00:00Z' }]) })
+  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); window.history.replaceState(null, '', '/'); vi.mocked(clients.listClients).mockResolvedValue([{ id: 'client-1', legalName: 'Northstar GmbH', displayName: 'Northstar', primaryEmail: null, status: 'ACTIVE', version: 0 }]); vi.mocked(activity.listActivity).mockResolvedValue([{ actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.created', targetType: 'work_item', targetId: 'item-1', summary: { title: 'July close' }, occurredAt: '2026-07-12T12:00:00Z' }]) })
 
   it('clears an owner when Unassigned is selected', async () => {
     const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [{ id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0, ownerUserId: 'employee-1' }] }] }
@@ -84,7 +84,7 @@ describe('WorkflowView', () => {
 
     rerender(<LanguageProvider><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><WorkflowView firmId="firm-2" role="OWNER" /></QueryClientProvider></LanguageProvider>)
     expect(screen.queryByRole('heading', { name: 'Firm one close' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'No workflow yet' })).toBeInTheDocument()
+    expect(screen.getByText(/^Loading workflow/)).toBeInTheDocument()
 
     resolveSecondWorkflows([{ id: 'flow-2', name: 'Firm two close' }])
     expect(await screen.findByRole('heading', { name: 'Firm two close' })).toBeInTheDocument()
@@ -156,5 +156,67 @@ describe('WorkflowView', () => {
     expect(await screen.findByText('July close')).toBeInTheDocument()
     expect(await screen.findByText('Preparation to Review')).toBeInTheDocument()
     expect(screen.queryByText(/flow-1|todo-id|review-id/)).not.toBeInTheDocument()
+  })
+
+  it('filters visible cards and restores selected filters from the workflow URL', async () => {
+    window.history.replaceState(null, '', '/?workflow=flow-1&priority=URGENT&unassigned=true')
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'BLOCKED' as const, position: 0, items: [
+      { id: 'urgent', clientId: 'client-1', stageId: 'todo', title: 'Urgent close', description: '', dueDate: '2026-07-15', priority: 'URGENT' as const, rank: 1, version: 0, ownerUserId: null, ownerDisplayName: null },
+      { id: 'normal', clientId: 'client-1', stageId: 'todo', title: 'Assigned close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 2, version: 0, ownerUserId: 'employee-1', ownerDisplayName: 'Mira Miller' },
+    ] }] }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }]); vi.mocked(workflows.getWorkflow).mockResolvedValue(board)
+
+    renderWorkflow()
+
+    expect(await screen.findByRole('heading', { name: 'Urgent close' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Assigned close' })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Filter by priority')).toHaveValue('URGENT')
+    expect(screen.getByLabelText('Show unassigned work')).toBeChecked()
+    expect(screen.getByLabelText('Blocked')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset filters' }))
+    expect(await screen.findByRole('heading', { name: 'Assigned close' })).toBeInTheDocument()
+    expect(window.location.search).not.toContain('priority=')
+  })
+
+  it('shows due state and priority on a visible task card', async () => {
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [{ id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: '2026-07-15', priority: 'HIGH' as const, rank: 1, version: 0, ownerUserId: null, ownerDisplayName: null }] }] }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }]); vi.mocked(workflows.getWorkflow).mockResolvedValue(board)
+    renderWorkflow()
+    const card = (await screen.findByRole('heading', { name: 'July close' })).closest('article')!
+    expect(card).toHaveTextContent('Due 2026-07-15')
+    expect(card).toHaveTextContent('high')
+    expect(card).toHaveTextContent('Assigned: Unassigned')
+  })
+
+  it('opens task details beside the board and a named workspace with Back navigation', async () => {
+    const item = { id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: 'Reconcile bank entries.', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0, ownerUserId: null, ownerDisplayName: null, reviewerUserId: null, reviewerDisplayName: null }
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [item] }] }
+    const detail = { item, clientDisplayName: 'Northstar', documentRequests: [], activity: [] }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }]); vi.mocked(workflows.getWorkflow).mockResolvedValue(board); vi.mocked(workflows.getWorkItemDetail).mockResolvedValue(detail)
+    renderWorkflow()
+
+    fireEvent.click(await screen.findByRole('heading', { name: 'July close' }))
+    expect(await screen.findByRole('complementary', { name: 'July close details' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Open task workspace' }))
+    expect(await screen.findByRole('heading', { name: 'July close' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to workflow' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Back to workflow' }))
+    expect(await screen.findByRole('heading', { name: 'Monthly close' })).toBeInTheDocument()
+  })
+
+  it('warns when an owner is selected as the reviewer and confirms it on the board', async () => {
+    const item = { id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0, ownerUserId: 'employee-1', ownerDisplayName: 'Mira Miller', reviewerUserId: null, reviewerDisplayName: null }
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [item] }] }
+    const detail = { item, clientDisplayName: 'Northstar', documentRequests: [], activity: [] }
+    const updated = { ...item, reviewerUserId: 'employee-1', reviewerDisplayName: 'Mira Miller' }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }]); vi.mocked(workflows.getWorkflow).mockResolvedValue(board); vi.mocked(workflows.getWorkItemDetail).mockResolvedValue(detail); vi.mocked(workflows.assignWorkItemReviewer).mockResolvedValue(updated)
+    vi.mocked(employees.listEmployees).mockResolvedValue([{ membershipId: 'membership-1', userId: 'employee-1', displayName: 'Mira Miller', email: 'mira@example.com', role: 'MEMBER' }])
+    renderWorkflow('firm-1', 'OWNER')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open July close task workspace' }))
+    await screen.findByRole('combobox', { name: 'Select reviewer' })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Select reviewer' }), { target: { value: 'employee-1' } })
+    expect(await screen.findByText('The owner is also the reviewer. This is allowed, but a separate reviewer is recommended.')).toBeInTheDocument()
   })
 })

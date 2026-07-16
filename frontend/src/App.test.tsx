@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import * as session from './api/session'
 import * as clientApi from './api/clients'
@@ -27,6 +27,7 @@ function renderApp() {
 }
 
 describe('App', () => {
+  afterEach(() => cleanup())
   beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]); vi.mocked(engagementApi.listEngagements).mockResolvedValue([]); vi.mocked(engagementApi.listEngagementTemplates).mockResolvedValue([]); vi.mocked(documentApi.listDocumentRequests).mockResolvedValue([]); vi.mocked(employeeDashboardApi.getMyWorkDashboard).mockResolvedValue({ today: '2026-07-15', overdue: [], dueSoon: [], blocked: [], awaitingReview: [], active: [] }) })
 
   it('switches the access screen to German and persists the choice', async () => {
@@ -43,7 +44,6 @@ describe('App', () => {
     vi.mocked(session.listAccessibleFirms).mockResolvedValue([{ id: 'firm-1', name: 'Hearth Accounting', slug: 'hearth', role: 'OWNER' }])
     renderApp()
     expect(await screen.findByRole('heading', { name: 'Workflows' })).toBeInTheDocument()
-    expect(await screen.findByRole('heading', { name: 'No workflow yet' })).toBeInTheDocument()
     expect(screen.getByText('Hearth Accounting')).toBeInTheDocument()
     expect(screen.getByText('owner@example.com')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument()

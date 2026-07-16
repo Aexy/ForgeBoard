@@ -1,9 +1,12 @@
 export type WorkPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 export type StageAttention = 'NONE' | 'BLOCKED' | 'AWAITING_REVIEW'
-export type WorkItem = { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId?: string | null; ownerDisplayName?: string | null }
+export type WorkItem = { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId?: string | null; ownerDisplayName?: string | null; reviewerUserId?: string | null; reviewerDisplayName?: string | null }
 export type WorkflowStage = { id: string; name: string; attention: StageAttention; position: number; items: WorkItem[] }
 export type WorkflowBoard = { id: string; name: string; stages: WorkflowStage[] }
 export type WorkflowSummary = { id: string; name: string }
+export type DocumentRequestSummary = { id: string; label: string; dueDate: string | null; status: 'REQUESTED' | 'RECEIVED'; receivedAt: string | null }
+export type ActivitySummary = { action: string; occurredAt: string; summary: Record<string, unknown>; actorType: string; source: string; targetId: string }
+export type WorkItemDetail = { item: WorkItem; clientDisplayName: string; documentRequests: DocumentRequestSummary[]; activity: ActivitySummary[] }
 type Csrf = { headerName: string; token: string }
 
 async function request<T>(firmId: string, path: string, init?: RequestInit): Promise<T> {
@@ -23,3 +26,7 @@ export const createWorkflow = (firmId: string, details: { name: string; stages: 
 export const createWorkItem = (firmId: string, workflowId: string, details: { clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority }) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items`, 'POST', details)
 export const moveWorkItem = (firmId: string, workflowId: string, itemId: string, targetStageId: string, expectedVersion: number) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items/${itemId}/position`, 'PATCH', { targetStageId, beforeItemId: null, afterItemId: null, expectedVersion })
 export const assignWorkItem = (firmId: string, workflowId: string, itemId: string, ownerUserId: string | null) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items/${itemId}/owner`, 'PUT', { ownerUserId })
+export const getWorkItemDetail = (firmId: string, workflowId: string, itemId: string) => request<WorkItemDetail>(firmId, `/api/workflows/${workflowId}/items/${itemId}`)
+export const assignWorkItemReviewer = (firmId: string, workflowId: string, itemId: string, userId: string | null) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items/${itemId}/reviewer`, 'PUT', { userId })
+export const linkDocumentRequest = (firmId: string, workflowId: string, itemId: string, requestId: string) => mutate<WorkItemDetail>(firmId, `/api/workflows/${workflowId}/items/${itemId}/document-requests/${requestId}`, 'PUT', undefined)
+export const unlinkDocumentRequest = (firmId: string, workflowId: string, itemId: string, requestId: string) => mutate<WorkItemDetail>(firmId, `/api/workflows/${workflowId}/items/${itemId}/document-requests/${requestId}`, 'DELETE', undefined)
