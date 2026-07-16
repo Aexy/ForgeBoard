@@ -32,9 +32,12 @@ public class ActivityQueryService {
         authorization.requireAuditTrailAccess(tenant);
         if (requestedLimit < 1 || requestedLimit > 100) throw new IllegalArgumentException("limit must be between 1 and 100");
         AuditTrailCursor cursor = AuditTrailCursor.decode(encodedCursor);
-        List<ActivityEvent> fetched = events.findAuditTrail(tenant.firmId(), filter.action(), filter.actorType(),
-                filter.source(), filter.from(), filter.to(), cursor == null ? null : cursor.occurredAt(),
-                cursor == null ? null : cursor.eventId(), PageRequest.of(0, requestedLimit + 1));
+        PageRequest pageRequest = PageRequest.of(0, requestedLimit + 1);
+        List<ActivityEvent> fetched = cursor == null
+                ? events.findFirstAuditTrailPage(tenant.firmId(), filter.action(), filter.actorType(),
+                        filter.source(), filter.from(), filter.to(), pageRequest)
+                : events.findAuditTrailPageAfterCursor(tenant.firmId(), filter.action(), filter.actorType(),
+                        filter.source(), filter.from(), filter.to(), cursor.occurredAt(), cursor.eventId(), pageRequest);
         boolean hasNext = fetched.size() > requestedLimit;
         List<ActivityEvent> page = hasNext ? fetched.subList(0, requestedLimit) : fetched;
         String nextCursor = hasNext ? new AuditTrailCursor(page.getLast().occurredAt(), page.getLast().id()).encode() : null;

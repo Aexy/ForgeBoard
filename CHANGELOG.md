@@ -36,6 +36,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Fixed PostgreSQL type inference when audit-trail filter values are omitted. (`M2`)
 - Added a dedicated, tenant-scoped audit trail with structured filters and pagination for firm owners and managers. (`M2`)
 - Prevented employee provisioning from silently ignoring a supplied temporary password for an existing account, and cleared tenant-scoped employee and workflow UI state immediately when switching firms. (`M2`)
 - Made ForgeBoard navigation available on small screens through an accessible Menu control while retaining the fixed desktop sidebar. (`M2`)
