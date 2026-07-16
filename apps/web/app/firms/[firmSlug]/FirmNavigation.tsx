@@ -14,8 +14,11 @@ const commonLinks = [
 export function FirmNavigation({ firm }: Readonly<{ firm: FirmContext }>) {
   const links = [
     ...commonLinks,
-    ...(firm.role === 'OWNER' || firm.role === 'ADMINISTRATOR' || firm.role === 'MANAGER'
-      ? [{ href: 'employees', label: 'Employees' }, { href: 'audit-trail', label: 'Activity trail' }]
+    ...(firm.role === 'OWNER' || firm.role === 'ADMINISTRATOR'
+      ? [{ href: 'employees', label: 'Employees' }]
+      : []),
+    ...(firm.role === 'OWNER' || firm.role === 'MANAGER'
+      ? [{ href: 'audit-trail', label: 'Activity trail' }]
       : []),
   ]
 

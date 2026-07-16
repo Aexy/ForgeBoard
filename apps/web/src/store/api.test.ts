@@ -60,4 +60,16 @@ describe('ForgeBoard RTK Query tenant cache', () => {
 
     await waitFor(() => expect(Object.keys(store.getState().forgeboardApi.queries)).toHaveLength(0))
   })
+
+  it('sends an inclusive audit-trail end date with nanosecond precision', async () => {
+    const store = makeStore()
+    await store.dispatch(forgeboardApi.endpoints.getAuditTrail.initiate({
+      firm: firmA,
+      filters: { from: '2026-07-01', to: '2026-07-31' },
+      size: 50,
+    }))
+
+    const request = vi.mocked(fetch).mock.calls[0][0] as Request
+    expect(new URL(request.url).searchParams.get('to')).toBe('2026-07-31T23:59:59.999999999Z')
+  })
 })

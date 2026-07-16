@@ -83,4 +83,14 @@ describe('firm route layout', () => {
     expect(screen.getByRole('link', { name: 'My work' })).toHaveAttribute('href', '/firms/hearth-accounting/my-work')
     expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('href', '/firms/hearth-accounting/employees')
   })
+
+  it('matches operational navigation to the distinct employee and audit permissions', () => {
+    const { rerender } = render(<FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth-accounting', role: 'MANAGER' }} />)
+    expect(screen.getByRole('link', { name: 'Activity trail' })).toHaveAttribute('href', '/firms/hearth-accounting/audit-trail')
+    expect(screen.queryByRole('link', { name: 'Employees' })).not.toBeInTheDocument()
+
+    rerender(<FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth-accounting', role: 'ADMINISTRATOR' }} />)
+    expect(screen.getByRole('link', { name: 'Employees' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Activity trail' })).not.toBeInTheDocument()
+  })
 })

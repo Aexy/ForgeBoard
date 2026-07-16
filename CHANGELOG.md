@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added a firm-routed Next.js activity trail with firm-scoped URL filters, cursor pagination, and owner/manager visibility. (`M2`)
+
 - Added firm-routed Next.js workflow board and task workspace pages with URL-backed filters, saved views, accessible confirmed movement, and server-only Auth.js-to-Spring credential brokering. (`M2`)
 
 - Added the first routed Next.js features for sign-in, My Work, and the client directory, backed by the same-origin BFF and firm-scoped RTK Query cache. CI now verifies both the Next.js workspace and the legacy Vite frontend during the staged migration. (`M2`)

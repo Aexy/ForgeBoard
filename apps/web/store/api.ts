@@ -26,6 +26,11 @@ export interface WorkItem { id: string; clientId: string; stageId: string; title
 export interface WorkflowStage { id: string; name: string; attention: StageAttention; position: number; items: WorkItem[] }
 export interface DocumentRequestSummary { id: string; label: string; dueDate: string | null; status: 'REQUESTED' | 'RECEIVED'; receivedAt: string | null }
 export interface ActivitySummary { action: string; occurredAt: string; summary: Record<string, unknown>; actorType: string; source: string; targetId: string }
+export type AuditActorType = 'USER' | 'SERVICE' | 'SYSTEM'
+export type AuditSource = 'WEB' | 'REST' | 'MCP' | 'JOB'
+export interface AuditTrailActivity { actorUserId: string | null; actorType: AuditActorType; source: AuditSource; action: string; targetType: string; targetId: string; summary: Record<string, unknown>; occurredAt: string }
+export interface AuditTrailFilters { action?: string; actorType?: AuditActorType; source?: AuditSource; from?: string; to?: string }
+export interface AuditTrailPage { items: AuditTrailActivity[]; nextCursor: string | null }
 export interface WorkItemDetail { item: WorkItem; clientDisplayName: string; documentRequests: DocumentRequestSummary[]; activity: ActivitySummary[] }
 export interface Employee { membershipId: string; userId: string; displayName: string; email: string; role: 'OWNER' | 'ADMINISTRATOR' | 'MANAGER' | 'MEMBER' | 'READ_ONLY' }
 export interface WorkflowFilterView { id: string; name: string; clientId: string | null; ownerUserId: string | null; dueState: 'OVERDUE' | 'DUE_TODAY' | 'DUE_SOON' | 'NO_DUE_DATE' | null; priority: WorkPriority | null; unassigned: boolean | null }
@@ -40,7 +45,7 @@ const proxyBaseUrl = typeof window === 'undefined'
 export const forgeboardApi = createApi({
   reducerPath: 'forgeboardApi',
   baseQuery: fetchBaseQuery({ baseUrl: proxyBaseUrl, credentials: 'same-origin' }),
-  tagTypes: ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee'],
+  tagTypes: ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail'],
   endpoints: (build) => ({
     getWorkflowBoard: build.query<WorkflowBoard, WorkflowRequest>({
       query: ({ firm, workflowId }) => ({
@@ -111,6 +116,19 @@ export const forgeboardApi = createApi({
       query: () => ({ url: 'dashboard/my-work' }),
       providesTags: (_result, _error, { firm }) => [{ type: 'MyWork', id: firmTag(firm.firmId) }],
     }),
+    getAuditTrail: build.query<AuditTrailPage, { firm: FirmContext; filters: AuditTrailFilters; cursor?: string; size: number }>({
+      query: ({ filters, cursor, size }) => {
+        const params = new URLSearchParams({ limit: String(size) })
+        if (filters.action) params.set('action', filters.action)
+        if (filters.actorType) params.set('actorType', filters.actorType)
+        if (filters.source) params.set('source', filters.source)
+        if (filters.from) params.set('from', `${filters.from}T00:00:00.000Z`)
+        if (filters.to) params.set('to', `${filters.to}T23:59:59.999999999Z`)
+        if (cursor) params.set('cursor', cursor)
+        return { url: `activity/audit-trail?${params.toString()}` }
+      },
+      providesTags: (_result, _error, { firm, filters, cursor, size }) => [{ type: 'AuditTrail', id: firmTag(firm.firmId, JSON.stringify({ filters, cursor: cursor ?? null, size })) }],
+    }),
     getClients: build.query<Client[], { firm: FirmContext }>({
       query: () => ({ url: 'clients' }),
       providesTags: (result, _error, { firm }) => [{ type: 'Client', id: firmTag(firm.firmId) }, ...(result ?? []).map((client) => ({ type: 'Client' as const, id: firmTag(firm.firmId, client.id) }))],
@@ -126,4 +144,4 @@ export const forgeboardApi = createApi({
   }),
 })
 
-export const { useArchiveClientMutation, useCreateClientMutation, useGetClientsQuery, useGetEmployeesQuery, useGetMyWorkQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi
+export const { useArchiveClientMutation, useCreateClientMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetEmployeesQuery, useGetMyWorkQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi
