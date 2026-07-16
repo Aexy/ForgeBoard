@@ -38,6 +38,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Show each workflow card's assigned employee name, or an explicit unassigned state, to all workflow users in English and German. (`M2`)
+
 - Fixed PostgreSQL type inference when audit-trail filter values are omitted. (`M2`)
 - Added a dedicated, tenant-scoped audit trail with structured filters and pagination for firm owners and managers. (`M2`)
 - Prevented employee provisioning from silently ignoring a supplied temporary password for an existing account, and cleared tenant-scoped employee and workflow UI state immediately when switching firms. (`M2`)

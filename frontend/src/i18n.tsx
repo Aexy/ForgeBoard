@@ -56,6 +56,8 @@ const german: Record<string, string> = {
   'Loading engagements...': 'Aufträge werden geladen ...',
   'Loading requests...': 'Anfragen werden geladen ...',
   'Client': 'Mandant',
+  'Assigned': 'Zugewiesen',
+  'Unassigned': 'Nicht zugewiesen',
   'Title': 'Titel',
   'Due date': 'Fälligkeitsdatum',
   'Description': 'Beschreibung',

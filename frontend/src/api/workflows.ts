@@ -1,6 +1,6 @@
 export type WorkPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 export type StageAttention = 'NONE' | 'BLOCKED' | 'AWAITING_REVIEW'
-export type WorkItem = { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId?: string | null }
+export type WorkItem = { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId?: string | null; ownerDisplayName?: string | null }
 export type WorkflowStage = { id: string; name: string; attention: StageAttention; position: number; items: WorkItem[] }
 export type WorkflowBoard = { id: string; name: string; stages: WorkflowStage[] }
 export type WorkflowSummary = { id: string; name: string }

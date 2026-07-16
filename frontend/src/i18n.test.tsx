@@ -5,7 +5,7 @@ import { LanguageProvider, LanguageToggle, useLanguage } from './i18n'
 
 function Probe() {
   const { t } = useLanguage()
-  return <><LanguageToggle /><p>{t('Welcome back')}</p></>
+  return <><LanguageToggle /><p>{t('Welcome back')}</p><p>{t('Assigned')}</p><p>{t('Unassigned')}</p></>
 }
 
 describe('language selection', () => {
@@ -15,6 +15,8 @@ describe('language selection', () => {
     render(<LanguageProvider><Probe /></LanguageProvider>)
     expect(screen.getByText('Welcome back')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Deutsch' }))
+    expect(screen.getByText('Zugewiesen')).toBeInTheDocument()
+    expect(screen.getByText('Nicht zugewiesen')).toBeInTheDocument()
     expect(screen.getByText('Willkommen zurück')).toBeInTheDocument()
     expect(localStorage.getItem('forgeboard.language')).toBe('de')
   })

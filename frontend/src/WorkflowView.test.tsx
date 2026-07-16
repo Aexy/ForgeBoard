@@ -8,6 +8,7 @@ import * as workflows from './api/workflows'
 import * as activity from './api/activity'
 import * as employees from './api/employees'
 import { employeeDashboardKey } from './api/employeeDashboard'
+import { LANGUAGE_STORAGE_KEY, LanguageProvider } from './i18n'
 
 vi.mock('./api/clients', () => ({ listClients: vi.fn() }))
 vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn(), assignWorkItem: vi.fn() }))
@@ -18,7 +19,7 @@ function renderWorkflow(firmId = 'firm-1', role: 'OWNER' | 'MEMBER' = 'MEMBER') 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   queryClient.setQueryData(employeeDashboardKey(firmId), { today: '2026-07-16' })
   queryClient.setQueryData(employeeDashboardKey('firm-2'), { today: '2026-07-16' })
-  return { queryClient, ...render(<QueryClientProvider client={queryClient}><WorkflowView firmId={firmId} role={role} /></QueryClientProvider>) }
+  return { queryClient, ...render(<LanguageProvider><QueryClientProvider client={queryClient}><WorkflowView firmId={firmId} role={role} /></QueryClientProvider></LanguageProvider>) }
 }
 
 describe('WorkflowView', () => {
@@ -38,6 +39,36 @@ describe('WorkflowView', () => {
     expect(queryClient.getQueryState(employeeDashboardKey('firm-2'))?.isInvalidated).toBe(false)
   })
 
+  it('shows assignment details to a member without assignment controls', async () => {
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [
+      { id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0, ownerUserId: 'employee-1', ownerDisplayName: 'Mira Miller' },
+      { id: 'item-2', clientId: 'client-1', stageId: 'todo', title: 'VAT review', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 2, version: 0, ownerUserId: null, ownerDisplayName: null },
+    ] }] }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }])
+    vi.mocked(workflows.getWorkflow).mockResolvedValue(board)
+
+    renderWorkflow()
+
+    expect(await screen.findByText('Assigned: Mira Miller')).toBeInTheDocument()
+    expect(screen.getByText('Assigned: Unassigned')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: /Assign/ })).not.toBeInTheDocument()
+  })
+
+  it('shows German assignment details to a member', async () => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, 'de')
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [
+      { id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0, ownerUserId: 'employee-1', ownerDisplayName: 'Mira Miller' },
+      { id: 'item-2', clientId: 'client-1', stageId: 'todo', title: 'VAT review', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 2, version: 0, ownerUserId: null, ownerDisplayName: null },
+    ] }] }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }])
+    vi.mocked(workflows.getWorkflow).mockResolvedValue(board)
+
+    renderWorkflow()
+
+    expect(await screen.findByText('Zugewiesen: Mira Miller')).toBeInTheDocument()
+    expect(screen.getByText('Zugewiesen: Nicht zugewiesen')).toBeInTheDocument()
+  })
+
   it('does not show the previous firm board while the next board is loading', async () => {
     const firstBoard = { id: 'flow-1', name: 'Firm one close', stages: [] }
     const secondBoard = { id: 'flow-2', name: 'Firm two close', stages: [] }
@@ -51,7 +82,7 @@ describe('WorkflowView', () => {
     const { rerender } = renderWorkflow('firm-1', 'OWNER')
     expect(await screen.findByRole('heading', { name: 'Firm one close' })).toBeInTheDocument()
 
-    rerender(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><WorkflowView firmId="firm-2" role="OWNER" /></QueryClientProvider>)
+    rerender(<LanguageProvider><QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><WorkflowView firmId="firm-2" role="OWNER" /></QueryClientProvider></LanguageProvider>)
     expect(screen.queryByRole('heading', { name: 'Firm one close' })).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'No workflow yet' })).toBeInTheDocument()
 

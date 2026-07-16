@@ -19,3 +19,4 @@ frontend/*.tsbuildinfo
 .agents/
 docs/
 skills-lock.json
+.superpowers/

@@ -230,6 +230,11 @@ box-shadow: 0 1px 2px #1b302513;
 font-size: 11px;
 text-transform: uppercase;
 }
+.assignment {
+  margin: -10px 0 14px;
+  color: #6e7b75;
+  font-size: 12px;
+}
 .work-card h3 {
   font-size: 14px;
 margin: 7px 0 17px;

@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.work.domain.AssignmentRole;
@@ -37,20 +38,21 @@ public class WorkflowService {
     private final Clock clock;
     private final MembershipAccess membershipAccess;
     private final WorkItemAssignmentRepository assignments;
+    private final EmployeeDirectory employees;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages,
             WorkItemRepository items, ClientDirectory clients, ActivityRecorder activity, Clock clock) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients;
         this.activity = activity; this.clock = clock;
-        this.membershipAccess = null; this.assignments = null;
+        this.membershipAccess = null; this.assignments = null; this.employees = null;
     }
 
     @Autowired
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
             ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
-            WorkItemAssignmentRepository assignments) {
+            WorkItemAssignmentRepository assignments, EmployeeDirectory employees) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
-        this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments;
+        this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
     }
 
     @Transactional(readOnly = true)
@@ -175,9 +177,11 @@ public class WorkflowService {
         Map<UUID, UUID> owners = assignments == null || itemList.isEmpty() ? Map.of() : assignments
                 .findOwnersByFirmIdAndWorkItemIdIn(workflow.firmId(), itemList.stream().map(WorkItem::id).toList()).stream()
                 .collect(java.util.stream.Collectors.toMap(OwnerAssignmentView::workItemId, OwnerAssignmentView::userId));
+        Map<UUID, String> ownerNames = employees == null || owners.isEmpty() ? Map.of()
+                : employees.displayNames(workflow.firmId(), owners.values().stream().distinct().toList());
         List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(), stage.attention(),
                 stage.position(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
-                        .map(item -> view(item, owners.get(item.id()))).toList())).toList();
+                        .map(item -> view(item, owners.get(item.id()), ownerNames.get(owners.get(item.id())))).toList())).toList();
         return new BoardView(workflow.id(), workflow.name(), stageViews);
     }
 
@@ -185,8 +189,11 @@ public class WorkflowService {
         return view(item, null);
     }
     private WorkItemView view(WorkItem item, UUID ownerUserId) {
+        return view(item, ownerUserId, null);
+    }
+    private WorkItemView view(WorkItem item, UUID ownerUserId, String ownerDisplayName) {
         return new WorkItemView(item.id(), item.clientId(), item.stageId(), item.title(), item.description(),
-                item.dueDate(), item.priority(), item.rank(), item.version(), ownerUserId);
+                item.dueDate(), item.priority(), item.rank(), item.version(), ownerUserId, ownerDisplayName);
     }
 
     private String normalizeDescription(String description) { return description == null ? "" : description.strip(); }

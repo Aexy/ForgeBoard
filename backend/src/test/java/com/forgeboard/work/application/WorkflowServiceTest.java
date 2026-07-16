@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.work.domain.AssignmentRole;
@@ -46,6 +48,7 @@ class WorkflowServiceTest {
     @Mock ActivityRecorder activity;
     @Mock MembershipAccess membershipAccess;
     @Mock WorkItemAssignmentRepository assignments;
+    @Mock EmployeeDirectory employees;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -55,7 +58,7 @@ class WorkflowServiceTest {
         now = Instant.parse("2026-07-12T22:00:00Z");
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
         service = new WorkflowService(workflows, stages, items, clients, activity,
-                Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments);
+                Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments, employees);
     }
 
     @Test
@@ -171,6 +174,32 @@ class WorkflowServiceTest {
         verify(assignments).save(any());
         verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.assigned", "work-item", itemId,
                 java.util.Map.of("ownerUserId", employeeId.toString()));
+    }
+
+    @Test
+    void includesTheAssignedOwnersDisplayNameInTheTenantScopedBoard() {
+        UUID workflowId = UUID.randomUUID();
+        UUID stageId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID employeeId = UUID.randomUUID();
+        WorkItem boardItem = item(itemId, workflowId, stageId, "1000");
+        when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
+        when(stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId)).thenReturn(List.of(
+                new WorkflowStage(stageId, tenant.firmId(), workflowId, "Preparation", StageAttention.NONE, 0, now)));
+        when(items.findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(tenant.firmId(), workflowId))
+                .thenReturn(List.of(boardItem));
+        when(assignments.findOwnersByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(itemId)))
+                .thenReturn(List.of(new OwnerAssignmentView(itemId, employeeId)));
+        when(employees.displayNames(tenant.firmId(), List.of(employeeId))).thenReturn(Map.of(employeeId, "Mira Miller"));
+
+        BoardView board = service.getBoard(tenant, workflowId);
+
+        WorkItemView result = board.stages().getFirst().items().getFirst();
+        assertThat(result.ownerUserId()).isEqualTo(employeeId);
+        assertThat(result.ownerDisplayName()).isEqualTo("Mira Miller");
+        verify(assignments).findOwnersByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(itemId));
+        verify(employees).displayNames(tenant.firmId(), List.of(employeeId));
     }
 
     private WorkItem item(UUID id, UUID workflowId, UUID stageId, String rank) {

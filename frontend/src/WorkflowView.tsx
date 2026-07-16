@@ -4,6 +4,7 @@ import { Activity, listActivity } from './api/activity'
 import { Client, listClients } from './api/clients'
 import { Employee, listEmployees, MembershipRole } from './api/employees'
 import { employeeDashboardKey } from './api/employeeDashboard'
+import { useLanguage } from './i18n'
 import {
   assignWorkItem,
   createWorkflow,
@@ -29,6 +30,7 @@ export function WorkflowView({ firmId, role = 'MEMBER' }: {
   role?: MembershipRole
 }) {
   const queryClient = useQueryClient()
+  const { t } = useLanguage()
   const currentFirmId = useRef(firmId)
   currentFirmId.current = firmId
   const [dataFirmId, setDataFirmId] = useState(firmId)
@@ -293,6 +295,7 @@ export function WorkflowView({ firmId, role = 'MEMBER' }: {
                 <article className="work-card" draggable onDragStart={(event) => event.dataTransfer.setData('text/forgeboard-item', item.id)} key={item.id}>
                   <span className="client">{clients.find((client) => client.id === item.clientId)?.displayName ?? 'Client'}</span>
                   <h3>{item.title}</h3>
+                  <p className="assignment">{t('Assigned')}: {item.ownerDisplayName ?? t('Unassigned')}</p>
                   {(role === 'OWNER' || role === 'ADMINISTRATOR') && (
                     <label>
                       Owner
