@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added a browser-persisted EN/DE language choice to ForgeBoard, with accessible selected-state controls and an English fallback. (`M2`)
+
 - Added local `.env` loading for Spring Boot through `spring-dotenv`, so backend database credentials can remain in the gitignored environment file. (`M2`)
 - Added owner/administrator employee provisioning, firm-scoped work-item ownership, and a server-filtered employee “My work” dashboard. Creation and assignment are auditable, and the browser includes role-sensitive employee and assignment controls. (`M2`, migration `V010`)
 

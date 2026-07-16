@@ -8,11 +8,12 @@ import { MyWorkDashboard } from './MyWorkDashboard';
 import { AuditTrailView } from './AuditTrailView';
 import { MembershipRole } from './api/employees';
 import forgeBoardLogo from './assets/forgeboard-logo.svg';
+import { LanguageToggle } from './i18n';
 const FIRM_KEY = 'forgeboard.selectedFirmId';
 function Brand({ inverse = false }: {
     inverse?: boolean;
 }) {
-    return <div className={`brand ${inverse ? 'brand-inverse' : ''}`}><img src={forgeBoardLogo} alt="ForgeBoard"/></div>;
+    return <div className={`brand ${inverse ? 'brand-inverse' : ''}`}><img src={forgeBoardLogo} alt="ForgeBoard"/><LanguageToggle/></div>;
 }
 function Clients({ firmId }: {
     firmId: string;

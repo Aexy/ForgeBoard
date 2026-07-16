@@ -10,6 +10,7 @@ import * as activityApi from './api/activity'
 import * as engagementApi from './api/engagements'
 import * as documentApi from './api/documentRequests'
 import * as employeeDashboardApi from './api/employeeDashboard'
+import { LanguageProvider } from './i18n'
 
 vi.mock('./api/session', () => ({
   currentSession: vi.fn(), login: vi.fn(), logout: vi.fn(), createFirm: vi.fn(), listAccessibleFirms: vi.fn(),
@@ -22,11 +23,19 @@ vi.mock('./api/documentRequests', () => ({ listDocumentRequests: vi.fn(), create
 vi.mock('./api/employeeDashboard', () => ({ employeeDashboardKey: (firmId: string) => ['employee-dashboard', firmId], getMyWorkDashboard: vi.fn() }))
 
 function renderApp() {
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><App /></QueryClientProvider>)
+  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><LanguageProvider><App /></LanguageProvider></QueryClientProvider>)
 }
 
 describe('App', () => {
   beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]); vi.mocked(engagementApi.listEngagements).mockResolvedValue([]); vi.mocked(engagementApi.listEngagementTemplates).mockResolvedValue([]); vi.mocked(documentApi.listDocumentRequests).mockResolvedValue([]); vi.mocked(employeeDashboardApi.getMyWorkDashboard).mockResolvedValue({ today: '2026-07-15', overdue: [], dueSoon: [], blocked: [], awaitingReview: [], active: [] }) })
+
+  it('switches the access screen to German and persists the choice', async () => {
+    vi.mocked(session.currentSession).mockRejectedValue(new Error('unauthenticated'))
+    renderApp()
+    fireEvent.click(await screen.findByRole('button', { name: 'Deutsch' }))
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Willkommen zurück' })).toBeInTheDocument())
+    expect(localStorage.getItem('forgeboard.language')).toBe('de')
+  })
 
   it('presents the workflow foundation after restoring a firm session', async () => {
     localStorage.setItem('forgeboard.selectedFirmId', 'firm-1')

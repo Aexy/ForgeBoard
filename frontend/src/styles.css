@@ -652,6 +652,32 @@ height: 42px;
 object-fit: contain;
 object-position: left center;
 }
+.language-toggle {
+  display: inline-flex;
+  margin-left: auto;
+  overflow: hidden;
+  border: 1px solid #527062;
+  border-radius: 8px;
+}
+.language-toggle button {
+  min-width: 34px;
+  padding: 6px 7px;
+  color: #dce8e1;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 800;
+}
+.language-toggle button[aria-pressed="true"] {
+  color: #10251d;
+  background: #92d6aa;
+}
+.language-toggle button:focus-visible {
+  position: relative;
+  outline: 3px solid #ffffff;
+  outline-offset: -3px;
+}
 .brand-inverse {
   color: #fff;
 }
