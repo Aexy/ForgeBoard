@@ -112,6 +112,10 @@ export const forgeboardApi = createApi({
       query: () => ({ url: 'identity/employees' }),
       providesTags: (_result, _error, { firm }) => [{ type: 'Employee', id: firmTag(firm.firmId) }],
     }),
+    createEmployee: build.mutation<Employee, { firm: FirmContext; employee: Omit<Employee, 'membershipId' | 'userId'> & { temporaryPassword: string } }>({
+      query: ({ employee }) => ({ url: 'identity/employees', method: 'POST', body: employee }),
+      invalidatesTags: (_result, _error, { firm }) => [{ type: 'Employee', id: firmTag(firm.firmId) }],
+    }),
     getMyWork: build.query<MyWorkDashboard, { firm: FirmContext }>({
       query: () => ({ url: 'dashboard/my-work' }),
       providesTags: (_result, _error, { firm }) => [{ type: 'MyWork', id: firmTag(firm.firmId) }],
@@ -144,4 +148,4 @@ export const forgeboardApi = createApi({
   }),
 })
 
-export const { useArchiveClientMutation, useCreateClientMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetEmployeesQuery, useGetMyWorkQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi
+export const { useArchiveClientMutation, useCreateClientMutation, useCreateEmployeeMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetEmployeesQuery, useGetMyWorkQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi

@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added a firm-routed Next.js employee directory and provisioning form with owner/administrator visibility, firm-scoped cache refresh, and same-origin BFF requests. (`M2`)
+
 - Added a firm-routed Next.js activity trail with firm-scoped URL filters, cursor pagination, and owner/manager visibility. (`M2`)
 
 - Added firm-routed Next.js workflow board and task workspace pages with URL-backed filters, saved views, accessible confirmed movement, and server-only Auth.js-to-Spring credential brokering. (`M2`)

@@ -72,4 +72,21 @@ describe('ForgeBoard RTK Query tenant cache', () => {
     const request = vi.mocked(fetch).mock.calls[0][0] as Request
     expect(new URL(request.url).searchParams.get('to')).toBe('2026-07-31T23:59:59.999999999Z')
   })
+
+  it('posts employee provisioning through the same-origin BFF and refreshes only that firm directory', async () => {
+    const store = makeStore()
+    await store.dispatch(forgeboardApi.endpoints.getEmployees.initiate({ firm: firmA }))
+    await store.dispatch(forgeboardApi.endpoints.getEmployees.initiate({ firm: firmB }))
+    await store.dispatch(forgeboardApi.endpoints.createEmployee.initiate({
+      firm: firmA,
+      employee: { displayName: 'Mira Miller', email: 'mira@example.com', temporaryPassword: 'temporary-password', role: 'MEMBER' },
+    }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const requests = vi.mocked(fetch).mock.calls.map(([input]) => input as Request)
+    const post = requests.find((request) => request.method === 'POST')
+    expect(post?.url).toContain('/api/forgeboard/identity/employees')
+    expect(await post?.json()).toEqual(expect.objectContaining({ email: 'mira@example.com', role: 'MEMBER' }))
+    expect(requests.filter((request) => request.url.includes('identity/employees'))).toHaveLength(4)
+  })
 })
