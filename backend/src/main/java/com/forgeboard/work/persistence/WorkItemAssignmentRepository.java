@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.query.Param;
 import com.forgeboard.work.application.EmployeeWorkItemView;
 import com.forgeboard.work.application.OwnerAssignmentView;
+import com.forgeboard.work.application.WorkItemRoleAssignmentView;
 import com.forgeboard.work.domain.AssignmentRole;
 import com.forgeboard.work.domain.WorkItemAssignment;
 
@@ -21,6 +22,11 @@ public interface WorkItemAssignmentRepository extends JpaRepository<WorkItemAssi
     @Query("select new com.forgeboard.work.application.OwnerAssignmentView(a.workItemId, a.userId) from WorkItemAssignment a " +
             "where a.firmId = :firmId and a.assignmentRole = com.forgeboard.work.domain.AssignmentRole.OWNER and a.workItemId in :itemIds")
     List<OwnerAssignmentView> findOwnersByFirmIdAndWorkItemIdIn(@Param("firmId") UUID firmId, @Param("itemIds") List<UUID> itemIds);
+
+    @Query("select new com.forgeboard.work.application.WorkItemRoleAssignmentView(a.workItemId, a.userId, a.assignmentRole) from WorkItemAssignment a " +
+            "where a.firmId = :firmId and a.workItemId in :itemIds")
+    List<WorkItemRoleAssignmentView> findRolesByFirmIdAndWorkItemIdIn(@Param("firmId") UUID firmId,
+            @Param("itemIds") List<UUID> itemIds);
 
     @Query("select new com.forgeboard.work.application.EmployeeWorkItemView(w.id, w.title, w.workflowId, w.stageId, s.name, s.attention, w.dueDate) " +
             "from WorkItemAssignment a join WorkItem w on w.id = a.workItemId and w.firmId = a.firmId " +

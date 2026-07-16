@@ -23,7 +23,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.forgeboard.client.ClientDirectory;
+import com.forgeboard.document.DocumentRequestDirectory;
+import com.forgeboard.document.DocumentRequestSummary;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.ActivityDirectory;
 import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.identity.SelectedTenant;
@@ -36,6 +39,7 @@ import com.forgeboard.work.domain.WorkflowBoard;
 import com.forgeboard.work.domain.WorkflowStage;
 import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
+import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
 
@@ -49,6 +53,9 @@ class WorkflowServiceTest {
     @Mock MembershipAccess membershipAccess;
     @Mock WorkItemAssignmentRepository assignments;
     @Mock EmployeeDirectory employees;
+    @Mock DocumentRequestDirectory documentRequests;
+    @Mock WorkItemDocumentRequestRepository documentLinks;
+    @Mock ActivityDirectory activityQueries;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -58,7 +65,8 @@ class WorkflowServiceTest {
         now = Instant.parse("2026-07-12T22:00:00Z");
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
         service = new WorkflowService(workflows, stages, items, clients, activity,
-                Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments, employees);
+                Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments, employees,
+                documentRequests, documentLinks, activityQueries);
     }
 
     @Test
@@ -200,6 +208,42 @@ class WorkflowServiceTest {
         assertThat(result.ownerDisplayName()).isEqualTo("Mira Miller");
         verify(assignments).findOwnersByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(itemId));
         verify(employees).displayNames(tenant.firmId(), List.of(employeeId));
+    }
+
+    @Test
+    void assignsAReviewerFromTheSelectedFirmAndRecordsSafeAuditEvent() {
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID reviewerId = UUID.randomUUID();
+        WorkItem item = item(itemId, workflowId, UUID.randomUUID(), "1000");
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(item));
+        when(membershipAccess.belongsToFirm(tenant.firmId(), reviewerId)).thenReturn(true);
+        when(assignments.findRolesByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(itemId))).thenReturn(List.of(
+                new WorkItemRoleAssignmentView(itemId, reviewerId, AssignmentRole.REVIEWER)));
+        when(employees.displayNames(org.mockito.ArgumentMatchers.eq(tenant.firmId()), org.mockito.ArgumentMatchers.anyCollection()))
+                .thenReturn(Map.of(reviewerId, "Robin Reviewer"));
+
+        WorkItemView result = service.assignReviewer(tenant, workflowId, itemId, new AssignWorkItemRoleRequest(reviewerId));
+
+        assertThat(result.reviewerUserId()).isEqualTo(reviewerId);
+        assertThat(result.reviewerDisplayName()).isEqualTo("Robin Reviewer");
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.reviewer-assigned", "work-item", itemId, Map.of());
+    }
+
+    @Test
+    void rejectsCrossClientDocumentRequestBeforeCreatingLink() {
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        UUID otherClientId = UUID.randomUUID();
+        WorkItem item = item(itemId, workflowId, UUID.randomUUID(), "1000");
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(item));
+        when(documentRequests.find(tenant.firmId(), requestId)).thenReturn(Optional.of(
+                new DocumentRequestSummary(requestId, otherClientId, "Bank statement", null, "REQUESTED", null)));
+
+        assertThatThrownBy(() -> service.linkDocumentRequest(tenant, workflowId, itemId, requestId))
+                .isInstanceOf(WorkNotFoundException.class);
+        verify(activity, never()).recordRestUserAction(any(), any(), org.mockito.ArgumentMatchers.eq("work-item.document-request-linked"), any(), any(), any());
     }
 
     private WorkItem item(UUID id, UUID workflowId, UUID stageId, String rank) {

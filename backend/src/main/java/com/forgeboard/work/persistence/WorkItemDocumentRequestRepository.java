@@ -12,5 +12,7 @@ public interface WorkItemDocumentRequestRepository
         extends JpaRepository<WorkItemDocumentRequest, WorkItemDocumentRequestId> {
     List<WorkItemDocumentRequest> findAllByFirmIdAndWorkItemId(UUID firmId, UUID workItemId);
 
+    boolean existsByFirmIdAndDocumentRequestId(UUID firmId, UUID documentRequestId);
+
     long deleteByFirmIdAndWorkItemIdAndDocumentRequestId(UUID firmId, UUID workItemId, UUID documentRequestId);
 }

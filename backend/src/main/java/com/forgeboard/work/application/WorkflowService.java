@@ -14,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.forgeboard.client.ClientDirectory;
+import com.forgeboard.document.DocumentRequestDirectory;
+import com.forgeboard.document.DocumentRequestSummary;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.ActivityDirectory;
 import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.MembershipAccess;
@@ -26,6 +29,7 @@ import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
 import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
+import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
 
 @Service
 public class WorkflowService {
@@ -39,20 +43,34 @@ public class WorkflowService {
     private final MembershipAccess membershipAccess;
     private final WorkItemAssignmentRepository assignments;
     private final EmployeeDirectory employees;
+    private final DocumentRequestDirectory documentRequests;
+    private final WorkItemDocumentRequestRepository documentLinks;
+    private final ActivityDirectory activityQueries;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages,
             WorkItemRepository items, ClientDirectory clients, ActivityRecorder activity, Clock clock) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients;
         this.activity = activity; this.clock = clock;
         this.membershipAccess = null; this.assignments = null; this.employees = null;
+        this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
     }
 
-    @Autowired
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
             ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
             WorkItemAssignmentRepository assignments, EmployeeDirectory employees) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
         this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
+        this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
+    }
+
+    @Autowired
+    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
+            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
+            WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
+            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries) {
+        this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
+        this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
+        this.documentRequests = documentRequests; this.documentLinks = documentLinks; this.activityQueries = activityQueries;
     }
 
     @Transactional(readOnly = true)
@@ -136,6 +154,61 @@ public class WorkflowService {
         return view(item, request.ownerUserId());
     }
 
+    @Transactional(readOnly = true)
+    public WorkItemDetailView getItemDetail(SelectedTenant tenant, UUID workflowId, UUID itemId) {
+        WorkItem item = requireItem(tenant, workflowId, itemId);
+        String clientDisplayName = clients.displayName(tenant.firmId(), item.clientId())
+                .orElseThrow(() -> new WorkNotFoundException("Client was not found in the selected firm"));
+        List<DocumentRequestSummaryView> linkedRequests = documentLinks.findAllByFirmIdAndWorkItemId(tenant.firmId(), item.id())
+                .stream().map(link -> documentRequests.find(tenant.firmId(), link.documentRequestId())
+                        .orElseThrow(() -> new WorkNotFoundException("Document request was not found in the selected firm")))
+                .map(this::documentView).toList();
+        return new WorkItemDetailView(viewWithRoles(item), clientDisplayName, linkedRequests,
+                activityQueries.recent(tenant, "work-item", item.id()));
+    }
+
+    @Transactional
+    public WorkItemView assignReviewer(SelectedTenant tenant, UUID workflowId, UUID itemId, AssignWorkItemRoleRequest request) {
+        membershipAccess.requireAssignmentManagement(tenant);
+        WorkItem item = requireItem(tenant, workflowId, itemId);
+        assignments.deleteByFirmIdAndWorkItemIdAndAssignmentRole(tenant.firmId(), item.id(), AssignmentRole.REVIEWER);
+        if (request.userId() == null) {
+            activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.reviewer-cleared", "work-item", item.id(), Map.of());
+            return viewWithRoles(item);
+        }
+        if (!membershipAccess.belongsToFirm(tenant.firmId(), request.userId()))
+            throw new WorkNotFoundException("Employee was not found in the selected firm");
+        assignments.save(new com.forgeboard.work.domain.WorkItemAssignment(UUID.randomUUID(), tenant.firmId(), item.id(),
+                request.userId(), AssignmentRole.REVIEWER, clock.instant(), tenant.userId()));
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.reviewer-assigned", "work-item", item.id(), Map.of());
+        return viewWithRoles(item);
+    }
+
+    @Transactional
+    public WorkItemDetailView linkDocumentRequest(SelectedTenant tenant, UUID workflowId, UUID itemId, UUID requestId) {
+        membershipAccess.requireAssignmentManagement(tenant);
+        WorkItem item = requireItem(tenant, workflowId, itemId);
+        DocumentRequestSummary request = documentRequests.find(tenant.firmId(), requestId)
+                .orElseThrow(() -> new WorkNotFoundException("Document request was not found in the selected firm"));
+        if (!item.clientId().equals(request.clientId()))
+            throw new WorkNotFoundException("Document request was not found for this work item's client");
+        if (documentLinks.existsByFirmIdAndDocumentRequestId(tenant.firmId(), requestId))
+            throw new IllegalArgumentException("Document request is already linked to a work item");
+        documentLinks.save(new com.forgeboard.work.domain.WorkItemDocumentRequest(tenant.firmId(), item.id(), requestId));
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.document-request-linked", "work-item", item.id(), Map.of());
+        return getItemDetail(tenant, workflowId, itemId);
+    }
+
+    @Transactional
+    public WorkItemDetailView unlinkDocumentRequest(SelectedTenant tenant, UUID workflowId, UUID itemId, UUID requestId) {
+        membershipAccess.requireAssignmentManagement(tenant);
+        requireItem(tenant, workflowId, itemId);
+        if (documentLinks.deleteByFirmIdAndWorkItemIdAndDocumentRequestId(tenant.firmId(), itemId, requestId) == 0)
+            throw new WorkNotFoundException("Document request link was not found in the selected work item");
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.document-request-unlinked", "work-item", itemId, Map.of());
+        return getItemDetail(tenant, workflowId, itemId);
+    }
+
     private WorkItem neighbor(SelectedTenant tenant, UUID workflowId, UUID stageId, UUID movingItemId, UUID neighborId) {
         if (neighborId == null) return null;
         if (neighborId.equals(movingItemId)) throw new IllegalArgumentException("A work item cannot neighbor itself");
@@ -174,14 +247,12 @@ public class WorkflowService {
     }
 
     private BoardView board(WorkflowBoard workflow, List<WorkflowStage> stageList, List<WorkItem> itemList) {
-        Map<UUID, UUID> owners = assignments == null || itemList.isEmpty() ? Map.of() : assignments
-                .findOwnersByFirmIdAndWorkItemIdIn(workflow.firmId(), itemList.stream().map(WorkItem::id).toList()).stream()
-                .collect(java.util.stream.Collectors.toMap(OwnerAssignmentView::workItemId, OwnerAssignmentView::userId));
-        Map<UUID, String> ownerNames = employees == null || owners.isEmpty() ? Map.of()
-                : employees.displayNames(workflow.firmId(), owners.values().stream().distinct().toList());
+        Map<UUID, Map<AssignmentRole, UUID>> roles = roles(workflow.firmId(), itemList);
+        Map<UUID, String> names = employees == null || roles.isEmpty() ? Map.of()
+                : employees.displayNames(workflow.firmId(), roles.values().stream().flatMap(role -> role.values().stream()).distinct().toList());
         List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(), stage.attention(),
                 stage.position(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
-                        .map(item -> view(item, owners.get(item.id()), ownerNames.get(owners.get(item.id())))).toList())).toList();
+                        .map(item -> view(item, roles.getOrDefault(item.id(), Map.of()), names)).toList())).toList();
         return new BoardView(workflow.id(), workflow.name(), stageViews);
     }
 
@@ -193,7 +264,38 @@ public class WorkflowService {
     }
     private WorkItemView view(WorkItem item, UUID ownerUserId, String ownerDisplayName) {
         return new WorkItemView(item.id(), item.clientId(), item.stageId(), item.title(), item.description(),
-                item.dueDate(), item.priority(), item.rank(), item.version(), ownerUserId, ownerDisplayName);
+                item.dueDate(), item.priority(), item.rank(), item.version(), ownerUserId, ownerDisplayName, null, null);
+    }
+    private WorkItemView view(WorkItem item, Map<AssignmentRole, UUID> roles, Map<UUID, String> names) {
+        UUID owner = roles.get(AssignmentRole.OWNER);
+        UUID reviewer = roles.get(AssignmentRole.REVIEWER);
+        return new WorkItemView(item.id(), item.clientId(), item.stageId(), item.title(), item.description(),
+                item.dueDate(), item.priority(), item.rank(), item.version(), owner,
+                owner == null ? null : names.get(owner), reviewer, reviewer == null ? null : names.get(reviewer));
+    }
+
+    private Map<UUID, Map<AssignmentRole, UUID>> roles(UUID firmId, List<WorkItem> itemList) {
+        if (assignments == null || itemList.isEmpty()) return Map.of();
+        List<WorkItemRoleAssignmentView> found = assignments.findRolesByFirmIdAndWorkItemIdIn(firmId, itemList.stream().map(WorkItem::id).toList());
+        if (found == null || found.isEmpty()) {
+            return assignments.findOwnersByFirmIdAndWorkItemIdIn(firmId, itemList.stream().map(WorkItem::id).toList()).stream()
+                    .collect(java.util.stream.Collectors.groupingBy(OwnerAssignmentView::workItemId,
+                            java.util.stream.Collectors.toMap(owner -> AssignmentRole.OWNER, OwnerAssignmentView::userId)));
+        }
+        return found.stream()
+                .collect(java.util.stream.Collectors.groupingBy(WorkItemRoleAssignmentView::workItemId,
+                        java.util.stream.Collectors.toMap(WorkItemRoleAssignmentView::role, WorkItemRoleAssignmentView::userId)));
+    }
+
+    private WorkItemView viewWithRoles(WorkItem item) {
+        Map<UUID, Map<AssignmentRole, UUID>> roles = roles(item.firmId(), List.of(item));
+        Map<AssignmentRole, UUID> itemRoles = roles.getOrDefault(item.id(), Map.of());
+        Map<UUID, String> names = employees.displayNames(item.firmId(), itemRoles.values());
+        return view(item, itemRoles, names);
+    }
+
+    private DocumentRequestSummaryView documentView(DocumentRequestSummary request) {
+        return new DocumentRequestSummaryView(request.id(), request.label(), request.dueDate(), request.status(), request.receivedAt());
     }
 
     private String normalizeDescription(String description) { return description == null ? "" : description.strip(); }

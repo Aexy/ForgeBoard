@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +24,8 @@ import com.forgeboard.work.application.WorkItemView;
 import com.forgeboard.work.application.WorkflowRequest;
 import com.forgeboard.work.application.WorkflowService;
 import com.forgeboard.work.application.AssignWorkItemRequest;
+import com.forgeboard.work.application.AssignWorkItemRoleRequest;
+import com.forgeboard.work.application.WorkItemDetailView;
 import com.forgeboard.work.application.WorkflowSummary;
 
 import jakarta.validation.Valid;
@@ -73,5 +76,34 @@ public class WorkflowController {
             @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
             @PathVariable UUID workflowId, @PathVariable UUID itemId, @Valid @RequestBody AssignWorkItemRequest request) {
         return workflows.assign(tenant, workflowId, itemId, request);
+    }
+
+    @GetMapping("/{workflowId}/items/{itemId}")
+    WorkItemDetailView itemDetail(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID workflowId, @PathVariable UUID itemId) {
+        return workflows.getItemDetail(tenant, workflowId, itemId);
+    }
+
+    @PutMapping("/{workflowId}/items/{itemId}/reviewer")
+    WorkItemView assignReviewer(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID workflowId, @PathVariable UUID itemId,
+            @RequestBody AssignWorkItemRoleRequest request) {
+        return workflows.assignReviewer(tenant, workflowId, itemId, request);
+    }
+
+    @PutMapping("/{workflowId}/items/{itemId}/document-requests/{requestId}")
+    WorkItemDetailView linkDocumentRequest(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID workflowId, @PathVariable UUID itemId, @PathVariable UUID requestId) {
+        return workflows.linkDocumentRequest(tenant, workflowId, itemId, requestId);
+    }
+
+    @DeleteMapping("/{workflowId}/items/{itemId}/document-requests/{requestId}")
+    WorkItemDetailView unlinkDocumentRequest(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID workflowId, @PathVariable UUID itemId, @PathVariable UUID requestId) {
+        return workflows.unlinkDocumentRequest(tenant, workflowId, itemId, requestId);
     }
 }
