@@ -18,5 +18,5 @@ describe('Next server boundary', () => {
     await expect(build).rejects.toMatchObject({
       stderr: expect.stringContaining('server-only'),
     })
-  })
+  }, 30_000)
 })

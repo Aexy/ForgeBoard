@@ -3,7 +3,7 @@ import Credentials from 'next-auth/providers/credentials'
 import type { ApiGrant } from '@forgeboard/api-client'
 
 import { serverEnvironment } from '@/lib/env'
-import { toBrowserSession, toPrivateToken, type PrivateAuthToken } from '@/lib/auth-session'
+import { attachPrivateApiSession, toBrowserSession, toPrivateToken, type PrivateAuthToken } from '@/lib/auth-session'
 
 const REFRESH_EARLY_MS = 60_000
 const environment = serverEnvironment()
@@ -112,7 +112,7 @@ export const authConfig = {
         ...storedToken,
         user: storedToken.user ?? { id: token.sub!, email: token.email! },
       })
-      return browserSession as typeof session
+      return attachPrivateApiSession(browserSession, storedToken) as typeof session
     },
     authorized({ auth }) {
       // A failed refresh leaves the encrypted Auth.js JWT in place long enough
