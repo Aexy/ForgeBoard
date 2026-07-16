@@ -7,11 +7,14 @@ export type WorkflowSummary = { id: string; name: string }
 export type DocumentRequestSummary = { id: string; label: string; dueDate: string | null; status: 'REQUESTED' | 'RECEIVED'; receivedAt: string | null }
 export type ActivitySummary = { action: string; occurredAt: string; summary: Record<string, unknown>; actorType: string; source: string; targetId: string }
 export type WorkItemDetail = { item: WorkItem; clientDisplayName: string; documentRequests: DocumentRequestSummary[]; activity: ActivitySummary[] }
+export type WorkflowFilterView = { id: string; name: string; clientId: string | null; ownerUserId: string | null; dueState: 'OVERDUE' | 'DUE_TODAY' | 'DUE_SOON' | 'NO_DUE_DATE' | null; priority: WorkPriority | null; unassigned: boolean | null }
+export type CreateWorkflowFilter = Omit<WorkflowFilterView, 'id'>
 type Csrf = { headerName: string; token: string }
 
 async function request<T>(firmId: string, path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'include', ...init, headers: { 'X-ForgeBoard-Firm': firmId, ...init?.headers } })
   if (!response.ok) throw new Error(`ForgeBoard request failed with ${response.status}`)
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 async function mutate<T>(firmId: string, path: string, method: string, body: unknown) {
@@ -30,3 +33,6 @@ export const getWorkItemDetail = (firmId: string, workflowId: string, itemId: st
 export const assignWorkItemReviewer = (firmId: string, workflowId: string, itemId: string, userId: string | null) => mutate<WorkItem>(firmId, `/api/workflows/${workflowId}/items/${itemId}/reviewer`, 'PUT', { userId })
 export const linkDocumentRequest = (firmId: string, workflowId: string, itemId: string, requestId: string) => mutate<WorkItemDetail>(firmId, `/api/workflows/${workflowId}/items/${itemId}/document-requests/${requestId}`, 'PUT', undefined)
 export const unlinkDocumentRequest = (firmId: string, workflowId: string, itemId: string, requestId: string) => mutate<WorkItemDetail>(firmId, `/api/workflows/${workflowId}/items/${itemId}/document-requests/${requestId}`, 'DELETE', undefined)
+export const listWorkflowViews = (firmId: string) => request<WorkflowFilterView[]>(firmId, '/api/workflows/views')
+export const createWorkflowView = (firmId: string, view: CreateWorkflowFilter) => mutate<WorkflowFilterView>(firmId, '/api/workflows/views', 'POST', view)
+export const deleteWorkflowView = (firmId: string, viewId: string) => mutate<void>(firmId, `/api/workflows/views/${viewId}`, 'DELETE', undefined)

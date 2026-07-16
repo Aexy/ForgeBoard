@@ -11,7 +11,7 @@ import { employeeDashboardKey } from './api/employeeDashboard'
 import { LANGUAGE_STORAGE_KEY, LanguageProvider } from './i18n'
 
 vi.mock('./api/clients', () => ({ listClients: vi.fn() }))
-vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), getWorkItemDetail: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn(), assignWorkItem: vi.fn(), assignWorkItemReviewer: vi.fn() }))
+vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), listWorkflowViews: vi.fn().mockResolvedValue([]), createWorkflowView: vi.fn(), deleteWorkflowView: vi.fn(), getWorkflow: vi.fn(), getWorkItemDetail: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn(), assignWorkItem: vi.fn(), assignWorkItemReviewer: vi.fn() }))
 vi.mock('./api/activity', () => ({ listActivity: vi.fn() }))
 vi.mock('./api/employees', () => ({ listEmployees: vi.fn() }))
 
@@ -23,7 +23,7 @@ function renderWorkflow(firmId = 'firm-1', role: 'OWNER' | 'MEMBER' = 'MEMBER') 
 }
 
 describe('WorkflowView', () => {
-  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); window.history.replaceState(null, '', '/'); vi.mocked(clients.listClients).mockResolvedValue([{ id: 'client-1', legalName: 'Northstar GmbH', displayName: 'Northstar', primaryEmail: null, status: 'ACTIVE', version: 0 }]); vi.mocked(activity.listActivity).mockResolvedValue([{ actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.created', targetType: 'work_item', targetId: 'item-1', summary: { title: 'July close' }, occurredAt: '2026-07-12T12:00:00Z' }]) })
+  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); window.history.replaceState(null, '', '/'); vi.mocked(workflows.listWorkflowViews).mockResolvedValue([]); vi.mocked(clients.listClients).mockResolvedValue([{ id: 'client-1', legalName: 'Northstar GmbH', displayName: 'Northstar', primaryEmail: null, status: 'ACTIVE', version: 0 }]); vi.mocked(activity.listActivity).mockResolvedValue([{ actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.created', targetType: 'work_item', targetId: 'item-1', summary: { title: 'July close' }, occurredAt: '2026-07-12T12:00:00Z' }]) })
 
   it('clears an owner when Unassigned is selected', async () => {
     const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [{ id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0, ownerUserId: 'employee-1' }] }] }
@@ -218,5 +218,25 @@ describe('WorkflowView', () => {
     await screen.findByRole('combobox', { name: 'Select reviewer' })
     fireEvent.change(screen.getByRole('combobox', { name: 'Select reviewer' }), { target: { value: 'employee-1' } })
     expect(await screen.findByText('The owner is also the reviewer. This is allowed, but a separate reviewer is recommended.')).toBeInTheDocument()
+  })
+
+  it('lets owners save and apply a shared view while members cannot manage it', async () => {
+    const board = { id: 'flow-1', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE' as const, position: 0, items: [{ id: 'item-1', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' as const, rank: 1, version: 0 }] }] }
+    const saved = { id: 'view-1', name: 'Unassigned work', clientId: null, ownerUserId: null, dueState: null, priority: null, unassigned: true }
+    vi.mocked(workflows.listWorkflows).mockResolvedValue([{ id: 'flow-1', name: 'Monthly close' }]); vi.mocked(workflows.getWorkflow).mockResolvedValue(board); vi.mocked(workflows.listWorkflowViews).mockResolvedValue([saved]); vi.mocked(workflows.createWorkflowView).mockResolvedValue(saved)
+    vi.mocked(employees.listEmployees).mockResolvedValue([])
+    const ownerView = renderWorkflow('firm-1', 'OWNER')
+    const name = await screen.findByRole('textbox', { name: 'Shared view name' })
+    fireEvent.change(name, { target: { value: 'Unassigned work' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save view' }))
+    await waitFor(() => expect(workflows.createWorkflowView).toHaveBeenCalledWith('firm-1', expect.objectContaining({ name: 'Unassigned work' })))
+    fireEvent.change(screen.getByRole('combobox', { name: 'Apply saved workflow view' }), { target: { value: 'view-1' } })
+    expect(screen.getByLabelText('Show unassigned work')).toBeChecked()
+
+    ownerView.unmount()
+    renderWorkflow('firm-1', 'MEMBER')
+    expect(await screen.findByRole('combobox', { name: 'Apply saved workflow view' })).toBeInTheDocument()
+    expect(screen.queryByRole('textbox', { name: 'Shared view name' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Delete saved workflow view' })).not.toBeInTheDocument()
   })
 })

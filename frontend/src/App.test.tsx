@@ -16,7 +16,7 @@ vi.mock('./api/session', () => ({
   currentSession: vi.fn(), login: vi.fn(), logout: vi.fn(), createFirm: vi.fn(), listAccessibleFirms: vi.fn(),
 }))
 vi.mock('./api/clients', () => ({ listClients: vi.fn(), createClient: vi.fn(), archiveClient: vi.fn() }))
-vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), getWorkflow: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn() }))
+vi.mock('./api/workflows', () => ({ listWorkflows: vi.fn(), listWorkflowViews: vi.fn().mockResolvedValue([]), createWorkflowView: vi.fn(), deleteWorkflowView: vi.fn(), getWorkflow: vi.fn(), getWorkItemDetail: vi.fn(), createWorkflow: vi.fn(), createWorkItem: vi.fn(), moveWorkItem: vi.fn(), assignWorkItem: vi.fn(), assignWorkItemReviewer: vi.fn() }))
 vi.mock('./api/activity', () => ({ listActivity: vi.fn().mockResolvedValue([]) }))
 vi.mock('./api/engagements', () => ({ listEngagements: vi.fn(), listEngagementTemplates: vi.fn(), createEngagementTemplate: vi.fn(), createEngagementInstance: vi.fn() }))
 vi.mock('./api/documentRequests', () => ({ listDocumentRequests: vi.fn(), createDocumentRequest: vi.fn(), markDocumentRequestReceived: vi.fn() }))
@@ -28,7 +28,7 @@ function renderApp() {
 
 describe('App', () => {
   afterEach(() => cleanup())
-  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]); vi.mocked(engagementApi.listEngagements).mockResolvedValue([]); vi.mocked(engagementApi.listEngagementTemplates).mockResolvedValue([]); vi.mocked(documentApi.listDocumentRequests).mockResolvedValue([]); vi.mocked(employeeDashboardApi.getMyWorkDashboard).mockResolvedValue({ today: '2026-07-15', overdue: [], dueSoon: [], blocked: [], awaitingReview: [], active: [] }) })
+  beforeEach(() => { vi.resetAllMocks(); localStorage.clear(); vi.mocked(session.listAccessibleFirms).mockResolvedValue([]); vi.mocked(clientApi.listClients).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflows).mockResolvedValue([]); vi.mocked(workflowApi.listWorkflowViews).mockResolvedValue([]); vi.mocked(activityApi.listActivity).mockResolvedValue([]); vi.mocked(engagementApi.listEngagements).mockResolvedValue([]); vi.mocked(engagementApi.listEngagementTemplates).mockResolvedValue([]); vi.mocked(documentApi.listDocumentRequests).mockResolvedValue([]); vi.mocked(employeeDashboardApi.getMyWorkDashboard).mockResolvedValue({ today: '2026-07-15', overdue: [], dueSoon: [], blocked: [], awaitingReview: [], active: [] }) })
 
   it('switches the access screen to German and persists the choice', async () => {
     vi.mocked(session.currentSession).mockRejectedValue(new Error('unauthenticated'))
