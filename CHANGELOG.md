@@ -17,6 +17,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added the first routed Next.js features for sign-in, My Work, and the client directory, backed by the same-origin BFF and firm-scoped RTK Query cache. CI now verifies both the Next.js workspace and the legacy Vite frontend during the staged migration. (`M2`)
+
+- Added a local Next.js Playwright flow that covers Auth.js sign-in, firm deep links, client creation, and persisted reload state. (`M2`)
+
 - Added the M2 workflow task workspace with desktop detail panels, mobile task sheets, reviewer and linked document-request context, shared firm views, and accessible drag/drop feedback with branded stage outlines. (`M2`, migrations `V012`, `V013`)
 
 - Added a browser-persisted EN/DE language choice to ForgeBoard, with accessible selected-state controls and an English fallback. (`M2`)

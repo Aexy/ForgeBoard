@@ -149,6 +149,14 @@ pnpm --dir frontend test
 pnpm --dir frontend build
 ```
 
+Run the Next.js migration browser check after PostgreSQL and Spring Boot are running:
+
+```bash
+pnpm --filter @forgeboard/web test:e2e
+```
+
+The check starts Next.js, creates an isolated local firm through the onboarding API, and verifies the Auth.js sign-in, firm deep link, client creation, and reload flow in Chromium. It requires the Playwright Chromium browser (`pnpm --filter @forgeboard/web exec playwright install chromium`) on first use.
+
 PostgreSQL integration tests use Testcontainers and require a working Docker environment.
 
 ## API conventions

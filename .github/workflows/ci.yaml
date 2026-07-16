@@ -25,9 +25,11 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - name: Backend tests
         run: mvn --batch-mode --file backend/pom.xml verify
-      - run: pnpm --dir frontend install --frozen-lockfile
-      - name: Frontend test and build
+      - run: pnpm install --frozen-lockfile
+      - name: Legacy Vite frontend test and build
         run: pnpm --dir frontend test && pnpm --dir frontend build
+      - name: Next frontend test, typecheck, and build
+        run: pnpm web:test && pnpm web:check && pnpm web:build

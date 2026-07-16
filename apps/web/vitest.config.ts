@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
+      { find: 'next-auth/react', replacement: fileURLToPath(new URL('./test/next-auth-react.ts', import.meta.url)) },
       { find: 'next-auth/providers/credentials', replacement: fileURLToPath(new URL('./test/credentials.ts', import.meta.url)) },
       { find: 'next-auth', replacement: fileURLToPath(new URL('./test/next-auth.ts', import.meta.url)) },
       { find: 'server-only', replacement: fileURLToPath(new URL('./test/server-only.ts', import.meta.url)) },
