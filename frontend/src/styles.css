@@ -1308,7 +1308,11 @@ color: #53635b;
 font-size: 11px;
 font-weight: 700;
 }
-.workflow-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 18px 0; padding: 12px; border: 1px solid #d4e3d8; border-radius: 12px; background: #f8fbf8; }
+.card-actions button[aria-label$="task workspace"] { display: none; }
+.workflow-filter-disclosure { margin-top: 40px; }
+.workflow-filter-toggle { margin: 0; }
+.workflow-filters[hidden] { display: none !important; }
+.workflow-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-top: 10px; padding: 12px; border: 1px solid #d4e3d8; border-radius: 12px; background: #f8fbf8; }
 .workflow-filters label { display: grid; gap: 4px; min-width: 140px; color: #53635b; font-size: 11px; font-weight: 700; }
 .workflow-filters .filter-check { display: flex; min-height: 42px; align-items: center; gap: 7px; }
 .workflow-filters .filter-check input { width: 16px; height: 16px; }

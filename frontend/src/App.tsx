@@ -9,6 +9,7 @@ import { AuditTrailView } from './AuditTrailView';
 import { MembershipRole } from './api/employees';
 import forgeBoardLogo from './assets/forgeboard-logo.svg';
 import { LanguageToggle } from './i18n';
+import { readWorkflowUrlState, writeWorkflowUrlState } from './workflowUrlState';
 const FIRM_KEY = 'forgeboard.selectedFirmId';
 function Brand({ inverse = false }: {
     inverse?: boolean;
@@ -53,13 +54,22 @@ function Shell({ identity, firmName, firmId, role, onLogout }: {
     onLogout: () => void;
 }) {
     const [view, setView] = useState<View>('workflow');
+    const [workflowVisit, setWorkflowVisit] = useState(0);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const canManage = role === 'OWNER' || role === 'ADMINISTRATOR';
     const canViewAuditTrail = role === 'OWNER' || role === 'MANAGER';
-    function selectView(nextView: View) { setView(nextView); setMobileMenuOpen(false); }
+    function selectView(nextView: View) {
+        if (nextView === 'workflow') {
+            const workflowState = readWorkflowUrlState();
+            if (workflowState.item || workflowState.workspace)
+                writeWorkflowUrlState({ ...workflowState, item: null, workspace: false }, true);
+            setWorkflowVisit((visit) => visit + 1);
+        }
+        setView(nextView); setMobileMenuOpen(false);
+    }
     useEffect(() => { if (role === 'MEMBER')
         setView('my-work'); }, [role]);
-    return <main className="app-shell"><aside className="sidebar"><div className="mobile-sidebar-header"><Brand inverse/><button className="mobile-menu-toggle" type="button" aria-expanded={mobileMenuOpen} aria-controls="primary-navigation" onClick={() => setMobileMenuOpen((open) => !open)}>Menu</button></div><div className="workspace-label"><span>Workspace</span><strong>{firmName}</strong></div><nav id="primary-navigation" aria-label="Primary navigation" data-mobile-open={mobileMenuOpen}><button aria-label="Workflow" className={view === 'workflow' ? 'active' : ''} onClick={() => selectView('workflow')}><i>01</i>Workflow</button><button aria-label="My work" className={view === 'my-work' ? 'active' : ''} onClick={() => selectView('my-work')}><i>02</i>My work</button><button aria-label="Clients" className={view === 'clients' ? 'active' : ''} onClick={() => selectView('clients')}><i>03</i>Clients</button><button aria-label="Engagements" className={view === 'engagements' ? 'active' : ''} onClick={() => selectView('engagements')}><i>04</i>Engagements</button>{canManage && <button aria-label="Employees" className={view === 'employees' ? 'active' : ''} onClick={() => selectView('employees')}><i>05</i>Employees</button>}{canViewAuditTrail && <button aria-label="Audit trail" className={view === 'audit-trail' ? 'active' : ''} onClick={() => selectView('audit-trail')}><i>06</i>Audit trail</button>}<button className="mobile-sign-out" aria-label="Sign out on mobile" onClick={onLogout}>Sign out</button></nav><div className="sidebar-note"><span>Everything in view</span><p>Deadlines, ownership, and handoffs in one accountable workspace.</p></div><div className="firm-card desktop-only"><div className="user-avatar">{identity.email.slice(0, 1).toUpperCase()}</div><div><strong>{identity.email.split('@')[0]}</strong><span>{identity.email}</span></div><button className="sidebar-action" onClick={onLogout}>Sign out</button></div></aside>{firmId ? view === 'workflow' ? <WorkflowView firmId={firmId} role={role}/> : view === 'clients' ? <Clients firmId={firmId}/> : view === 'engagements' ? <EngagementsView firmId={firmId}/> : view === 'employees' ? <EmployeesView firmId={firmId}/> : view === 'audit-trail' ? <AuditTrailView firmId={firmId}/> : <MyWorkDashboard firmId={firmId}/> : <section className="workspace"><div className="empty-state"><h1>Select a firm</h1><p>Create a firm in this browser before managing work.</p></div></section>}</main>;
+    return <main className="app-shell"><aside className="sidebar"><div className="mobile-sidebar-header"><Brand inverse/><button className="mobile-menu-toggle" type="button" aria-expanded={mobileMenuOpen} aria-controls="primary-navigation" onClick={() => setMobileMenuOpen((open) => !open)}>Menu</button></div><div className="workspace-label"><span>Workspace</span><strong>{firmName}</strong></div><nav id="primary-navigation" aria-label="Primary navigation" data-mobile-open={mobileMenuOpen}><button aria-label="Workflow" className={view === 'workflow' ? 'active' : ''} onClick={() => selectView('workflow')}><i>01</i>Workflow</button><button aria-label="My work" className={view === 'my-work' ? 'active' : ''} onClick={() => selectView('my-work')}><i>02</i>My work</button><button aria-label="Clients" className={view === 'clients' ? 'active' : ''} onClick={() => selectView('clients')}><i>03</i>Clients</button><button aria-label="Engagements" className={view === 'engagements' ? 'active' : ''} onClick={() => selectView('engagements')}><i>04</i>Engagements</button>{canManage && <button aria-label="Employees" className={view === 'employees' ? 'active' : ''} onClick={() => selectView('employees')}><i>05</i>Employees</button>}{canViewAuditTrail && <button aria-label="Audit trail" className={view === 'audit-trail' ? 'active' : ''} onClick={() => selectView('audit-trail')}><i>06</i>Audit trail</button>}<button className="mobile-sign-out" aria-label="Sign out on mobile" onClick={onLogout}>Sign out</button></nav><div className="sidebar-note"><span>Everything in view</span><p>Deadlines, ownership, and handoffs in one accountable workspace.</p></div><div className="firm-card desktop-only"><div className="user-avatar">{identity.email.slice(0, 1).toUpperCase()}</div><div><strong>{identity.email.split('@')[0]}</strong><span>{identity.email}</span></div><button className="sidebar-action" onClick={onLogout}>Sign out</button></div></aside>{firmId ? view === 'workflow' ? <WorkflowView key={workflowVisit} firmId={firmId} role={role}/> : view === 'clients' ? <Clients firmId={firmId}/> : view === 'engagements' ? <EngagementsView firmId={firmId}/> : view === 'employees' ? <EmployeesView firmId={firmId}/> : view === 'audit-trail' ? <AuditTrailView firmId={firmId}/> : <MyWorkDashboard firmId={firmId}/> : <section className="workspace"><div className="empty-state"><h1>Select a firm</h1><p>Create a firm in this browser before managing work.</p></div></section>}</main>;
 }
 function Access({ onAuthenticated }: {
     onAuthenticated: (identity: SessionIdentity, firmName?: string, firmId?: string) => Promise<void>;
