@@ -40,6 +40,7 @@ import com.forgeboard.work.domain.WorkflowStage;
 import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
 import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
+import com.forgeboard.work.persistence.SavedWorkflowViewRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
 
@@ -56,6 +57,7 @@ class WorkflowServiceTest {
     @Mock DocumentRequestDirectory documentRequests;
     @Mock WorkItemDocumentRequestRepository documentLinks;
     @Mock ActivityDirectory activityQueries;
+    @Mock SavedWorkflowViewRepository savedViews;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -66,7 +68,75 @@ class WorkflowServiceTest {
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
         service = new WorkflowService(workflows, stages, items, clients, activity,
                 Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments, employees,
-                documentRequests, documentLinks, activityQueries);
+                documentRequests, documentLinks, activityQueries, savedViews);
+    }
+
+    @Test
+    void listsSharedViewsForAnySelectedFirmMember() {
+        var member = new SelectedTenant(tenant.firmId(), UUID.randomUUID(), "member@example.com", MembershipRole.MEMBER);
+        var saved = new com.forgeboard.work.domain.SavedWorkflowView(UUID.randomUUID(), tenant.firmId(), "Unassigned",
+                null, null, "OVERDUE", WorkPriority.HIGH, true, tenant.userId(), now);
+        when(savedViews.findAllByFirmIdOrderByNameAsc(tenant.firmId())).thenReturn(List.of(saved));
+
+        List<WorkflowFilterView> result = service.listSavedViews(member);
+
+        assertThat(result).containsExactly(new WorkflowFilterView(saved.id(), "Unassigned", null, null,
+                "OVERDUE", WorkPriority.HIGH, true));
+        verify(savedViews).findAllByFirmIdOrderByNameAsc(tenant.firmId());
+    }
+
+    @Test
+    void createsFirmScopedSharedViewAndRecordsOnlySafeAuditDetails() {
+        UUID clientId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        when(clients.exists(tenant.firmId(), clientId)).thenReturn(true);
+        when(membershipAccess.belongsToFirm(tenant.firmId(), ownerId)).thenReturn(true);
+        when(savedViews.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        WorkflowFilterView created = service.createSavedView(tenant, new CreateWorkflowFilterRequest("Overdue owned work",
+                clientId, ownerId, "OVERDUE", WorkPriority.HIGH, false));
+
+        assertThat(created.name()).isEqualTo("Overdue owned work");
+        assertThat(created.clientId()).isEqualTo(clientId);
+        verify(membershipAccess).requireWorkflowViewManagement(tenant);
+        verify(savedViews).save(any(com.forgeboard.work.domain.SavedWorkflowView.class));
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(), "workflow-view.created", "workflow-view",
+                created.id(), Map.of("name", "Overdue owned work"));
+    }
+
+    @Test
+    void rejectsSavedViewOwnerOutsideSelectedFirm() {
+        UUID ownerId = UUID.randomUUID();
+        when(membershipAccess.belongsToFirm(tenant.firmId(), ownerId)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.createSavedView(tenant, new CreateWorkflowFilterRequest("My view", null,
+                ownerId, null, null, null))).isInstanceOf(WorkNotFoundException.class);
+
+        verify(savedViews, never()).save(any());
+    }
+
+    @Test
+    void deletesOnlyASavedViewFromTheSelectedFirm() {
+        UUID viewId = UUID.randomUUID();
+        var saved = new com.forgeboard.work.domain.SavedWorkflowView(viewId, tenant.firmId(), "Overdue",
+                null, null, null, null, null, tenant.userId(), now);
+        when(savedViews.findByIdAndFirmId(viewId, tenant.firmId())).thenReturn(Optional.of(saved));
+
+        service.deleteSavedView(tenant, viewId);
+
+        verify(savedViews).deleteByIdAndFirmId(viewId, tenant.firmId());
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(), "workflow-view.deleted", "workflow-view",
+                viewId, Map.of("name", "Overdue"));
+    }
+
+    @Test
+    void returnsNotFoundWhenDeletingAnotherFirmsSavedView() {
+        UUID viewId = UUID.randomUUID();
+        when(savedViews.findByIdAndFirmId(viewId, tenant.firmId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.deleteSavedView(tenant, viewId)).isInstanceOf(WorkNotFoundException.class);
+
+        verify(savedViews, never()).deleteByIdAndFirmId(any(), any());
     }
 
     @Test

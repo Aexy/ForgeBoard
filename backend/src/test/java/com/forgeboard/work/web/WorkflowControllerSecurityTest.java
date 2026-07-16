@@ -11,6 +11,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
@@ -31,6 +32,7 @@ import com.forgeboard.identity.security.SecurityConfiguration;
 import com.forgeboard.identity.security.TenantSelectionFilter;
 import com.forgeboard.work.application.WorkflowService;
 import com.forgeboard.work.application.WorkNotFoundException;
+import com.forgeboard.work.application.WorkflowFilterView;
 
 @WebMvcTest(WorkflowController.class)
 @Import({SecurityConfiguration.class, TenantSelectionFilter.class})
@@ -45,6 +47,79 @@ class WorkflowControllerSecurityTest {
                 .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(workflows, tenantAuthorization);
+    }
+
+    @Test
+    void allowsEveryFirmMemberToListSharedWorkflowViews() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, "member@example.com", MembershipRole.MEMBER);
+
+        mockMvc.perform(get("/api/workflows/views")
+                        .with(user("member@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId))
+                .andExpect(status().isOk());
+
+        verify(workflows).listSavedViews(tenant);
+    }
+
+    @Test
+    void rejectsSavedViewCreationWithoutCsrfBeforeCallingApplicationService() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        authorize(firmId, MembershipRole.OWNER);
+
+        mockMvc.perform(post("/api/workflows/views")
+                        .with(user("owner@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Overdue work\"}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(workflows);
+    }
+
+    @Test
+    void routesCsrfProtectedSavedViewCreationForAdministrators() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, MembershipRole.ADMINISTRATOR);
+        when(workflows.createSavedView(eq(tenant), any())).thenReturn(new WorkflowFilterView(UUID.randomUUID(),
+                "Overdue work", null, null, "OVERDUE", null, null));
+
+        mockMvc.perform(post("/api/workflows/views")
+                        .with(user("owner@example.com")).with(csrf())
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Overdue work\",\"dueState\":\"OVERDUE\"}"))
+                .andExpect(status().isCreated());
+
+        verify(workflows).createSavedView(eq(tenant), any());
+    }
+
+    @Test
+    void mapsUnauthorizedSavedViewManagementToForbidden() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        UUID viewId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, "member@example.com", MembershipRole.MEMBER);
+        doThrow(new AccessDeniedException("Only owners and administrators can manage shared workflow views"))
+                .when(workflows).deleteSavedView(tenant, viewId);
+
+        mockMvc.perform(delete("/api/workflows/views/" + viewId)
+                        .with(user("member@example.com")).with(csrf())
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void mapsAnotherFirmsSavedViewToNotFound() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        UUID viewId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, MembershipRole.OWNER);
+        doThrow(new WorkNotFoundException("Saved workflow view was not found in the selected firm"))
+                .when(workflows).deleteSavedView(tenant, viewId);
+
+        mockMvc.perform(delete("/api/workflows/views/" + viewId)
+                        .with(user("owner@example.com")).with(csrf())
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId))
+                .andExpect(status().isNotFound());
     }
 
     @Test

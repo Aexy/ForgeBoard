@@ -27,6 +27,8 @@ import com.forgeboard.work.application.AssignWorkItemRequest;
 import com.forgeboard.work.application.AssignWorkItemRoleRequest;
 import com.forgeboard.work.application.WorkItemDetailView;
 import com.forgeboard.work.application.WorkflowSummary;
+import com.forgeboard.work.application.CreateWorkflowFilterRequest;
+import com.forgeboard.work.application.WorkflowFilterView;
 
 import jakarta.validation.Valid;
 
@@ -39,6 +41,28 @@ public class WorkflowController {
     @GetMapping
     List<WorkflowSummary> list(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
         return workflows.list(tenant);
+    }
+
+    @GetMapping("/views")
+    List<WorkflowFilterView> listSavedViews(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
+        return workflows.listSavedViews(tenant);
+    }
+
+    @PostMapping("/views")
+    ResponseEntity<WorkflowFilterView> createSavedView(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @Valid @RequestBody CreateWorkflowFilterRequest request) {
+        WorkflowFilterView created = workflows.createSavedView(tenant, request);
+        return ResponseEntity.created(URI.create("/api/workflows/views/" + created.id())).body(created);
+    }
+
+    @DeleteMapping("/views/{viewId}")
+    ResponseEntity<Void> deleteSavedView(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID viewId) {
+        workflows.deleteSavedView(tenant, viewId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping

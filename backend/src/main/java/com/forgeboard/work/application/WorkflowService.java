@@ -30,6 +30,8 @@ import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
 import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
 import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
+import com.forgeboard.work.persistence.SavedWorkflowViewRepository;
+import com.forgeboard.work.domain.SavedWorkflowView;
 
 @Service
 public class WorkflowService {
@@ -46,6 +48,7 @@ public class WorkflowService {
     private final DocumentRequestDirectory documentRequests;
     private final WorkItemDocumentRequestRepository documentLinks;
     private final ActivityDirectory activityQueries;
+    private final SavedWorkflowViewRepository savedViews;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages,
             WorkItemRepository items, ClientDirectory clients, ActivityRecorder activity, Clock clock) {
@@ -53,6 +56,7 @@ public class WorkflowService {
         this.activity = activity; this.clock = clock;
         this.membershipAccess = null; this.assignments = null; this.employees = null;
         this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
+        this.savedViews = null;
     }
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
@@ -61,22 +65,66 @@ public class WorkflowService {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
         this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
         this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
+        this.savedViews = null;
+    }
+
+    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
+            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
+            WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
+            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries) {
+        this(workflows, stages, items, clients, activity, clock, membershipAccess, assignments, employees,
+                documentRequests, documentLinks, activityQueries, null);
     }
 
     @Autowired
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
             ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
             WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
-            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries) {
+            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries,
+            SavedWorkflowViewRepository savedViews) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
         this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
         this.documentRequests = documentRequests; this.documentLinks = documentLinks; this.activityQueries = activityQueries;
+        this.savedViews = savedViews;
     }
 
     @Transactional(readOnly = true)
     public List<WorkflowSummary> list(SelectedTenant tenant) {
         return workflows.findAllByFirmIdOrderByNameAsc(tenant.firmId()).stream()
                 .map(workflow -> new WorkflowSummary(workflow.id(), workflow.name())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<WorkflowFilterView> listSavedViews(SelectedTenant tenant) {
+        return savedViews.findAllByFirmIdOrderByNameAsc(tenant.firmId()).stream()
+                .map(this::filterView).toList();
+    }
+
+    @Transactional
+    public WorkflowFilterView createSavedView(SelectedTenant tenant, CreateWorkflowFilterRequest request) {
+        membershipAccess.requireWorkflowViewManagement(tenant);
+        String name = request.name().strip();
+        if (name.isEmpty()) throw new IllegalArgumentException("View name must not be blank");
+        if (request.clientId() != null && !clients.exists(tenant.firmId(), request.clientId()))
+            throw new WorkNotFoundException("Client was not found in the selected firm");
+        if (request.ownerUserId() != null && !membershipAccess.belongsToFirm(tenant.firmId(), request.ownerUserId()))
+            throw new WorkNotFoundException("Employee was not found in the selected firm");
+        SavedWorkflowView saved = savedViews.save(new SavedWorkflowView(UUID.randomUUID(), tenant.firmId(), name,
+                request.clientId(), request.ownerUserId(), request.dueState(), request.priority(), request.unassigned(),
+                tenant.userId(), clock.instant()));
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "workflow-view.created", "workflow-view",
+                saved.id(), Map.of("name", saved.name()));
+        return filterView(saved);
+    }
+
+    @Transactional
+    public void deleteSavedView(SelectedTenant tenant, UUID viewId) {
+        membershipAccess.requireWorkflowViewManagement(tenant);
+        SavedWorkflowView saved = savedViews.findByIdAndFirmId(viewId, tenant.firmId())
+                .orElseThrow(() -> new WorkNotFoundException("Saved workflow view was not found in the selected firm"));
+        savedViews.deleteByIdAndFirmId(saved.id(), tenant.firmId());
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "workflow-view.deleted", "workflow-view",
+                saved.id(), Map.of("name", saved.name()));
     }
 
     @Transactional
@@ -215,6 +263,11 @@ public class WorkflowService {
         WorkItem neighbor = requireItem(tenant, workflowId, neighborId);
         if (!neighbor.stageId().equals(stageId)) throw new IllegalArgumentException("Move neighbors must be in the target stage");
         return neighbor;
+    }
+
+    private WorkflowFilterView filterView(SavedWorkflowView saved) {
+        return new WorkflowFilterView(saved.id(), saved.name(), saved.clientId(), saved.ownerUserId(),
+                saved.dueState(), saved.priority(), saved.unassigned());
     }
 
     private BigDecimal rankBetween(UUID firmId, UUID workflowId, UUID stageId, WorkItem before, WorkItem after) {
