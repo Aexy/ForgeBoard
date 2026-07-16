@@ -20,4 +20,8 @@ management:
 server:
   port: ${APP_PORT:8080}
   shutdown: graceful
+forgeboard:
+  api-token:
+    # A development-only fallback. Production must set FORGEBOARD_API_TOKEN_SECRET to a random base64 key.
+    secret: ${FORGEBOARD_API_TOKEN_SECRET:Zm9yZ2Vib2FyZC1kZXZlbG9wbWVudC1hcGktdG9rZW4tc2lnbmluZy1rZXktcmVwbGFjZS1pbi1wcm9kdWN0aW9u}
 

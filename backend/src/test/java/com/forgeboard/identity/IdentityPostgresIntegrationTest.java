@@ -1,6 +1,7 @@
 package com.forgeboard.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,8 @@ import org.testcontainers.utility.DockerImageName;
 import com.forgeboard.identity.application.OnboardingRequest;
 import com.forgeboard.identity.application.OnboardingService;
 import com.forgeboard.identity.application.OnboardingResult;
+import com.forgeboard.identity.application.SessionLoginRequest;
+import com.forgeboard.identity.security.ApiTokenService;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.client.application.ClientRequest;
 import com.forgeboard.client.application.ClientService;
@@ -49,6 +52,7 @@ class IdentityPostgresIntegrationTest {
     @Autowired JdbcClient jdbc;
     @Autowired ClientService clients;
     @Autowired WorkflowService workflows;
+    @Autowired ApiTokenService apiTokens;
 
     @Test
     void flywaySchemaPersistsOnboardingAndItsAuditEvent() {
@@ -78,6 +82,21 @@ class IdentityPostgresIntegrationTest {
         assertThat(count("activity_events")).isEqualTo(5);
         assertThat(jdbc.sql("select stage_id from work_items where id = :id").param("id", item.id())
                 .query(UUID.class).single()).isEqualTo(board.stages().get(1).id());
+    }
+
+    @Test
+    void refreshTokensRotateOnceAndReplayRevokesTheFamily() {
+        onboarding.createFirm(new OnboardingRequest("Token Firm", "token-firm", "tokens@example.com", "Token Owner",
+                "correct horse battery"));
+        ApiTokenService.ApiGrant grant = apiTokens.grant(new SessionLoginRequest("tokens@example.com", "correct horse battery"));
+
+        ApiTokenService.ApiGrant replacement = apiTokens.refresh(grant.refreshToken());
+
+        assertThat(replacement.refreshToken()).isNotEqualTo(grant.refreshToken());
+        assertThat(count("api_refresh_tokens")).isEqualTo(2);
+        assertThatThrownBy(() -> apiTokens.refresh(grant.refreshToken())).isInstanceOf(RuntimeException.class);
+        assertThat(jdbc.sql("select count(*) from api_refresh_tokens where revoked_at is not null")
+                .query(Long.class).single()).isEqualTo(2);
     }
 
     private long count(String table) {
