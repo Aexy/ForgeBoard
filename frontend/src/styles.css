@@ -687,8 +687,8 @@ object-position: left center;
 }
 .access-intro .brand .language-toggle {
   position: absolute;
-  top: 44px;
-  right: clamp(42px, 6vw, 92px);
+  top: 8px;
+  left: 160px;
   margin: 0;
   z-index: 2;
 }
