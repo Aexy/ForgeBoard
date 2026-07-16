@@ -1,0 +1,10 @@
+{
+  "name": "@forgeboard/web",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "check": "node --eval \"process.exit(0)\"",
+    "test": "node --eval \"process.exit(0)\"",
+    "build": "node --eval \"process.exit(0)\""
+  }
+}

@@ -12,6 +12,9 @@ output/
 tmp/
 tools/
 frontend/*.tsbuildinfo
+.next/
+apps/web/.env.local
+playwright-report/
 .pnpm-store/
 .env
 .env.local

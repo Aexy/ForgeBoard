@@ -1,0 +1,10 @@
+{
+  "name": "forgeboard-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "web:check": "pnpm --filter @forgeboard/web --fail-if-no-match check",
+    "web:test": "pnpm --filter @forgeboard/web test",
+    "web:build": "pnpm --filter @forgeboard/web build"
+  }
+}

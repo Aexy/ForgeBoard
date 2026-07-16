@@ -80,6 +80,8 @@ Scheduled jobs ─────────────────────�
 ```text
 backend/     Spring Boot application, domain modules, migrations, and tests
 frontend/    React application, API clients, UI components, and tests
+apps/web/    Next.js migration target; introduced alongside Vite until cutover
+packages/    Shared frontend API-client, UI, and configuration packages
 deploy/      Local and production deployment configuration
 ```
 
