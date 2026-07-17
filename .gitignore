@@ -25,3 +25,5 @@ docs/
 skills-lock.json
 .superpowers/
 AGENTS.md
+CONTEXT.md
+.last-run.json
