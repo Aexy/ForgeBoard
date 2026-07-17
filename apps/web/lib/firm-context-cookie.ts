@@ -12,6 +12,11 @@ interface SignedFirmContext {
   firmSlug: string
 }
 
+export interface FirmContextCookieBinding {
+  userId: string
+  firm: FirmContext
+}
+
 const encoder = new TextEncoder()
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -61,7 +66,7 @@ export async function createFirmContextValue(userId: string, firm: FirmContext):
   return `${encodedPayload}.${await signature(encodedPayload)}`
 }
 
-export async function firmContextFromCookie(cookieHeader: string | null, userId: string): Promise<FirmContext | undefined> {
+export async function firmContextCookieBinding(cookieHeader: string | null): Promise<FirmContextCookieBinding | undefined> {
   const value = cookieHeader
     ?.split(';')
     .map((part) => part.trim())
@@ -79,10 +84,15 @@ export async function firmContextFromCookie(cookieHeader: string | null, userId:
     const payloadBytes = base64UrlToBytes(encodedPayload)
     if (!payloadBytes) return undefined
     const payload = JSON.parse(new TextDecoder().decode(payloadBytes)) as Partial<SignedFirmContext>
-    if (payload.version !== 1 || payload.userId !== userId
+    if (payload.version !== 1 || typeof payload.userId !== 'string'
       || typeof payload.firmId !== 'string' || typeof payload.firmSlug !== 'string') return undefined
-    return { firmId: payload.firmId, firmSlug: payload.firmSlug, role: 'MEMBER' }
+    return { userId: payload.userId, firm: { firmId: payload.firmId, firmSlug: payload.firmSlug, role: 'MEMBER' } }
   } catch {
     return undefined
   }
+}
+
+export async function firmContextFromCookie(cookieHeader: string | null, userId: string): Promise<FirmContext | undefined> {
+  const binding = await firmContextCookieBinding(cookieHeader)
+  return binding?.userId === userId ? binding.firm : undefined
 }

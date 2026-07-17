@@ -72,7 +72,7 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
 
   await page.goto(`/firms/${firmSlug}/workflow/${workflowData.id}?priority=URGENT&task=${itemData.id}`)
   await expect(page).toHaveURL(`${boardPath}?priority=URGENT&task=${createdItem!.taskReference}`)
-  await expect(page.getByRole('dialog', { name: `${urgentTitle} details` })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: `${urgentTitle} details` })).toBeVisible()
   await page.goto(`${boardPath}?priority=URGENT`)
 
   const cardTitle = page.getByRole('button', { name: `Open ${urgentTitle} details` })
@@ -85,7 +85,7 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
 
   await page.goBack()
   await expect(page).toHaveURL(`${boardPath}?priority=URGENT&task=${createdItem!.taskReference}`)
-  await expect(page.getByRole('dialog', { name: `${urgentTitle} details` })).toBeVisible()
+  await expect(page.getByRole('complementary', { name: `${urgentTitle} details` })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL(`${boardPath}?priority=URGENT`)
 

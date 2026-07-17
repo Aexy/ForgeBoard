@@ -82,11 +82,35 @@ describe('ForgeBoard BFF proxy', () => {
     expect(mocks.upstreamResponse).not.toHaveBeenCalled()
   })
 
+  it('returns 401 before inspecting a missing firm cookie', async () => {
+    mocks.auth.mockResolvedValue(null)
+    const response = await GET(new Request('http://localhost:3000/api/forgeboard/workflows/workflow-1'), routeContext)
+
+    expect(response.status).toBe(401)
+    expect(mocks.apiSessionFromRequest).not.toHaveBeenCalled()
+    expect(mocks.upstreamResponse).not.toHaveBeenCalled()
+  })
+
   it('rejects a stale signed context for a firm removed from the preview allow-list', async () => {
     vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'other-firm')
     const response = await GET(await request(), routeContext)
 
     expect(response.status).toBe(403)
+    expect(mocks.apiSessionFromRequest).toHaveBeenCalled()
+    expect(mocks.upstreamResponse).not.toHaveBeenCalled()
+  })
+
+  it('returns 404, not preview denial, for another user\'s signed non-preview firm context', async () => {
+    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'hearth')
+    const response = await GET(await request('GET', {
+      headers: {
+        Cookie: `forgeboard-firm-context=${await createFirmContextValue('other-user', {
+          firmId: 'other-firm-id', firmSlug: 'other-firm', role: 'OWNER',
+        })}`,
+      },
+    }), routeContext)
+
+    expect(response.status).toBe(404)
     expect(mocks.apiSessionFromRequest).not.toHaveBeenCalled()
     expect(mocks.upstreamResponse).not.toHaveBeenCalled()
   })

@@ -1,11 +1,7 @@
 import 'server-only'
 
 import { headers } from 'next/headers'
-import { serverApi } from '@forgeboard/api-client/server'
-
-import { auth } from '@/auth'
-import { apiSessionFromRequest } from '@/lib/auth-session'
-import { firmContextForSlug } from '@/lib/firm-context'
+import { authorizedFirmRoute } from '@/lib/authorized-firm-route'
 import { serverEnvironment } from '@/lib/env'
 
 type PublicWorkflow = { workflowSlug: string }
@@ -18,16 +14,12 @@ export function isUuidRouteValue(value: string): boolean {
 }
 
 async function authenticatedWorkflowRequest<T>(firmSlug: string, path: string): Promise<T | undefined> {
-  const session = await auth()
-  const firm = session?.user?.id ? firmContextForSlug(session, firmSlug) : undefined
-  if (!session?.user?.id || session.error === 'RefreshAccessTokenError' || !firm) return undefined
-
   const cookie = (await headers()).get('cookie') ?? ''
   const request = new Request(serverEnvironment().FORGEBOARD_PUBLIC_ORIGIN, { headers: { cookie } })
-  const apiSession = await apiSessionFromRequest(request, session)
-  if (!apiSession) return undefined
+  const result = await authorizedFirmRoute(request, firmSlug)
+  if (result.kind !== 'authorized') return undefined
 
-  const response = await serverApi(apiSession).response({ path, firmId: firm.firmId })
+  const response = await result.route.api.response({ path, firmId: result.route.firm.firmId })
   if (response.status === 404) return undefined
   if (!response.ok) throw new Error(`Legacy workflow redirect lookup failed with ${response.status}`)
   return response.json() as Promise<T>

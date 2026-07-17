@@ -1,10 +1,7 @@
-import { serverApi } from '@forgeboard/api-client/server'
 import { NextResponse } from 'next/server'
 
-import { auth } from '@/auth'
-import { apiSessionFromRequest } from '@/lib/auth-session'
-import { firmContextFromCookie } from '@/lib/firm-context-cookie'
-import { firmContextForSlug } from '@/lib/firm-context'
+import { authorizedFirmRoute } from '@/lib/authorized-firm-route'
+import { firmContextCookieBinding } from '@/lib/firm-context-cookie'
 import { serverEnvironment } from '@/lib/env'
 import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 
@@ -55,25 +52,26 @@ function safeUpstreamHeaders(request: Request): Headers {
 async function proxy(request: Request, context: RouteContext): Promise<NextResponse> {
   if (!isAllowedMutationOrigin(request)) return jsonError(403, 'Cross-origin mutations are not allowed')
 
-  const session = await auth()
-  if (!session?.user?.id || session.error === 'RefreshAccessTokenError') return jsonError(401, 'Authentication is required')
+  const authentication = await authorizedFirmRoute(request, '')
+  if (authentication.kind === 'authentication-required') return jsonError(401, 'Authentication is required')
 
-  const cookieFirm = await firmContextFromCookie(request.headers.get('cookie'), session.user.id)
+  const cookieBinding = await firmContextCookieBinding(request.headers.get('cookie'))
+  if (!cookieBinding) return jsonError(404, 'Firm not found')
+
   // A signed cookie is still checked against current session membership. This
   // prevents cookie replay after a membership/firm-list change and ensures a
   // browser header never controls the backend tenant identity.
-  const firm = cookieFirm && firmContextForSlug(session, cookieFirm.firmSlug)
-  if (!firm || firm.firmId !== cookieFirm.firmId) return jsonError(404, 'Firm not found')
+  const result = await authorizedFirmRoute(request, cookieBinding.firm.firmSlug, cookieBinding.userId)
+  if (result.kind === 'authentication-required') return jsonError(401, 'Authentication is required')
+  if (result.kind === 'firm-not-found' || result.route.firm.firmId !== cookieBinding.firm.firmId) return jsonError(404, 'Firm not found')
+  const { firm, api } = result.route
   if (!isPreviewFirmEnabled(firm.firmSlug)) return jsonError(403, 'This firm is not enabled for the preview')
-
-  const apiSession = await apiSessionFromRequest(request, session)
-  if (!apiSession) return jsonError(401, 'Authentication is required')
 
   const { path } = await context.params
   if (path.length === 0) return jsonError(404, 'API resource not found')
 
   const body = UNSAFE_METHODS.has(request.method) ? await request.arrayBuffer() : undefined
-  const upstream = await serverApi(apiSession).response({
+  const upstream = await api.response({
     path: upstreamPath(path, request),
     method: request.method,
     firmId: firm.firmId,
