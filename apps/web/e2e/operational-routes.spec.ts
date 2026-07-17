@@ -12,6 +12,8 @@ type OperationalFirm = {
   owner: Credentials
   manager: Credentials
   readOnly: Credentials
+  clientName: string
+  workflowName: string
 }
 
 async function signInAt(page: Page, path: string, credentials: Credentials) {
@@ -39,6 +41,20 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
   expect(grant.status()).toBe(200)
   const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
   const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const clientName = `E2E Engagement Client ${suffix.slice(0, 8)}`
+  const workflowName = `E2E Engagement Workflow ${suffix.slice(0, 8)}`
+
+  const client = await request.post(`${apiBaseURL}/api/clients`, {
+    headers,
+    data: { legalName: clientName, displayName: clientName, primaryEmail: null },
+  })
+  expect(client.status()).toBe(201)
+
+  const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
+    headers,
+    data: { name: workflowName, stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+  })
+  expect(workflow.status()).toBe(201)
 
   for (const employee of [
     { ...manager, displayName: 'Playwright Manager', role: 'MANAGER' },
@@ -51,7 +67,7 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
     expect(provision.status()).toBe(201)
   }
 
-  return { firmSlug, owner, manager, readOnly }
+  return { firmSlug, owner, manager, readOnly, clientName, workflowName }
 }
 
 test('opens operational routes directly for their authorized roles', async ({ page, browser, request }) => {
@@ -93,4 +109,40 @@ test('does not expose operational writes or restricted routes to read-only staff
   await page.goto(`/firms/${firm.firmSlug}/audit-trail`)
   await expect(page.locator('main [role="alert"]')).toContainText('Only firm owners and managers can view the activity trail.')
   await context.close()
+})
+
+test('runs an owner engagement and document-request operating loop through the browser', async ({ page, request }) => {
+  const firm = await createOperationalFirm(request)
+  const templateName = `Monthly close ${firm.firmSlug.slice(-6)}`
+  const requestLabel = `Bank statements ${firm.firmSlug.slice(-6)}`
+
+  await signInAt(page, `/firms/${firm.firmSlug}/engagements`, firm.owner)
+
+  await page.getByRole('button', { name: '+ New template' }).click()
+  await page.getByLabel('Name').fill(templateName)
+  await page.getByLabel('Workflow').selectOption({ label: firm.workflowName })
+  await page.getByLabel('Default work item').fill(`Prepare ${templateName}`)
+  await page.getByLabel('Due day').fill('20')
+  await page.getByRole('button', { name: 'Save template' }).click()
+  await expect(page.getByRole('button', { name: '+ Start engagement' })).toBeEnabled()
+
+  await page.getByRole('button', { name: '+ Start engagement' }).click()
+  await page.getByLabel('Template').selectOption({ label: templateName })
+  await page.getByLabel('Client').selectOption({ label: firm.clientName })
+  await page.getByLabel('Period start').fill('2026-07-01')
+  await page.getByRole('button', { name: 'Start engagement' }).click()
+  await expect(page.locator('article').filter({ hasText: templateName })).toContainText('Board work item created')
+
+  await page.getByRole('button', { name: '+ Request' }).click()
+  await page.getByLabel('Client').selectOption({ label: firm.clientName })
+  await page.getByLabel('Request').fill(requestLabel)
+  await page.getByRole('button', { name: 'Send request' }).click()
+  const documentRequest = page.locator('article').filter({ hasText: requestLabel })
+  await expect(documentRequest).toContainText('requested')
+  await documentRequest.getByRole('button', { name: 'Mark received' }).click()
+  await expect(documentRequest).toContainText('received')
+
+  await page.reload()
+  await expect(page.locator('article').filter({ hasText: templateName })).toContainText('Board work item created')
+  await expect(page.locator('article').filter({ hasText: requestLabel })).toContainText('received')
 })
