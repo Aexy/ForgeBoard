@@ -13,6 +13,10 @@ public interface WorkItemRepository extends JpaRepository<WorkItem, UUID> {
     List<WorkItem> findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(UUID firmId, UUID workflowId);
     List<WorkItem> findAllByFirmIdOrderByDueDateAsc(UUID firmId);
     Optional<WorkItem> findByIdAndFirmIdAndWorkflowId(UUID id, UUID firmId, UUID workflowId);
+    Optional<WorkItem> findByFirmIdAndWorkflowIdAndTaskReference(UUID firmId, UUID workflowId, String taskReference);
+
+    @Query(value = "select 'FB-' || nextval('work_item_task_reference_sequence')", nativeQuery = true)
+    String allocateTaskReference();
 
     @Query("select max(w.rank) from WorkItem w where w.firmId = :firmId and w.workflowId = :workflowId and w.stageId = :stageId")
     Optional<BigDecimal> maximumRank(@Param("firmId") UUID firmId,

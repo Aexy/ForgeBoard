@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +29,7 @@ import com.forgeboard.document.DocumentRequestSummary;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.ActivityDirectory;
 import com.forgeboard.identity.EmployeeDirectory;
+import com.forgeboard.identity.FirmDirectory;
 import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.work.domain.AssignmentRole;
@@ -58,6 +60,7 @@ class WorkflowServiceTest {
     @Mock WorkItemDocumentRequestRepository documentLinks;
     @Mock ActivityDirectory activityQueries;
     @Mock SavedWorkflowViewRepository savedViews;
+    @Mock FirmDirectory firms;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -68,7 +71,7 @@ class WorkflowServiceTest {
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
         service = new WorkflowService(workflows, stages, items, clients, activity,
                 Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments, employees,
-                documentRequests, documentLinks, activityQueries, savedViews);
+                documentRequests, documentLinks, activityQueries, savedViews, firms);
     }
 
     @Test
@@ -141,6 +144,7 @@ class WorkflowServiceTest {
 
     @Test
     void createsAnOrderedWorkflowAndAuditEvent() {
+        mockFirmSlugLock();
         when(workflows.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(stages.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -156,16 +160,32 @@ class WorkflowServiceTest {
     }
 
     @Test
+    void normalizesWorkflowSlugsAndDisambiguatesFirmLocalCollisions() {
+        mockFirmSlugLock();
+        when(workflows.existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping")).thenReturn(true);
+        when(workflows.existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping-2")).thenReturn(false);
+        when(workflows.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BoardView board = service.createWorkflow(tenant, new WorkflowRequest(" Monthly bookkeeping! ", List.of()));
+
+        assertThat(board.workflowSlug()).isEqualTo("monthly-bookkeeping-2");
+        verify(workflows).existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping");
+        verify(workflows).existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping-2");
+        verify(firms).lockExisting(tenant.firmId());
+    }
+
+    @Test
     void createsAWorkItemOnlyWithTenantScopedRelations() {
         UUID workflowId = UUID.randomUUID();
         UUID stageId = UUID.randomUUID();
         UUID clientId = UUID.randomUUID();
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
-                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
                 new WorkflowStage(stageId, tenant.firmId(), workflowId, "Waiting", StageAttention.NONE, 0, now)));
         when(clients.exists(tenant.firmId(), clientId)).thenReturn(true);
         when(items.maximumRank(tenant.firmId(), workflowId, stageId)).thenReturn(Optional.empty());
+        when(items.allocateTaskReference()).thenReturn("FB-1042");
         when(items.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         WorkItemView created = service.createItem(tenant, workflowId,
@@ -173,6 +193,60 @@ class WorkflowServiceTest {
 
         assertThat(created.rank()).isEqualByComparingTo("1000");
         assertThat(created.clientId()).isEqualTo(clientId);
+        assertThat(created.taskReference()).isEqualTo("FB-1042");
+    }
+
+    @Test
+    void resolvesPublicWorkflowAndTaskValuesOnlyWithinTheSelectedFirmAndParentWorkflow() {
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        WorkflowBoard workflow = new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now);
+        WorkItem item = new WorkItem(itemId, tenant.firmId(), UUID.randomUUID(), workflowId, UUID.randomUUID(),
+                "Item", "", null, WorkPriority.NORMAL, BigDecimal.ONE, "FB-1042", now);
+        when(workflows.findByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly")).thenReturn(Optional.of(workflow));
+        when(items.findByFirmIdAndWorkflowIdAndTaskReference(tenant.firmId(), workflowId, "FB-1042"))
+                .thenReturn(Optional.of(item));
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(item));
+        when(clients.displayName(tenant.firmId(), item.clientId())).thenReturn(Optional.of("Client"));
+        when(documentLinks.findAllByFirmIdAndWorkItemId(tenant.firmId(), itemId)).thenReturn(List.of());
+        when(activityQueries.recent(tenant, "work-item", itemId)).thenReturn(List.of());
+        when(assignments.findRolesByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(itemId))).thenReturn(List.of());
+        when(assignments.findOwnersByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(itemId))).thenReturn(List.of());
+
+        WorkItemDetailView detail = service.getItemDetail(tenant, "monthly", "FB-1042");
+
+        assertThat(detail.item().taskReference()).isEqualTo("FB-1042");
+        verify(items).findByFirmIdAndWorkflowIdAndTaskReference(tenant.firmId(), workflowId, "FB-1042");
+    }
+
+    @Test
+    void returnsNotFoundForAPublicWorkflowOutsideTheSelectedFirm() {
+        when(workflows.findByFirmIdAndWorkflowSlug(tenant.firmId(), "other-firm-workflow")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getBoard(tenant, "other-firm-workflow"))
+                .isInstanceOf(WorkNotFoundException.class);
+    }
+
+    @Test
+    void returnsNotFoundForAPublicTaskFromAnotherWorkflowInTheSelectedFirm() {
+        UUID workflowId = UUID.randomUUID();
+        when(workflows.findByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly")).thenReturn(Optional.of(
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
+        when(items.findByFirmIdAndWorkflowIdAndTaskReference(tenant.firmId(), workflowId, "FB-1042"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getItemDetail(tenant, "monthly", "FB-1042"))
+                .isInstanceOf(WorkNotFoundException.class);
+    }
+
+    @Test
+    void returnsNotFoundForAPublicTaskFromAnotherFirm() {
+        when(workflows.findByFirmIdAndWorkflowSlug(tenant.firmId(), "other-firm-workflow"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getItemDetail(tenant, "other-firm-workflow", "FB-1042"))
+                .isInstanceOf(WorkNotFoundException.class);
+        verifyNoInteractions(items);
     }
 
     @Test
@@ -191,7 +265,7 @@ class WorkflowServiceTest {
         WorkItem before = item(UUID.randomUUID(), workflowId, stageId, "1000");
         WorkItem after = item(UUID.randomUUID(), workflowId, stageId, "2000");
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
-                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
                 new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", StageAttention.AWAITING_REVIEW, 2, now)));
         when(items.findByIdAndFirmIdAndWorkflowId(movingId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
@@ -210,7 +284,7 @@ class WorkflowServiceTest {
         UUID movingId = UUID.randomUUID();
         WorkItem moving = item(movingId, workflowId, stageId, "1000");
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
-                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
         when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
                 new WorkflowStage(stageId, tenant.firmId(), workflowId, "Review", StageAttention.AWAITING_REVIEW, 2, now)));
         when(items.findByIdAndFirmIdAndWorkflowId(movingId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
@@ -262,7 +336,7 @@ class WorkflowServiceTest {
         UUID employeeId = UUID.randomUUID();
         WorkItem boardItem = item(itemId, workflowId, stageId, "1000");
         when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
-                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", now)));
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
         when(stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId)).thenReturn(List.of(
                 new WorkflowStage(stageId, tenant.firmId(), workflowId, "Preparation", StageAttention.NONE, 0, now)));
         when(items.findAllByFirmIdAndWorkflowIdOrderByStageIdAscRankAscIdAsc(tenant.firmId(), workflowId))
@@ -318,6 +392,10 @@ class WorkflowServiceTest {
 
     private WorkItem item(UUID id, UUID workflowId, UUID stageId, String rank) {
         return new WorkItem(id, tenant.firmId(), UUID.randomUUID(), workflowId, stageId, "Item", "", null,
-                WorkPriority.NORMAL, new BigDecimal(rank), now);
+                WorkPriority.NORMAL, new BigDecimal(rank), "FB-" + id, now);
+    }
+
+    private void mockFirmSlugLock() {
+        when(firms.lockExisting(tenant.firmId())).thenReturn(true);
     }
 }

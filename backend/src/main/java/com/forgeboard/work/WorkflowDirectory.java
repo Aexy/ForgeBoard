@@ -32,7 +32,8 @@ public class WorkflowDirectory {
                 .orElseThrow(() -> new IllegalStateException("Workflow stage was not found"));
         BigDecimal rank = items.maximumRank(firmId, workflowId, firstStage.id()).orElse(BigDecimal.ZERO).add(RANK_STEP);
         WorkItem item = items.save(new WorkItem(UUID.randomUUID(), firmId, clientId, workflowId, firstStage.id(),
-                title.strip(), description == null ? "" : description.strip(), dueDate, WorkPriority.NORMAL, rank, now));
+                title.strip(), description == null ? "" : description.strip(), dueDate, WorkPriority.NORMAL, rank,
+                items.allocateTaskReference(), now));
         return item.id();
     }
 }

@@ -1,0 +1,16 @@
+.workspace { display: grid; gap: 1.25rem; max-width: 68rem; }
+.heading { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; }
+.heading h1 { margin: .2rem 0; }
+.heading > div > p:last-child { color: var(--forge-text-muted); margin: 0; max-width: 42rem; }
+.eyebrow { color: var(--forge-green-800); font-size: .8rem; font-weight: 700; letter-spacing: .08em; margin: 0; text-transform: uppercase; }
+.heading > button, .form > button { background: var(--forge-green-800); border: 1px solid var(--forge-green-800); border-radius: .35rem; color: white; font: inherit; padding: .55rem .8rem; }
+.notice { background: #f4f5f3; border-left: .25rem solid var(--forge-border); color: var(--forge-text-muted); margin: 0; padding: .8rem 1rem; }
+.error { color: #a11e26; margin: 0; }
+.form { background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: 1rem; max-width: 52rem; padding: 1.25rem; }
+.form h2 { margin: 0; }
+.form label { display: grid; gap: .35rem; font-weight: 600; }
+.form input, .form select { border: 1px solid var(--forge-border); border-radius: .3rem; font: inherit; min-width: 0; padding: .55rem; }
+.stages { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stages fieldset { border: 1px solid var(--forge-border); border-radius: .35rem; display: grid; gap: .65rem; margin: 0; padding: .8rem; }
+.stages legend { color: var(--forge-text-muted); font-size: .85rem; padding: 0 .25rem; }
+@media (max-width: 42rem) { .heading { flex-direction: column; }.stages { grid-template-columns: 1fr; } }

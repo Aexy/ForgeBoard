@@ -79,6 +79,18 @@ public class WorkflowController {
         return workflows.getBoard(tenant, workflowId);
     }
 
+    @GetMapping("/public/{workflowSlug}")
+    BoardView publicBoard(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable String workflowSlug) {
+        return workflows.getBoard(tenant, workflowSlug);
+    }
+
+    @GetMapping("/public/{workflowSlug}/items/{taskReference}")
+    WorkItemDetailView publicItemDetail(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable String workflowSlug, @PathVariable String taskReference) {
+        return workflows.getItemDetail(tenant, workflowSlug, taskReference);
+    }
+
     @PostMapping("/{workflowId}/items")
     ResponseEntity<WorkItemView> createItem(
             @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,

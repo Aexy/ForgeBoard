@@ -18,7 +18,7 @@ type OperationalFirm = {
 
 async function signInAt(page: Page, path: string, credentials: Credentials) {
   await page.goto(path)
-  await expect(page).toHaveURL(/\/sign-in\?callbackUrl=/)
+  await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
   await page.getByLabel('Email address').fill(credentials.email)
   await page.getByLabel('Password').fill(credentials.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
@@ -111,7 +111,42 @@ test('does not expose operational writes or restricted routes to read-only staff
   await context.close()
 })
 
-test('runs an owner engagement and document-request operating loop through the browser', async ({ page, request }) => {
+test('provisions a read-only employee through the browser and preserves their restricted access', async ({ page, browser, request }) => {
+  const firm = await createOperationalFirm(request)
+  const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
+  const employee = {
+    email: `e2e-browser-readonly-${suffix}@forgeboard.test`,
+    password,
+    displayName: `E2E Browser Read only ${suffix.slice(-6)}`,
+  }
+
+  await signInAt(page, `/firms/${firm.firmSlug}/employees`, firm.owner)
+  await page.getByRole('button', { name: '+ New employee' }).click()
+  await page.getByLabel('Employee name').fill(employee.displayName)
+  await page.getByLabel('Work email').fill(employee.email)
+  await page.getByLabel('Temporary password').fill(employee.password)
+  await page.getByLabel('Role').selectOption('READ_ONLY')
+  await page.getByRole('button', { name: 'Create employee' }).click()
+  await expect(page.getByRole('heading', { name: employee.displayName })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: employee.displayName })).toBeVisible()
+  await expect(page.getByText(employee.email, { exact: true })).toBeVisible()
+
+  const employeeContext = await browser.newContext()
+  const employeePage = await employeeContext.newPage()
+  await signInAt(employeePage, `/firms/${firm.firmSlug}/engagements`, employee)
+  await expect(employeePage.getByRole('heading', { name: 'Engagements', exact: true })).toBeVisible()
+  await expect(employeePage.getByRole('button', { name: '+ New template' })).toHaveCount(0)
+  await expect(employeePage.getByRole('button', { name: '+ Start engagement' })).toHaveCount(0)
+  await expect(employeePage.getByRole('button', { name: '+ Request' })).toHaveCount(0)
+
+  await employeePage.goto(`/firms/${firm.firmSlug}/employees`)
+  await expect(employeePage.locator('main [role="alert"]')).toContainText('Only owners and administrators can manage employee access.')
+  await employeeContext.close()
+})
+
+test('runs an owner engagement and document-request operating loop through the browser', async ({ page, browser, request }) => {
   const firm = await createOperationalFirm(request)
   const templateName = `Monthly close ${firm.firmSlug.slice(-6)}`
   const requestLabel = `Bank statements ${firm.firmSlug.slice(-6)}`
@@ -145,4 +180,17 @@ test('runs an owner engagement and document-request operating loop through the b
   await page.reload()
   await expect(page.locator('article').filter({ hasText: templateName })).toContainText('Board work item created')
   await expect(page.locator('article').filter({ hasText: requestLabel })).toContainText('received')
+
+  const managerContext = await browser.newContext()
+  const managerPage = await managerContext.newPage()
+  const auditPath = `/firms/${firm.firmSlug}/audit-trail?action=document-request.received`
+  await signInAt(managerPage, auditPath, firm.manager)
+  await expect(managerPage.getByLabel('Action')).toHaveValue('document-request.received')
+  const receivedActivity = managerPage.getByRole('listitem').filter({ hasText: 'Document-Request Received' })
+  await expect(receivedActivity).toContainText('ForgeBoard activity')
+
+  await managerPage.reload()
+  await expect(managerPage).toHaveURL(auditPath)
+  await expect(managerPage.getByRole('listitem').filter({ hasText: 'Document-Request Received' })).toContainText('ForgeBoard activity')
+  await managerContext.close()
 })

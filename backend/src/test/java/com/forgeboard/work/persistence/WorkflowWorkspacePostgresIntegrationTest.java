@@ -6,6 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +63,25 @@ class WorkflowWorkspacePostgresIntegrationTest {
     @Autowired DocumentRequestService documentRequests;
     @Autowired WorkItemDocumentRequestRepository links;
     @Autowired SavedWorkflowViewRepository savedViews;
+
+    @Test
+    void serializesConcurrentNormalizedWorkflowSlugAllocationPerFirm() throws Exception {
+        String unique = "slug-race-" + UUID.randomUUID();
+        OnboardingResult result = onboarding.createFirm(new OnboardingRequest("Firm " + unique, unique,
+                unique + "@example.com", "Owner", "correct horse battery"));
+        SelectedTenant tenant = new SelectedTenant(result.firmId(), result.ownerId(), result.ownerEmail(), MembershipRole.OWNER);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<BoardView> first = executor.submit(() -> createWorkflowAfterStart(tenant, "Monthly bookkeeping", ready, start));
+            Future<BoardView> second = executor.submit(() -> createWorkflowAfterStart(tenant, "Monthly-bookkeeping", ready, start));
+            ready.await();
+            start.countDown();
+
+            assertThat(List.of(first.get().workflowSlug(), second.get().workflowSlug()))
+                    .containsExactlyInAnyOrder("monthly-bookkeeping", "monthly-bookkeeping-2");
+        }
+    }
 
     @Test
     void enforcesOneTaskPerDocumentRequestAndFirmConsistentLinks() {
@@ -118,6 +141,14 @@ class WorkflowWorkspacePostgresIntegrationTest {
         WorkItemView item = workflows.createItem(tenant, board.id(), new WorkItemRequest(client.id(),
                 board.stages().getFirst().id(), "First task", "", null, WorkPriority.NORMAL));
         return new Fixture(tenant, client, board, item);
+    }
+
+    private BoardView createWorkflowAfterStart(SelectedTenant tenant, String name, CountDownLatch ready,
+            CountDownLatch start) throws InterruptedException {
+        ready.countDown();
+        start.await();
+        return workflows.createWorkflow(tenant, new WorkflowRequest(name, List.of(
+                new WorkflowStageRequest("Preparation", StageAttention.NONE))));
     }
 
     private record Fixture(SelectedTenant tenant, ClientView client, BoardView board, WorkItemView item) {

@@ -24,12 +24,12 @@ class EmployeeDashboardServiceTest {
     @Test
     void dashboardUsesFirmAndAuthenticatedEmployee() {
         SelectedTenant tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "employee@example.com", MembershipRole.MEMBER);
-        LocalDate today = LocalDate.of(2026, 7, 14); UUID itemId = UUID.randomUUID();
+        LocalDate today = LocalDate.of(2026, 7, 14);
         when(assignments.findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId())).thenReturn(List.of(
-                new EmployeeWorkItemView(itemId, "Chase bank feed", UUID.randomUUID(), UUID.randomUUID(),
-                        "Client dependency", StageAttention.BLOCKED, null)));
+                new EmployeeWorkItemView("FB-1042", "Chase bank feed", "monthly-close", "Client dependency",
+                        StageAttention.BLOCKED, null)));
         EmployeeDashboardView dashboard = new EmployeeDashboardService(assignments, Clock.fixed(Instant.parse("2026-07-14T00:00:00Z"), ZoneOffset.UTC)).dashboard(tenant);
-        assertThat(dashboard.blocked()).extracting(EmployeeWorkItemView::id).containsExactly(itemId);
+        assertThat(dashboard.blocked()).extracting(EmployeeWorkItemView::taskReference).containsExactly("FB-1042");
         verify(assignments).findDashboardByFirmIdAndUserId(tenant.firmId(), tenant.userId());
     }
 }

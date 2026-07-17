@@ -1,8 +1,19 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type APIRequestContext } from '@playwright/test'
 
 const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
+
+type WorkflowBoardResponse = {
+  workflowSlug: string
+  stages: Array<{ id: string; items: Array<{ id: string; taskReference: string }> }>
+}
+
+async function canonicalWorkflowBoard(request: APIRequestContext, headers: Record<string, string>, workflowId: string): Promise<WorkflowBoardResponse> {
+  const response = await request.get(`${apiBaseURL}/api/workflows/${workflowId}`, { headers })
+  expect(response.status()).toBe(200)
+  return response.json() as Promise<WorkflowBoardResponse>
+}
 
 test('uses shareable workflow routes, task workspace, moves, and saved views', async ({ page, request }) => {
   const suffix = randomUUID().replaceAll('-', '')
@@ -41,6 +52,9 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
   })
   expect(item.status()).toBe(201)
   const itemData = await item.json() as { id: string }
+  const boardData = await canonicalWorkflowBoard(request, headers, workflowData.id)
+  const createdItem = boardData.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === itemData.id)
+  expect(createdItem).toBeDefined()
 
   const savedView = await request.post(`${apiBaseURL}/api/workflows/views`, {
     headers,
@@ -48,25 +62,40 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
   })
   expect(savedView.status()).toBe(201)
 
-  const boardPath = `/firms/${firmSlug}/workflow/${workflowData.id}`
+  const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
   await page.goto(`${boardPath}?priority=URGENT`)
-  await expect(page).toHaveURL(/\/sign-in\?callbackUrl=/)
+  await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
   await page.getByLabel('Email address').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(`${boardPath}?priority=URGENT`, { timeout: 15_000 })
 
-  const cardTitle = page.getByRole('heading', { name: urgentTitle })
+  await page.goto(`/firms/${firmSlug}/workflow/${workflowData.id}?priority=URGENT&task=${itemData.id}`)
+  await expect(page).toHaveURL(`${boardPath}?priority=URGENT&task=${createdItem!.taskReference}`)
+  await expect(page.getByRole('dialog', { name: `${urgentTitle} details` })).toBeVisible()
+  await page.goto(`${boardPath}?priority=URGENT`)
+
+  const cardTitle = page.getByRole('button', { name: `Open ${urgentTitle} details` })
   await expect(cardTitle).toBeVisible()
   await cardTitle.click()
-  await expect(page).toHaveURL(`${boardPath}?priority=URGENT&task=${itemData.id}`)
+  await expect(page).toHaveURL(`${boardPath}?priority=URGENT&task=${createdItem!.taskReference}`)
   await page.getByRole('button', { name: 'Open task workspace' }).click()
-  await expect(page).toHaveURL(`${boardPath}/tasks/${itemData.id}`)
+  await expect(page).toHaveURL(`${boardPath}/tasks/${createdItem!.taskReference}`)
   await expect(page.getByRole('heading', { name: urgentTitle })).toBeVisible()
 
-  await page.goto(boardPath)
-  await page.getByRole('button', { name: `Move ${urgentTitle} right` }).click()
+  await page.goBack()
+  await expect(page).toHaveURL(`${boardPath}?priority=URGENT&task=${createdItem!.taskReference}`)
+  await expect(page.getByRole('dialog', { name: `${urgentTitle} details` })).toBeVisible()
+  await page.goBack()
+  await expect(page).toHaveURL(`${boardPath}?priority=URGENT`)
+
+  const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: urgentTitle })
+  await card.dragTo(page.getByLabel('Review stage'))
   await expect(page.getByRole('alert').filter({ hasText: `${urgentTitle} moved.` })).toHaveText(`${urgentTitle} moved.`)
+  await expect(page.getByLabel('Review stage').getByRole('heading', { name: urgentTitle })).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByLabel('Review stage').getByRole('heading', { name: urgentTitle })).toBeVisible()
 
   await page.locator('summary').click()
   await page.getByLabel('Apply saved workflow view').selectOption({ label: 'Urgent work' })
@@ -108,13 +137,17 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   })
   expect(item.status()).toBe(201)
   const itemData = await item.json() as { id: string }
+  const boardData = await canonicalWorkflowBoard(request, headers, workflowData.id)
+  const createdItem = boardData.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === itemData.id)
+  expect(createdItem).toBeDefined()
 
-  const boardPath = `/firms/${firmSlug}/workflow/${workflowData.id}`
+  const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
   await page.goto(boardPath)
   await page.getByLabel('Email address').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 })
+  const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: title })
+  await expect(card.getByRole('button', { name: `Open ${title} details` })).toBeVisible({ timeout: 15_000 })
 
   const concurrentMove = await request.patch(`${apiBaseURL}/api/workflows/${workflowData.id}/items/${itemData.id}/position`, {
     headers,
@@ -122,9 +155,9 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   })
   expect(concurrentMove.status()).toBe(200)
 
-  await page.getByRole('button', { name: `Move ${title} right` }).click()
+  await card.getByRole('button', { name: `Move ${title} right` }).click()
   await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveText('This work item was changed by another user. The board was refreshed; retry your move.')
-  await expect(page.getByRole('heading', { name: title })).toBeVisible()
+  await expect(page.getByLabel('Review stage').locator('article').filter({ hasText: title })).toBeVisible()
 })
 
 test('does not expose another firm workflow through the browser BFF', async ({ page, request }) => {
@@ -149,7 +182,22 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
     data: { name: 'Private second-firm workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
   })
   expect(secondWorkflow.status()).toBe(201)
-  const secondWorkflowData = await secondWorkflow.json() as { id: string }
+  const secondWorkflowData = await secondWorkflow.json() as { id: string; stages: Array<{ id: string }> }
+  const secondClient = await request.post(`${apiBaseURL}/api/clients`, {
+    headers: secondHeaders,
+    data: { legalName: 'Private second-firm client', displayName: 'Private second-firm client', primaryEmail: null },
+  })
+  expect(secondClient.status()).toBe(201)
+  const secondClientData = await secondClient.json() as { id: string }
+  const secondItem = await request.post(`${apiBaseURL}/api/workflows/${secondWorkflowData.id}/items`, {
+    headers: secondHeaders,
+    data: { clientId: secondClientData.id, stageId: secondWorkflowData.stages[0].id, title: 'Private second-firm task', description: '', dueDate: null, priority: 'NORMAL' },
+  })
+  expect(secondItem.status()).toBe(201)
+  const secondItemData = await secondItem.json() as { id: string }
+  const secondBoard = await canonicalWorkflowBoard(request, secondHeaders, secondWorkflowData.id)
+  const secondBoardItem = secondBoard.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === secondItemData.id)
+  expect(secondBoardItem).toBeDefined()
 
   await page.goto(`/firms/${first.slug}/my-work`)
   await page.getByLabel('Email address').fill(first.email)
@@ -166,4 +214,83 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
 
   expect(response.status).toBe(404)
   expect(response.body).not.toContain('Private second-firm workflow')
+
+  const publicResponses = await page.evaluate(async ({ workflowSlug, taskReference, forgedFirmId }) => Promise.all([
+    fetch(`/api/forgeboard/workflows/public/${workflowSlug}`, { headers: { 'X-ForgeBoard-Firm': forgedFirmId } }),
+    fetch(`/api/forgeboard/workflows/public/${workflowSlug}/items/${taskReference}`, { headers: { 'X-ForgeBoard-Firm': forgedFirmId } }),
+  ]).then(async (results) => Promise.all(results.map(async (result) => ({ status: result.status, body: await result.text() })))), {
+    workflowSlug: secondBoard.workflowSlug,
+    taskReference: secondBoardItem!.taskReference,
+    forgedFirmId: secondCredentials.firms[0].id,
+  })
+
+  for (const publicResponse of publicResponses) {
+    expect(publicResponse.status).toBe(404)
+    expect(publicResponse.body).not.toContain('Private second-firm workflow')
+    expect(publicResponse.body).not.toContain('Private second-firm task')
+  }
+})
+
+test('shows a Spring authorization denial and preserves board state for read-only staff', async ({ page, request }) => {
+  const suffix = randomUUID().replaceAll('-', '')
+  const firmSlug = `e2e-readonly-workflow-${suffix.slice(0, 10)}`
+  const owner = { email: `e2e-readonly-owner-${suffix}@forgeboard.test`, password: 'playwright-test-password' }
+  const reader = { email: `e2e-readonly-reader-${suffix}@forgeboard.test`, password: 'playwright-test-password' }
+  const title = `Read only close ${suffix.slice(0, 8)}`
+
+  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
+    data: { firmName: `E2E Read only ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: owner.email, ownerName: 'Playwright Owner', password: owner.password },
+  })
+  expect(onboarding.status()).toBe(201)
+
+  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: owner })
+  expect(grant.status()).toBe(200)
+  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
+  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+
+  const client = await request.post(`${apiBaseURL}/api/clients`, {
+    headers,
+    data: { legalName: title, displayName: title, primaryEmail: null },
+  })
+  expect(client.status()).toBe(201)
+  const clientData = await client.json() as { id: string }
+
+  const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
+    headers,
+    data: { name: 'Read only workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+  })
+  expect(workflow.status()).toBe(201)
+  const workflowData = await workflow.json() as { id: string; stages: Array<{ id: string }> }
+
+  const item = await request.post(`${apiBaseURL}/api/workflows/${workflowData.id}/items`, {
+    headers,
+    data: { clientId: clientData.id, stageId: workflowData.stages[0].id, title, description: '', dueDate: null, priority: 'NORMAL' },
+  })
+  expect(item.status()).toBe(201)
+  const itemData = await item.json() as { id: string }
+  const boardData = await canonicalWorkflowBoard(request, headers, workflowData.id)
+  const createdItem = boardData.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === itemData.id)
+  expect(createdItem).toBeDefined()
+
+  const provision = await request.post(`${apiBaseURL}/api/identity/employees`, {
+    headers,
+    data: { displayName: 'Playwright Read only', email: reader.email, temporaryPassword: reader.password, role: 'READ_ONLY' },
+  })
+  expect(provision.status()).toBe(201)
+
+  const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
+  await page.goto(boardPath)
+  await page.getByLabel('Email address').fill(reader.email)
+  await page.getByLabel('Password').fill(reader.password)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page).toHaveURL(boardPath, { timeout: 15_000 })
+
+  const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: title })
+  await expect(card.getByRole('button', { name: `Open ${title} details` })).toBeVisible({ timeout: 15_000 })
+  await card.getByRole('button', { name: `Move ${title} right` }).click()
+  await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveText('The work item could not be moved.')
+
+  await page.reload()
+  await expect(page.getByLabel('Prepare stage').getByRole('heading', { name: title })).toBeVisible()
+  await expect(page.getByLabel('Review stage').getByRole('heading', { name: title })).toHaveCount(0)
 })

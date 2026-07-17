@@ -22,7 +22,7 @@ export default async function FirmLayout({ children, params }: Readonly<{
   return (
     <FirmCacheBoundary firmId={firm.firmId}>
       <FirmContextProvider firm={firm}>
-        <AppShell navigation={<FirmNavigation firm={firm} />}>
+        <AppShell navigation={<FirmNavigation firm={firm} userEmail={session.user.email ?? 'Signed-in user'} />}>
           <section data-firm-id={firm.firmId} data-firm-slug={firm.firmSlug} data-firm-role={firm.role}>
             {children}
           </section>

@@ -5,6 +5,6 @@ import java.time.LocalDate;
 import java.util.UUID;
 import com.forgeboard.work.domain.WorkPriority;
 
-public record WorkItemView(UUID id, UUID clientId, UUID stageId, String title,
+public record WorkItemView(UUID id, String taskReference, UUID clientId, UUID stageId, String title,
         String description, LocalDate dueDate, WorkPriority priority, BigDecimal rank, long version, UUID ownerUserId,
         String ownerDisplayName, UUID reviewerUserId, String reviewerDisplayName) {}

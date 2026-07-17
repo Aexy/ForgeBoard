@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 280" role="img" aria-labelledby="forgeboard-logo-title">
+  <title id="forgeboard-logo-title">ForgeBoard</title>
+  <g transform="translate(12 12)"><path fill="#f4f8f5" d="M52 24h120c33.1 0 60 26.9 60 60v54h-40V84c0-11-9-20-20-20H84c-11 0-20 9-20 20v88c0 11 9 20 20 20h66v40H84c-33.1 0-60-26.9-60-60V84c0-33.1 26.9-60 60-60z"/><rect fill="#92d6aa" x="162" y="162" width="70" height="70" rx="3"/></g>
+  <text x="310" y="184" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="116" font-weight="650" letter-spacing="-3" fill="#f4f8f5">ForgeBoard</text>
+</svg>

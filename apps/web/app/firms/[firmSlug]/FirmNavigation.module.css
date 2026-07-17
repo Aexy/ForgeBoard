@@ -1,7 +1,29 @@
-.navigation { display: grid; gap: 1.25rem; padding: 1.5rem 1rem; }
-.brand { color: white; font-size: 1.2rem; font-weight: 750; text-decoration: none; }
-.caption { color: #9fd8b7; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; margin: 0; text-transform: uppercase; }
-.links { display: grid; gap: 0.3rem; list-style: none; margin: 0; padding: 0; }
-.links a { border-radius: 0.45rem; color: #e8f5ed; display: block; padding: 0.65rem 0.75rem; text-decoration: none; }
-.links a:hover { background: #214b3a; }
-.links a:focus-visible { outline: 3px solid #7dd3a7; outline-offset: 2px; }
+.navigation { display: flex; flex-direction: column; min-height: 100%; padding: 2rem 1.625rem 1.5rem; position: relative; overflow: hidden; }
+.navigation::after { border: 2.125rem solid #17382b; border-radius: 4rem; bottom: 9.375rem; content: ''; height: 16.25rem; left: -5.3125rem; opacity: .55; pointer-events: none; position: absolute; width: 16.25rem; }
+.mobileHeader { position: relative; z-index: 1; }
+.brand { display: inline-flex; text-decoration: none; }
+.brand img { display: block; height: auto; max-width: 10.5rem; width: 100%; }
+.workspaceLabel { display: grid; gap: .25rem; margin: 3rem 0 1.25rem; position: relative; z-index: 1; }
+.workspaceLabel span { color: #789486; font-size: .625rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+.workspaceLabel strong { color: #f4f8f5; font-size: .9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links { flex: 0 1 auto; min-height: 0; overflow-y: auto; position: relative; z-index: 1; }
+.links ol { display: grid; gap: .3125rem; list-style: none; margin: 0; padding: 0; }
+.links a { align-items: center; border-radius: .625rem; color: #dce8e1; display: flex; font-weight: 650; gap: .8125rem; padding: .75rem .6875rem; text-decoration: none; }
+.links a i { color: #668174; font-size: .5625rem; font-style: normal; letter-spacing: .08em; }
+.links a:hover { background: #1b382d; }
+.links a[aria-current='page'] { background: #244337; box-shadow: inset .1875rem 0 #92d6aa; }
+.links a[aria-current='page'] i { color: #92d6aa; }
+.links a:focus-visible, .menuToggle:focus-visible, .signOut:focus-visible, .mobileSignOut:focus-visible { outline: .1875rem solid #fff; outline-offset: .1875rem; }
+.sidebarNote { background: #1b382d; border: 1px solid #315044; border-radius: .875rem; color: #dce8e1; margin: 1.25rem 0; padding: 1.125rem; position: relative; z-index: 1; }
+.sidebarNote span { color: #92d6aa; font-size: .6875rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.sidebarNote p { color: #9fb4aa; font-size: .75rem; line-height: 1.55; margin: .5625rem 0 0; }
+.account { align-items: center; border-top: 1px solid #315044; display: grid; gap: .625rem; grid-template-columns: 2.125rem minmax(0, 1fr) auto; margin-top: 1.25rem; padding-top: 1.25rem; position: relative; z-index: 1; }
+.avatar { background: #92d6aa; border-radius: .625rem; color: #14261f; display: grid; font-weight: 800; height: 2.125rem; place-items: center; width: 2.125rem; }
+.account div { display: grid; gap: .125rem; min-width: 0; }
+.account strong, .account div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account strong { color: #fff; font-size: .75rem; }
+.account div span { color: #9fb4aa; font-size: .6875rem; }
+.signOut, .mobileSignOut, .menuToggle { background: transparent; border: 0; color: #dce8e1; cursor: pointer; font: inherit; font-size: .6875rem; font-weight: 700; padding: .3125rem; }
+.signOut:hover, .mobileSignOut:hover { color: #92d6aa; }
+.mobileSignOut, .menuToggle { display: none; }
+@media (max-width: 51.99rem) { .navigation { min-height: auto; padding: 1.125rem 1.25rem; } .navigation::after, .workspaceLabel, .sidebarNote, .account { display: none; } .mobileHeader { align-items: center; display: flex; justify-content: space-between; width: 100%; } .menuToggle { border: 1px solid #527062; border-radius: .5rem; display: block; padding: .5rem .75rem; } .links { display: none; margin-top: .75rem; overflow: visible; } .links[data-mobile-open='true'] { display: block; } .mobileSignOut { border-top: 1px solid #315044; display: block; margin-top: .375rem; padding-top: .75rem; text-align: left; width: 100%; } }

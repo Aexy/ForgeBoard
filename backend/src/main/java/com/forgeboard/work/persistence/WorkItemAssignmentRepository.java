@@ -28,9 +28,10 @@ public interface WorkItemAssignmentRepository extends JpaRepository<WorkItemAssi
     List<WorkItemRoleAssignmentView> findRolesByFirmIdAndWorkItemIdIn(@Param("firmId") UUID firmId,
             @Param("itemIds") List<UUID> itemIds);
 
-    @Query("select new com.forgeboard.work.application.EmployeeWorkItemView(w.id, w.title, w.workflowId, w.stageId, s.name, s.attention, w.dueDate) " +
+    @Query("select new com.forgeboard.work.application.EmployeeWorkItemView(w.taskReference, w.title, b.workflowSlug, s.name, s.attention, w.dueDate) " +
             "from WorkItemAssignment a join WorkItem w on w.id = a.workItemId and w.firmId = a.firmId " +
             "join WorkflowStage s on s.id = w.stageId and s.firmId = w.firmId " +
+            "join WorkflowBoard b on b.id = w.workflowId and b.firmId = w.firmId " +
             "where a.firmId = :firmId and a.userId = :userId and a.assignmentRole = com.forgeboard.work.domain.AssignmentRole.OWNER " +
             "order by w.dueDate asc nulls last, w.id asc")
     List<EmployeeWorkItemView> findDashboardByFirmIdAndUserId(@Param("firmId") UUID firmId,

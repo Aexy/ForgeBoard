@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   notFound: vi.fn(() => { throw new Error('NOT_FOUND') }),
   redirect: vi.fn(() => { throw new Error('REDIRECT') }),
+  usePathname: vi.fn(() => '/firms/hearth-accounting/my-work'),
 }))
 
 vi.mock('next/link', () => ({
@@ -18,6 +19,7 @@ vi.mock('next/link', () => ({
 vi.mock('next/navigation', () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
+  usePathname: mocks.usePathname,
 }))
 
 vi.mock('@/auth', () => ({ auth: mocks.auth }))
@@ -78,7 +80,7 @@ describe('firm route layout', () => {
       firmId: accessibleSession.firms[0].id,
       firmSlug: accessibleSession.firms[0].slug,
       role: accessibleSession.firms[0].role,
-    }} />)
+    }} userEmail="owner@example.com" />)
 
     expect(screen.getByRole('link', { name: 'Workflow' })).toHaveAttribute('href', '/firms/hearth-accounting/workflow')
     expect(screen.getByRole('link', { name: 'My work' })).toHaveAttribute('href', '/firms/hearth-accounting/my-work')
@@ -86,11 +88,11 @@ describe('firm route layout', () => {
   })
 
   it('matches operational navigation to the distinct employee and audit permissions', () => {
-    const { rerender } = render(<FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth-accounting', role: 'MANAGER' }} />)
+    const { rerender } = render(<FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth-accounting', role: 'MANAGER' }} userEmail="manager@example.com" />)
     expect(screen.getByRole('link', { name: 'Activity trail' })).toHaveAttribute('href', '/firms/hearth-accounting/audit-trail')
     expect(screen.queryByRole('link', { name: 'Employees' })).not.toBeInTheDocument()
 
-    rerender(<FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth-accounting', role: 'ADMINISTRATOR' }} />)
+    rerender(<FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth-accounting', role: 'ADMINISTRATOR' }} userEmail="administrator@example.com" />)
     expect(screen.getByRole('link', { name: 'Employees' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Activity trail' })).not.toBeInTheDocument()
   })

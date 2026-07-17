@@ -8,6 +8,8 @@ import com.forgeboard.work.domain.WorkflowBoard;
 
 public interface WorkflowRepository extends JpaRepository<WorkflowBoard, UUID> {
     Optional<WorkflowBoard> findByIdAndFirmId(UUID id, UUID firmId);
+    Optional<WorkflowBoard> findByFirmIdAndWorkflowSlug(UUID firmId, String workflowSlug);
+    boolean existsByFirmIdAndWorkflowSlug(UUID firmId, String workflowSlug);
     boolean existsByIdAndFirmId(UUID id, UUID firmId);
     List<WorkflowBoard> findAllByFirmIdOrderByNameAsc(UUID firmId);
 }

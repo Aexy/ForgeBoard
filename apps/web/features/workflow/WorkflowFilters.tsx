@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useWorkflowLanguage } from './useWorkflowLanguage'
 import type { WorkflowFilterView } from '@/store/api'
+import styles from './WorkflowBoard.module.css'
 
 export interface BoardFilters { client: string; owner: string; due: string; priority: string; unassigned: boolean }
 
@@ -26,7 +27,7 @@ export function WorkflowFilters({ basePath, savedViews = [] }: Readonly<{ basePa
     router.replace(`${basePath}${query.size ? `?${query}` : ''}`)
   }
   const applyView = (viewId: string) => { const view = savedViews.find((candidate) => candidate.id === viewId); if (view) replace({ client: view.clientId ?? '', owner: view.ownerUserId ?? '', due: dueFilter(view.dueState), priority: view.priority ?? '', unassigned: Boolean(view.unassigned) }) }
-  return <details>
+  return <details className={styles.workflowFilters}>
     <summary>{t('Filters')}</summary>
     <div>
       <label>{t('Client')}<input aria-label={t('Client')} value={filters.client} onChange={(event) => replace({ client: event.target.value })} /></label>

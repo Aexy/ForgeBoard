@@ -7,7 +7,13 @@ import type { FirmContext } from '@/lib/firm-context'
 export interface WorkflowBoard {
   id: string
   name: string
+  workflowSlug: string
   stages: WorkflowStage[]
+}
+
+export interface PublicWorkflowRequest {
+  firm: FirmContext
+  workflowSlug: string
 }
 
 export interface WorkflowRequest {
@@ -18,11 +24,11 @@ export interface WorkflowRequest {
 export type ClientStatus = 'ACTIVE' | 'ARCHIVED'
 export interface Client { id: string; legalName: string; displayName: string; primaryEmail: string | null; status: ClientStatus; version: number }
 export interface ClientDetails { legalName: string; displayName: string; primaryEmail: string }
-export interface EmployeeWorkItem { id: string; title: string; workflowId: string; stageId: string; stageName: string; attention: 'NONE' | 'BLOCKED' | 'AWAITING_REVIEW'; dueDate: string | null }
+export interface EmployeeWorkItem { taskReference: string; title: string; workflowSlug: string; stageName: string; attention: 'NONE' | 'BLOCKED' | 'AWAITING_REVIEW'; dueDate: string | null }
 export interface MyWorkDashboard { today: string; overdue: EmployeeWorkItem[]; dueSoon: EmployeeWorkItem[]; blocked: EmployeeWorkItem[]; awaitingReview: EmployeeWorkItem[]; active: EmployeeWorkItem[] }
 export type WorkPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 export type StageAttention = 'NONE' | 'BLOCKED' | 'AWAITING_REVIEW'
-export interface WorkItem { id: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId: string | null; ownerDisplayName: string | null; reviewerUserId: string | null; reviewerDisplayName: string | null }
+export interface WorkItem { id: string; taskReference: string; clientId: string; stageId: string; title: string; description: string; dueDate: string | null; priority: WorkPriority; rank: number; version: number; ownerUserId: string | null; ownerDisplayName: string | null; reviewerUserId: string | null; reviewerDisplayName: string | null }
 export interface WorkflowStage { id: string; name: string; attention: StageAttention; position: number; items: WorkItem[] }
 export interface DocumentRequestSummary { id: string; label: string; dueDate: string | null; status: 'REQUESTED' | 'RECEIVED'; receivedAt: string | null }
 export interface ActivitySummary { action: string; occurredAt: string; summary: Record<string, unknown>; actorType: string; source: string; targetId: string }
@@ -33,7 +39,8 @@ export interface AuditTrailFilters { action?: string; actorType?: AuditActorType
 export interface AuditTrailPage { items: AuditTrailActivity[]; nextCursor: string | null }
 export interface WorkItemDetail { item: WorkItem; clientDisplayName: string; documentRequests: DocumentRequestSummary[]; activity: ActivitySummary[] }
 export interface Employee { membershipId: string; userId: string; displayName: string; email: string; role: 'OWNER' | 'ADMINISTRATOR' | 'MANAGER' | 'MEMBER' | 'READ_ONLY' }
-export interface WorkflowSummary { id: string; name: string; version: number }
+export interface WorkflowSummary { id: string; name: string; workflowSlug: string }
+export interface CreateWorkflowDetails { name: string; stages: Array<{ name: string; attention: StageAttention }> }
 export type Recurrence = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL'
 export interface EngagementTemplate { id: string; name: string; workflowId: string; recurrence: Recurrence; defaultWorkItemTitle: string; dueDay: number; version: number }
 export interface Engagement { id: string; templateId: string; clientId: string; workflowId: string; workItemId: string | null; periodStart: string; periodEnd: string; dueDate: string; status: 'OPEN' | 'COMPLETE' | 'CANCELLED'; version: number }
@@ -52,12 +59,12 @@ export const forgeboardApi = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: proxyBaseUrl, credentials: 'same-origin' }),
   tagTypes: ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail', 'Engagement', 'EngagementTemplate', 'DocumentRequest'],
   endpoints: (build) => ({
-    getWorkflowBoard: build.query<WorkflowBoard, WorkflowRequest>({
-      query: ({ firm, workflowId }) => ({
-        url: `workflows/${encodeURIComponent(workflowId)}`,
+    getWorkflowBoard: build.query<WorkflowBoard, PublicWorkflowRequest>({
+      query: ({ workflowSlug }) => ({
+        url: `workflows/public/${encodeURIComponent(workflowSlug)}`,
       }),
-      providesTags: (_result, _error, { firm, workflowId }) => [
-        { type: 'Workflow', id: firmTag(firm.firmId, workflowId) },
+      providesTags: (result, _error, { firm, workflowSlug }) => [
+        { type: 'Workflow', id: firmTag(firm.firmId, result?.id ?? workflowSlug) },
       ],
     }),
     updateWorkflow: build.mutation<WorkflowBoard, WorkflowRequest & { body: Record<string, unknown> }>({
@@ -70,12 +77,12 @@ export const forgeboardApi = createApi({
         { type: 'Workflow', id: firmTag(firm.firmId, workflowId) },
       ],
     }),
-    getWorkItemDetail: build.query<WorkItemDetail, WorkflowRequest & { itemId: string }>({
-      query: ({ workflowId, itemId }) => ({ url: `workflows/${encodeURIComponent(workflowId)}/items/${encodeURIComponent(itemId)}` }),
-      providesTags: (_result, _error, { firm, workflowId, itemId }) => [
+    getWorkItemDetail: build.query<WorkItemDetail, PublicWorkflowRequest & { taskReference: string }>({
+      query: ({ workflowSlug, taskReference }) => ({ url: `workflows/public/${encodeURIComponent(workflowSlug)}/items/${encodeURIComponent(taskReference)}` }),
+      providesTags: (result, _error, { firm, workflowSlug, taskReference }) => [
         { type: 'WorkItem', id: firmTag(firm.firmId) },
-        { type: 'WorkItem', id: firmTag(firm.firmId, itemId) },
-        { type: 'Workflow', id: firmTag(firm.firmId, workflowId) },
+        { type: 'WorkItem', id: firmTag(firm.firmId, result?.item?.id ?? taskReference) },
+        { type: 'Workflow', id: firmTag(firm.firmId, workflowSlug) },
       ],
     }),
     moveWorkItem: build.mutation<WorkItem, WorkflowRequest & { itemId: string; targetStageId: string; expectedVersion: number }>({
@@ -121,6 +128,10 @@ export const forgeboardApi = createApi({
     getWorkflows: build.query<WorkflowSummary[], { firm: FirmContext }>({
       query: () => ({ url: 'workflows' }),
       providesTags: (_result, _error, { firm }) => [{ type: 'Workflow', id: firmTag(firm.firmId) }],
+    }),
+    createWorkflow: build.mutation<WorkflowBoard, { firm: FirmContext; details: CreateWorkflowDetails }>({
+      query: ({ details }) => ({ url: 'workflows', method: 'POST', body: details }),
+      invalidatesTags: (_result, _error, { firm }) => [{ type: 'Workflow', id: firmTag(firm.firmId) }],
     }),
     getEngagementTemplates: build.query<EngagementTemplate[], { firm: FirmContext }>({
       query: () => ({ url: 'engagements/templates' }),
@@ -193,4 +204,4 @@ export const forgeboardApi = createApi({
   }),
 })
 
-export const { useArchiveClientMutation, useCreateClientMutation, useCreateDocumentRequestMutation, useCreateEmployeeMutation, useCreateEngagementMutation, useCreateEngagementTemplateMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetDocumentRequestsQuery, useGetEmployeesQuery, useGetEngagementsQuery, useGetEngagementTemplatesQuery, useGetMyWorkQuery, useGetWorkflowsQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useReceiveDocumentRequestMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi
+export const { useArchiveClientMutation, useCreateClientMutation, useCreateDocumentRequestMutation, useCreateEmployeeMutation, useCreateEngagementMutation, useCreateEngagementTemplateMutation, useCreateWorkflowMutation, useGetAuditTrailQuery, useGetClientsQuery, useGetDocumentRequestsQuery, useGetEmployeesQuery, useGetEngagementsQuery, useGetEngagementTemplatesQuery, useGetMyWorkQuery, useGetWorkflowsQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation, useReceiveDocumentRequestMutation, useUpdateWorkflowMutation, useUpdateWorkItemOwnerMutation, useUpdateWorkItemReviewerMutation } = forgeboardApi

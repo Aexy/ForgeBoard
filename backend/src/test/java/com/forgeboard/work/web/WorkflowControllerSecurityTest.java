@@ -228,6 +228,21 @@ class WorkflowControllerSecurityTest {
     }
 
     @Test
+    void returnsNotFoundForPublicWorkflowValuesOutsideTheSelectedFirm() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, "member@example.com", MembershipRole.MEMBER);
+        doThrow(new WorkNotFoundException("Workflow was not found in the selected firm"))
+                .when(workflows).getBoard(tenant, "other-firm-workflow");
+
+        mockMvc.perform(get("/api/workflows/public/other-firm-workflow")
+                        .with(user("member@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId))
+                .andExpect(status().isNotFound());
+
+        verify(workflows).getBoard(tenant, "other-firm-workflow");
+    }
+
+    @Test
     void returnsNotFoundWhenLinkingARequestForAnotherClient() throws Exception {
         UUID firmId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();

@@ -20,9 +20,10 @@ describe('My Work route feature', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
   })
   it('renders the assigned work groups', () => {
-    mocks.useGetMyWorkQuery.mockReturnValue({ isLoading: false, data: { overdue: [{ id: 'item-1', title: 'Prepare VAT return', stageName: 'Preparation', dueDate: '2026-07-16' }], dueSoon: [], blocked: [], awaitingReview: [], active: [] } })
+    mocks.useGetMyWorkQuery.mockReturnValue({ isLoading: false, data: { overdue: [{ taskReference: 'FB-1042', workflowSlug: 'monthly-close', title: 'Prepare VAT return', stageName: 'Preparation', dueDate: '2026-07-16' }], dueSoon: [], blocked: [], awaitingReview: [], active: [] } })
     render(<MyWorkDashboard />)
     expect(screen.getByRole('heading', { name: 'My work' })).toBeVisible()
     expect(screen.getByText('Prepare VAT return')).toBeVisible()
+    expect(screen.getByRole('link', { name: /Prepare VAT return/ })).toHaveAttribute('href', '/firms/hearth/workflow/monthly-close/tasks/FB-1042')
   })
 })

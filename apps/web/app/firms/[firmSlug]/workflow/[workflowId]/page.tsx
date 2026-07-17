@@ -1,6 +1,26 @@
-import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
+import { notFound, redirect } from 'next/navigation'
 
-export default async function WorkflowPage({ params }: Readonly<{ params: Promise<{ firmSlug: string; workflowId: string }> }>) {
-  const { firmSlug, workflowId } = await params
-  return <WorkflowBoard workflowId={workflowId} basePath={`/firms/${firmSlug}/workflow/${workflowId}`} />
+import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
+import { isUuidRouteValue, publicTaskForLegacyIds, publicWorkflowForLegacyId } from '@/lib/legacy-workflow-route'
+import { canonicalBoardQuery } from '@/lib/workflow-route-query'
+
+export default async function WorkflowPage({ params, searchParams }: Readonly<{ params: Promise<{ firmSlug: string; workflowId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }>) {
+  const { firmSlug, workflowId: workflowSlug } = await params
+  if (isUuidRouteValue(workflowSlug)) {
+    const workflow = await publicWorkflowForLegacyId(firmSlug, workflowSlug)
+    if (!workflow) notFound()
+    const legacyQuery = await searchParams
+    const legacyTask = typeof legacyQuery.task === 'string' ? legacyQuery.task : undefined
+    const task = legacyTask && isUuidRouteValue(legacyTask)
+      ? await publicTaskForLegacyIds(firmSlug, workflowSlug, legacyTask)
+      : undefined
+    const query = canonicalBoardQuery(legacyQuery, task?.item.taskReference)
+    redirect(`/firms/${firmSlug}/workflow/${workflow.workflowSlug}${query.size ? `?${query}` : ''}`)
+  }
+  const query = await searchParams
+  if (Array.isArray(query.task) || (typeof query.task === 'string' && isUuidRouteValue(query.task))) {
+    const canonicalQuery = canonicalBoardQuery(query)
+    redirect(`/firms/${firmSlug}/workflow/${workflowSlug}${canonicalQuery.size ? `?${canonicalQuery}` : ''}`)
+  }
+  return <WorkflowBoard workflowSlug={workflowSlug} basePath={`/firms/${firmSlug}/workflow/${workflowSlug}`} />
 }

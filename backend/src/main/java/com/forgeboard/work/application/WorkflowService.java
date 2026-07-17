@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Locale;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import com.forgeboard.document.DocumentRequestSummary;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.ActivityDirectory;
 import com.forgeboard.identity.EmployeeDirectory;
+import com.forgeboard.identity.FirmDirectory;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.work.domain.AssignmentRole;
@@ -49,6 +51,7 @@ public class WorkflowService {
     private final WorkItemDocumentRequestRepository documentLinks;
     private final ActivityDirectory activityQueries;
     private final SavedWorkflowViewRepository savedViews;
+    private final FirmDirectory firms;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages,
             WorkItemRepository items, ClientDirectory clients, ActivityRecorder activity, Clock clock) {
@@ -57,6 +60,7 @@ public class WorkflowService {
         this.membershipAccess = null; this.assignments = null; this.employees = null;
         this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
         this.savedViews = null;
+        this.firms = null;
     }
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
@@ -66,6 +70,7 @@ public class WorkflowService {
         this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
         this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
         this.savedViews = null;
+        this.firms = null;
     }
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
@@ -73,7 +78,16 @@ public class WorkflowService {
             WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
             WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries) {
         this(workflows, stages, items, clients, activity, clock, membershipAccess, assignments, employees,
-                documentRequests, documentLinks, activityQueries, null);
+                documentRequests, documentLinks, activityQueries, null, null);
+    }
+
+    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
+            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
+            WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
+            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries,
+            SavedWorkflowViewRepository savedViews) {
+        this(workflows, stages, items, clients, activity, clock, membershipAccess, assignments, employees,
+                documentRequests, documentLinks, activityQueries, savedViews, null);
     }
 
     @Autowired
@@ -81,17 +95,17 @@ public class WorkflowService {
             ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
             WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
             WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries,
-            SavedWorkflowViewRepository savedViews) {
+            SavedWorkflowViewRepository savedViews, FirmDirectory firms) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
         this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
         this.documentRequests = documentRequests; this.documentLinks = documentLinks; this.activityQueries = activityQueries;
-        this.savedViews = savedViews;
+        this.savedViews = savedViews; this.firms = firms;
     }
 
     @Transactional(readOnly = true)
     public List<WorkflowSummary> list(SelectedTenant tenant) {
         return workflows.findAllByFirmIdOrderByNameAsc(tenant.firmId()).stream()
-                .map(workflow -> new WorkflowSummary(workflow.id(), workflow.name())).toList();
+                .map(workflow -> new WorkflowSummary(workflow.id(), workflow.name(), workflow.workflowSlug())).toList();
     }
 
     @Transactional(readOnly = true)
@@ -131,8 +145,10 @@ public class WorkflowService {
     public BoardView createWorkflow(SelectedTenant tenant, WorkflowRequest request) {
         requireWrite(tenant);
         var now = clock.instant();
-        WorkflowBoard workflow = workflows.save(new WorkflowBoard(UUID.randomUUID(), tenant.firmId(),
-                request.name().strip(), now));
+        String name = request.name().strip();
+        lockFirmForWorkflowSlugAllocation(tenant.firmId());
+        WorkflowBoard workflow = workflows.save(new WorkflowBoard(UUID.randomUUID(), tenant.firmId(), name,
+                nextWorkflowSlug(tenant.firmId(), name), now));
         List<WorkflowStage> createdStages = new ArrayList<>();
         for (int position = 0; position < request.stages().size(); position++) {
             createdStages.add(stages.save(new WorkflowStage(UUID.randomUUID(), tenant.firmId(), workflow.id(),
@@ -150,6 +166,12 @@ public class WorkflowService {
         return board(workflow, stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId), boardItems);
     }
 
+    @Transactional(readOnly = true)
+    public BoardView getBoard(SelectedTenant tenant, String workflowSlug) {
+        WorkflowBoard workflow = requireWorkflow(tenant, workflowSlug);
+        return getBoard(tenant, workflow.id());
+    }
+
     @Transactional
     public WorkItemView createItem(SelectedTenant tenant, UUID workflowId, WorkItemRequest request) {
         requireWrite(tenant);
@@ -160,7 +182,7 @@ public class WorkflowService {
         BigDecimal rank = nextRank(tenant.firmId(), workflowId, request.stageId());
         WorkItem item = items.save(new WorkItem(UUID.randomUUID(), tenant.firmId(), request.clientId(), workflowId,
                 request.stageId(), request.title().strip(), normalizeDescription(request.description()),
-                request.dueDate(), request.priority(), rank, clock.instant()));
+                request.dueDate(), request.priority(), rank, items.allocateTaskReference(), clock.instant()));
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.created", "work-item",
                 item.id(), Map.of("title", item.title(), "workflowId", workflowId.toString()));
         return view(item);
@@ -213,6 +235,14 @@ public class WorkflowService {
                 .map(this::documentView).toList();
         return new WorkItemDetailView(viewWithRoles(item), clientDisplayName, linkedRequests,
                 activityQueries.recent(tenant, "work-item", item.id()));
+    }
+
+    @Transactional(readOnly = true)
+    public WorkItemDetailView getItemDetail(SelectedTenant tenant, String workflowSlug, String taskReference) {
+        WorkflowBoard workflow = requireWorkflow(tenant, workflowSlug);
+        WorkItem item = items.findByFirmIdAndWorkflowIdAndTaskReference(tenant.firmId(), workflow.id(), taskReference)
+                .orElseThrow(() -> new WorkNotFoundException("Work item was not found in the selected workflow"));
+        return getItemDetail(tenant, workflow.id(), item.id());
     }
 
     @Transactional
@@ -289,6 +319,11 @@ public class WorkflowService {
                 .orElseThrow(() -> new WorkNotFoundException("Workflow was not found in the selected firm"));
     }
 
+    private WorkflowBoard requireWorkflow(SelectedTenant tenant, String workflowSlug) {
+        return workflows.findByFirmIdAndWorkflowSlug(tenant.firmId(), workflowSlug)
+                .orElseThrow(() -> new WorkNotFoundException("Workflow was not found in the selected firm"));
+    }
+
     private void lockStage(UUID firmId, UUID workflowId, UUID stageId) {
         stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, firmId, workflowId)
                 .orElseThrow(() -> new WorkNotFoundException("Stage was not found in the selected workflow"));
@@ -306,7 +341,7 @@ public class WorkflowService {
         List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(), stage.attention(),
                 stage.position(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
                         .map(item -> view(item, roles.getOrDefault(item.id(), Map.of()), names)).toList())).toList();
-        return new BoardView(workflow.id(), workflow.name(), stageViews);
+        return new BoardView(workflow.id(), workflow.name(), workflow.workflowSlug(), stageViews);
     }
 
     private WorkItemView view(WorkItem item) {
@@ -316,13 +351,13 @@ public class WorkflowService {
         return view(item, ownerUserId, null);
     }
     private WorkItemView view(WorkItem item, UUID ownerUserId, String ownerDisplayName) {
-        return new WorkItemView(item.id(), item.clientId(), item.stageId(), item.title(), item.description(),
+        return new WorkItemView(item.id(), item.taskReference(), item.clientId(), item.stageId(), item.title(), item.description(),
                 item.dueDate(), item.priority(), item.rank(), item.version(), ownerUserId, ownerDisplayName, null, null);
     }
     private WorkItemView view(WorkItem item, Map<AssignmentRole, UUID> roles, Map<UUID, String> names) {
         UUID owner = roles.get(AssignmentRole.OWNER);
         UUID reviewer = roles.get(AssignmentRole.REVIEWER);
-        return new WorkItemView(item.id(), item.clientId(), item.stageId(), item.title(), item.description(),
+        return new WorkItemView(item.id(), item.taskReference(), item.clientId(), item.stageId(), item.title(), item.description(),
                 item.dueDate(), item.priority(), item.rank(), item.version(), owner,
                 owner == null ? null : names.get(owner), reviewer, reviewer == null ? null : names.get(reviewer));
     }
@@ -352,6 +387,21 @@ public class WorkflowService {
     }
 
     private String normalizeDescription(String description) { return description == null ? "" : description.strip(); }
+    private String nextWorkflowSlug(UUID firmId, String name) {
+        String base = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (base.isBlank()) base = "workflow";
+        String candidate = base;
+        int suffix = 2;
+        while (workflows.existsByFirmIdAndWorkflowSlug(firmId, candidate)) candidate = base + "-" + suffix++;
+        return candidate;
+    }
+    private void lockFirmForWorkflowSlugAllocation(UUID firmId) {
+        if (firms == null) return;
+        if (!firms.lockExisting(firmId)) {
+            throw new WorkNotFoundException("Firm was not found for workflow creation");
+        }
+    }
     private void requireWrite(SelectedTenant tenant) {
         if (!tenant.canWrite()) throw new AccessDeniedException("Read-only members cannot change workflows");
     }
