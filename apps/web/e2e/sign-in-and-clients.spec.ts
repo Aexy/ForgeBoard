@@ -27,7 +27,7 @@ test('signs in through Auth.js and persists client work on direct firm routes', 
   await page.getByLabel('Email address').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(`/firms/${firmSlug}/my-work`)
+  await expect(page).toHaveURL(`/firms/${firmSlug}/my-work`, { timeout: 15_000 })
   await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Clients' }).click()

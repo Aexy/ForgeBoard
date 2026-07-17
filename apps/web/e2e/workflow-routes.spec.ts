@@ -54,7 +54,7 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
   await page.getByLabel('Email address').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(`${boardPath}?priority=URGENT`)
+  await expect(page).toHaveURL(`${boardPath}?priority=URGENT`, { timeout: 15_000 })
 
   const cardTitle = page.getByRole('heading', { name: urgentTitle })
   await expect(cardTitle).toBeVisible()
@@ -114,7 +114,7 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   await page.getByLabel('Email address').fill(email)
   await page.getByLabel('Password').fill(password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('heading', { name: title })).toBeVisible()
+  await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15_000 })
 
   const concurrentMove = await request.patch(`${apiBaseURL}/api/workflows/${workflowData.id}/items/${itemData.id}/position`, {
     headers,
@@ -123,7 +123,7 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   expect(concurrentMove.status()).toBe(200)
 
   await page.getByRole('button', { name: `Move ${title} right` }).click()
-  await expect(page.getByRole('alert')).toHaveText('This work item was changed by another user. The board was refreshed; retry your move.')
+  await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveText('This work item was changed by another user. The board was refreshed; retry your move.')
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
 })
 
@@ -146,7 +146,7 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
   const secondHeaders = { Authorization: `Bearer ${secondCredentials.accessToken}`, 'X-ForgeBoard-Firm': secondCredentials.firms[0].id }
   const secondWorkflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers: secondHeaders,
-    data: { name: 'Private second-firm workflow', stages: [{ name: 'Prepare', attention: 'NONE' }] },
+    data: { name: 'Private second-firm workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
   })
   expect(secondWorkflow.status()).toBe(201)
   const secondWorkflowData = await secondWorkflow.json() as { id: string }

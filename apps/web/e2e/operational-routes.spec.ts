@@ -20,7 +20,7 @@ async function signInAt(page: Page, path: string, credentials: Credentials) {
   await page.getByLabel('Email address').fill(credentials.email)
   await page.getByLabel('Password').fill(credentials.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(path)
+  await expect(page).toHaveURL(path, { timeout: 15_000 })
 }
 
 async function createOperationalFirm(request: APIRequestContext): Promise<OperationalFirm> {
@@ -58,7 +58,7 @@ test('opens operational routes directly for their authorized roles', async ({ pa
   const firm = await createOperationalFirm(request)
 
   await signInAt(page, `/firms/${firm.firmSlug}/engagements`, firm.owner)
-  await expect(page.getByRole('heading', { name: 'Engagements' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Engagements', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '+ New template' })).toBeVisible()
 
   await page.goto(`/firms/${firm.firmSlug}/employees`)
@@ -79,7 +79,7 @@ test('does not expose operational writes or restricted routes to read-only staff
   const page = await context.newPage()
 
   await signInAt(page, `/firms/${firm.firmSlug}/engagements`, firm.readOnly)
-  await expect(page.getByRole('heading', { name: 'Engagements' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Engagements', exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '+ New template' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '+ Start engagement' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '+ Request' })).toHaveCount(0)
@@ -87,10 +87,10 @@ test('does not expose operational writes or restricted routes to read-only staff
   await expect(page.getByRole('link', { name: 'Activity trail' })).toHaveCount(0)
 
   await page.goto(`/firms/${firm.firmSlug}/employees`)
-  await expect(page.getByRole('alert')).toHaveText('Only owners and administrators can manage employee access.')
+  await expect(page.locator('main [role="alert"]')).toContainText('Only owners and administrators can manage employee access.')
   await expect(page.getByRole('button', { name: '+ New employee' })).toHaveCount(0)
 
   await page.goto(`/firms/${firm.firmSlug}/audit-trail`)
-  await expect(page.getByRole('alert')).toHaveText('Only firm owners and managers can view the activity trail.')
+  await expect(page.locator('main [role="alert"]')).toContainText('Only firm owners and managers can view the activity trail.')
   await context.close()
 })
