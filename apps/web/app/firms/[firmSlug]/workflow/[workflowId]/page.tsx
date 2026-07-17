@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 
 import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
 import { isUuidRouteValue, publicTaskForLegacyIds, publicWorkflowForLegacyId } from '@/lib/legacy-workflow-route'
-import { canonicalBoardQuery } from '@/lib/workflow-route-query'
+import { canonicalBoardQuery, isCanonicalBoardQuery } from '@/features/workflow/workflow-route-state'
 
 export default async function WorkflowPage({ params, searchParams }: Readonly<{ params: Promise<{ firmSlug: string; workflowId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }>) {
   const { firmSlug, workflowId: workflowSlug } = await params
@@ -18,7 +18,7 @@ export default async function WorkflowPage({ params, searchParams }: Readonly<{ 
     redirect(`/firms/${firmSlug}/workflow/${workflow.workflowSlug}${query.size ? `?${query}` : ''}`)
   }
   const query = await searchParams
-  if (Array.isArray(query.task) || (typeof query.task === 'string' && isUuidRouteValue(query.task))) {
+  if (!isCanonicalBoardQuery(query)) {
     const canonicalQuery = canonicalBoardQuery(query)
     redirect(`/firms/${firmSlug}/workflow/${workflowSlug}${canonicalQuery.size ? `?${canonicalQuery}` : ''}`)
   }

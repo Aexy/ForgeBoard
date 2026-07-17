@@ -50,9 +50,9 @@ describe('WorkflowBoard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(router.replace).toHaveBeenLastCalledWith('/firms/hearth/workflow/monthly-close?priority=URGENT')
   })
-  it('presents task detail as an accessible dialog and closes it with Escape', () => {
+  it('presents task detail as an accessible complementary panel and closes it with Escape', () => {
     render(<TaskPanel detail={detail} boardPath="/firms/hearth/workflow/monthly-close" taskPath="/firms/hearth/workflow/monthly-close/tasks/FB-1042" />)
-    expect(screen.getByRole('dialog', { name: 'July close details' })).toHaveFocus()
+    expect(screen.getByRole('complementary', { name: 'July close details' })).toHaveFocus()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(router.replace).toHaveBeenLastCalledWith('/firms/hearth/workflow/monthly-close')
   })

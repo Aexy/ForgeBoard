@@ -15,8 +15,8 @@ export default defineConfig({
   },
   webServer: {
     command: 'node ./node_modules/next/dist/bin/next dev --port 3000',
-    // The App Router intentionally has no public root route. Probe the
-    // available sign-in route so Playwright can reuse or start Next reliably.
+    // Probe the dedicated sign-in compatibility route so Playwright can reuse
+    // or start Next reliably without depending on an authenticated page.
     url: new URL('/sign-in', baseURL).toString(),
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
@@ -31,5 +31,16 @@ export default defineConfig({
       FORGEBOARD_PREVIEW_FIRM_SLUGS: '',
     },
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      testIgnore: /mobile-workflow\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile-chrome',
+      testMatch: /mobile-workflow\.spec\.ts/,
+      use: { ...devices['Pixel 5'] },
+    },
+  ],
 })

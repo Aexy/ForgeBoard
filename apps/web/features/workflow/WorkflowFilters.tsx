@@ -4,12 +4,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useWorkflowLanguage } from './useWorkflowLanguage'
 import type { WorkflowFilterView } from '@/store/api'
 import styles from './WorkflowBoard.module.css'
+import { filteredBoardPath, filtersFromSearch, type BoardFilters } from './workflow-route-state'
 
-export interface BoardFilters { client: string; owner: string; due: string; priority: string; unassigned: boolean }
-
-export function filtersFromSearch(search: Pick<URLSearchParams, 'get'>): BoardFilters {
-  return { client: search.get('client') ?? '', owner: search.get('owner') ?? '', due: search.get('due') ?? '', priority: search.get('priority') ?? '', unassigned: search.get('unassigned') === 'true' }
-}
+export { filtersFromSearch, type BoardFilters } from './workflow-route-state'
 
 function dueFilter(value: WorkflowFilterView['dueState']) { return value === 'OVERDUE' ? 'overdue' : value === 'DUE_TODAY' ? 'today' : value === 'DUE_SOON' ? 'soon' : value === 'NO_DUE_DATE' ? 'none' : '' }
 
@@ -19,12 +16,7 @@ export function WorkflowFilters({ basePath, savedViews = [] }: Readonly<{ basePa
   const t = useWorkflowLanguage()
   const filters = filtersFromSearch(search)
   const replace = (next: Partial<BoardFilters>) => {
-    const query = new URLSearchParams(search.toString())
-    const values = { ...filters, ...next }
-    ;(['client', 'owner', 'due', 'priority'] as const).forEach((key) => values[key] ? query.set(key, values[key]) : query.delete(key))
-    values.unassigned ? query.set('unassigned', 'true') : query.delete('unassigned')
-    query.delete('task')
-    router.replace(`${basePath}${query.size ? `?${query}` : ''}`)
+    router.replace(filteredBoardPath(basePath, search, next))
   }
   const applyView = (viewId: string) => { const view = savedViews.find((candidate) => candidate.id === viewId); if (view) replace({ client: view.clientId ?? '', owner: view.ownerUserId ?? '', due: dueFilter(view.dueState), priority: view.priority ?? '', unassigned: Boolean(view.unassigned) }) }
   return <details className={styles.workflowFilters}>

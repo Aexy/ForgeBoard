@@ -51,7 +51,7 @@
   .card { min-height: 9rem; padding: .7rem; }
   .card:hover { transform: none; }
   .cardActions button { min-height: 2.5rem; }
-  .taskPanel { border: 0; border-radius: 1rem 1rem 0 0; bottom: 0; box-shadow: 0 -12px 30px #1731262b; left: 0; max-height: min(82dvh, 44rem); overflow-y: auto; padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 20; }
+  .taskPanel { border: 0; border-radius: 1rem 1rem 0 0; bottom: 0; box-shadow: 0 -12px 30px #1731262b; height: min(82dvh, 44rem); left: 0; overflow-y: auto; padding: 1.25rem 1rem calc(1.25rem + env(safe-area-inset-bottom)); position: fixed; right: 0; top: auto; z-index: 20; }
   .taskPanel::before { background: #b7cabd; border-radius: 999px; content: ''; display: block; height: .25rem; margin: -.5rem auto 1rem; width: 2.5rem; }
   .taskWorkspaceGrid { grid-template-columns: 1fr; }
   .taskWorkspaceGrid > article { min-height: auto; padding: 1rem; }
