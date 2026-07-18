@@ -4,20 +4,11 @@ import { auth } from '@/auth'
 import { createFirmContextValue, FIRM_CONTEXT_COOKIE } from '@/lib/firm-context-cookie'
 import { firmContextForSlug } from '@/lib/firm-context'
 import { serverEnvironment } from '@/lib/env'
+import { isAllowedMutationOrigin } from '@/lib/mutation-origin'
 import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 
-function originIsAllowed(request: Request): boolean {
-  const origin = request.headers.get('origin')
-  if (!origin) return false
-  try {
-    return new URL(origin).origin === new URL(serverEnvironment().FORGEBOARD_PUBLIC_ORIGIN).origin
-  } catch {
-    return false
-  }
-}
-
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!originIsAllowed(request)) return NextResponse.json({ error: 'Cross-origin mutations are not allowed' }, { status: 403 })
+  if (!isAllowedMutationOrigin(request)) return NextResponse.json({ error: 'Cross-origin mutations are not allowed' }, { status: 403 })
 
   const session = await auth()
   if (!session?.user?.id || session.error === 'RefreshAccessTokenError') {

@@ -4,6 +4,13 @@
 .workspaceHeader p { margin: 0; color: #5c6d64; }
 .eyebrow, .cardReference { margin: 0; color: #267047; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .itemCount { padding: .48rem .7rem; border-radius: 999px; color: #315342; background: #e6f2e9; font-size: .78rem; font-weight: 750; white-space: nowrap; }
+.workflowFilters { border: 1px solid #c8dbce; border-radius: .65rem; background: #fff; width: 100%; }
+.workflowFilters summary { cursor: pointer; font-weight: 750; padding: .8rem .9rem; }
+.workflowFilters > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .75rem; padding: 0 .9rem .9rem; }
+.workflowFilters label { display: grid; gap: .3rem; color: #53635b; font-size: .78rem; font-weight: 700; }
+.workflowFilters input, .workflowFilters select, .workflowFilters button { min-height: 2.5rem; border: 1px solid #ccd6d0; border-radius: .45rem; background: #fff; font: inherit; padding: .45rem .6rem; }
+.workflowFilters label:has(input[type='checkbox']) { align-items: center; display: flex; min-height: 2.5rem; }
+.workflowFilters label input[type='checkbox'] { min-height: auto; }
 .boardAndPanel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(19rem, 23rem); gap: 1rem; align-items: flex-start; }
 .board { display: grid; grid-template-columns: repeat(4, minmax(15.3rem, 1fr)); gap: .85rem; align-items: flex-start; overflow-x: auto; padding-bottom: .75rem; }
 .column { min-height: 26rem; padding: .75rem; border: 1px solid #9dc9aa; border-radius: .75rem; background: #e9eeeb; box-shadow: inset 0 0 0 1px #eaf5ed; }
@@ -38,13 +45,7 @@
   .workspace, .taskWorkspace { gap: 1rem; padding: 1rem; }
   .workspaceHeader { align-items: flex-start; flex-direction: column; }
   .itemCount { order: -1; }
-  .workflowFilters { border: 1px solid #c8dbce; border-radius: .65rem; background: #fff; width: 100%; }
-  .workflowFilters summary { cursor: pointer; font-weight: 750; padding: .8rem .9rem; }
-  .workflowFilters > div { display: grid; gap: .75rem; padding: 0 .9rem .9rem; }
-  .workflowFilters label { display: grid; gap: .3rem; color: #53635b; font-size: .78rem; font-weight: 700; }
-  .workflowFilters input, .workflowFilters select, .workflowFilters button { min-height: 2.5rem; border: 1px solid #ccd6d0; border-radius: .45rem; background: #fff; font: inherit; padding: .45rem .6rem; }
-  .workflowFilters label:has(input[type='checkbox']) { align-items: center; display: flex; min-height: 2.5rem; }
-  .workflowFilters label input[type='checkbox'] { min-height: auto; }
+  .workflowFilters > div { grid-template-columns: 1fr; }
   .boardAndPanel { display: block; }
   .board { grid-template-columns: repeat(4, 16rem); gap: .75rem; margin-inline: -1rem; padding: 0 1rem 1rem; scroll-snap-type: x proximity; }
   .column { min-height: 22rem; scroll-snap-align: start; }

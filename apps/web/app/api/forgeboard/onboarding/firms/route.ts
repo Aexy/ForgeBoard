@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { serverEnvironment } from '@/lib/env'
+import { isAllowedMutationOrigin } from '@/lib/mutation-origin'
 
 type OnboardingDetails = { firmName: string; firmSlug: string; ownerName: string; ownerEmail: string; password: string }
 type SafeOnboardingResult = { firmId: string; firmSlug: string }
@@ -19,12 +20,6 @@ function validatedDetails(value: unknown): OnboardingDetails | undefined {
   return { firmName, firmSlug, ownerName, ownerEmail, password }
 }
 
-function isAllowedOrigin(request: Request): boolean {
-  const origin = request.headers.get('origin')
-  if (!origin) return false
-  try { return new URL(origin).origin === new URL(serverEnvironment().FORGEBOARD_PUBLIC_ORIGIN).origin } catch { return false }
-}
-
 function safeResult(value: unknown): SafeOnboardingResult | undefined {
   if (!value || typeof value !== 'object') return undefined
   const candidate = value as Record<string, unknown>
@@ -34,7 +29,7 @@ function safeResult(value: unknown): SafeOnboardingResult | undefined {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
-  if (!isAllowedOrigin(request)) return NextResponse.json({ error: 'Cross-origin onboarding is not allowed.' }, { status: 403 })
+  if (!isAllowedMutationOrigin(request)) return NextResponse.json({ error: 'Cross-origin onboarding is not allowed.' }, { status: 403 })
   const details = validatedDetails(await request.json().catch(() => undefined))
   if (!details) return NextResponse.json({ error: 'The onboarding details are invalid.' }, { status: 400 })
   const upstream = await fetch(new URL('/api/onboarding/firms', serverEnvironment().FORGEBOARD_API_BASE_URL), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(details), cache: 'no-store' })

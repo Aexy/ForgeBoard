@@ -46,6 +46,7 @@ describe('ForgeBoard BFF proxy', () => {
     vi.stubEnv('FORGEBOARD_TOKEN_ISSUER', 'forgeboard')
     vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://localhost:3000')
     vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', '')
+    vi.stubEnv('NODE_ENV', 'test')
     mocks.auth.mockResolvedValue(session)
     mocks.apiSessionFromRequest.mockResolvedValue(apiSession)
     mocks.upstreamResponse.mockResolvedValue(new Response(JSON.stringify({ items: [] }), {
@@ -148,6 +149,30 @@ describe('ForgeBoard BFF proxy', () => {
     expect(response.status).toBe(200)
     const forwarded = mocks.upstreamResponse.mock.calls[0][0]
     expect(new TextDecoder().decode(forwarded.body)).toBe('{"title":"July bookkeeping"}')
+  })
+
+  it('accepts a mutation from the incoming local origin when the configured public host uses an alias', async () => {
+    vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://127.0.0.1:3000')
+    const response = await POST(await request('POST', {
+      headers: { Origin: 'http://localhost:3000', 'Content-Type': 'application/json' },
+      body: '{}',
+    }), routeContext)
+
+    expect(response.status).toBe(200)
+    expect(mocks.upstreamResponse).toHaveBeenCalled()
+  })
+
+  it('does not allow development host aliases in production', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://127.0.0.1:3000')
+    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'hearth')
+    const response = await POST(await request('POST', {
+      headers: { Origin: 'http://localhost:3000', 'Content-Type': 'application/json' },
+      body: '{}',
+    }), routeContext)
+
+    expect(response.status).toBe(403)
+    expect(mocks.auth).not.toHaveBeenCalled()
   })
 
   it('rejects cross-origin mutations before session or backend access', async () => {

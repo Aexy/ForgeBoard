@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { authorizedFirmRoute } from '@/lib/authorized-firm-route'
 import { firmContextCookieBinding } from '@/lib/firm-context-cookie'
-import { serverEnvironment } from '@/lib/env'
+import { isAllowedMutationOrigin } from '@/lib/mutation-origin'
 import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 
 const SAFE_RESPONSE_HEADERS = [
@@ -23,18 +23,6 @@ function jsonError(status: number, error: string): NextResponse {
   return NextResponse.json({ error }, { status })
 }
 
-function isAllowedMutationOrigin(request: Request): boolean {
-  if (!UNSAFE_METHODS.has(request.method)) return true
-  const origin = request.headers.get('origin')
-  if (!origin) return false
-
-  try {
-    return new URL(origin).origin === new URL(serverEnvironment().FORGEBOARD_PUBLIC_ORIGIN).origin
-  } catch {
-    return false
-  }
-}
-
 function upstreamPath(path: string[], request: Request): string {
   const encodedPath = path.map((segment) => encodeURIComponent(segment)).join('/')
   return `/api/${encodedPath}${new URL(request.url).search}`
@@ -50,7 +38,7 @@ function safeUpstreamHeaders(request: Request): Headers {
 }
 
 async function proxy(request: Request, context: RouteContext): Promise<NextResponse> {
-  if (!isAllowedMutationOrigin(request)) return jsonError(403, 'Cross-origin mutations are not allowed')
+  if (UNSAFE_METHODS.has(request.method) && !isAllowedMutationOrigin(request)) return jsonError(403, 'Cross-origin mutations are not allowed')
 
   const authentication = await authorizedFirmRoute(request, '')
   if (authentication.kind === 'authentication-required') return jsonError(401, 'Authentication is required')

@@ -10,6 +10,7 @@ describe('public onboarding BFF', () => {
     vi.stubEnv('FORGEBOARD_TOKEN_ISSUER', 'forgeboard')
     vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://localhost:3000')
     vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', '')
+    vi.stubEnv('NODE_ENV', 'test')
     vi.stubGlobal('fetch', vi.fn())
   })
 
@@ -27,6 +28,15 @@ describe('public onboarding BFF', () => {
     const response = await POST(new Request('http://localhost:3000/api/forgeboard/onboarding/firms', { method: 'POST', headers: { Origin: 'http://localhost:3000' }, body: JSON.stringify({ firmSlug: 'Not safe' }) }))
     expect(response.status).toBe(400)
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('accepts a loopback development alias for the incoming onboarding origin', async () => {
+    vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://127.0.0.1:3000')
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ firmId: '11111111-1111-1111-1111-111111111111', firmSlug: 'hearth' }), { status: 201 }))
+
+    const response = await POST(new Request('http://localhost:3000/api/forgeboard/onboarding/firms', { method: 'POST', headers: { Origin: 'http://localhost:3000' }, body: JSON.stringify({ firmName: 'Hearth Accounting', firmSlug: 'hearth', ownerName: 'Owner Name', ownerEmail: 'owner@example.com', password: 'correct-password' }) }))
+
+    expect(response.status).toBe(201)
   })
 
   it('rejects cross-origin requests and strips unexpected upstream fields', async () => {
