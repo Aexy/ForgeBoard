@@ -38,15 +38,22 @@ final class WorkflowServiceFixture {
     final SavedWorkflowViewRepository savedViews = mock(SavedWorkflowViewRepository.class);
     final FirmDirectory firms = mock(FirmDirectory.class);
     final SelectedTenant tenant;
+    private final WorkflowBoardReader reader;
     private final WorkflowService service;
 
     WorkflowServiceFixture(Instant now) {
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
+        reader = new WorkflowBoardReader(workflows, stages, items, clients, assignments, employees, documentRequests,
+                documentLinks, activityQueries);
         service = new WorkflowService(workflows, stages, items, clients, activity, Clock.fixed(now, ZoneOffset.UTC),
-                membershipAccess, assignments, employees, documentRequests, documentLinks, activityQueries, savedViews, firms);
+                membershipAccess, assignments, documentRequests, documentLinks, savedViews, firms, reader);
     }
 
     WorkflowService service() {
         return service;
+    }
+
+    WorkflowBoardReader reader() {
+        return reader;
     }
 }
