@@ -9,9 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -19,9 +17,6 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.document.DocumentRequestDirectory;
@@ -46,21 +41,20 @@ import com.forgeboard.work.persistence.SavedWorkflowViewRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
 
-@ExtendWith(MockitoExtension.class)
 class WorkflowServiceTest {
-    @Mock WorkflowRepository workflows;
-    @Mock WorkflowStageRepository stages;
-    @Mock WorkItemRepository items;
-    @Mock ClientDirectory clients;
-    @Mock ActivityRecorder activity;
-    @Mock MembershipAccess membershipAccess;
-    @Mock WorkItemAssignmentRepository assignments;
-    @Mock EmployeeDirectory employees;
-    @Mock DocumentRequestDirectory documentRequests;
-    @Mock WorkItemDocumentRequestRepository documentLinks;
-    @Mock ActivityDirectory activityQueries;
-    @Mock SavedWorkflowViewRepository savedViews;
-    @Mock FirmDirectory firms;
+    WorkflowRepository workflows;
+    WorkflowStageRepository stages;
+    WorkItemRepository items;
+    ClientDirectory clients;
+    ActivityRecorder activity;
+    MembershipAccess membershipAccess;
+    WorkItemAssignmentRepository assignments;
+    EmployeeDirectory employees;
+    DocumentRequestDirectory documentRequests;
+    WorkItemDocumentRequestRepository documentLinks;
+    ActivityDirectory activityQueries;
+    SavedWorkflowViewRepository savedViews;
+    FirmDirectory firms;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -68,10 +62,22 @@ class WorkflowServiceTest {
     @BeforeEach
     void setUp() {
         now = Instant.parse("2026-07-12T22:00:00Z");
-        tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
-        service = new WorkflowService(workflows, stages, items, clients, activity,
-                Clock.fixed(now, ZoneOffset.UTC), membershipAccess, assignments, employees,
-                documentRequests, documentLinks, activityQueries, savedViews, firms);
+        WorkflowServiceFixture fixture = new WorkflowServiceFixture(now);
+        workflows = fixture.workflows;
+        stages = fixture.stages;
+        items = fixture.items;
+        clients = fixture.clients;
+        activity = fixture.activity;
+        membershipAccess = fixture.membershipAccess;
+        assignments = fixture.assignments;
+        employees = fixture.employees;
+        documentRequests = fixture.documentRequests;
+        documentLinks = fixture.documentLinks;
+        activityQueries = fixture.activityQueries;
+        savedViews = fixture.savedViews;
+        firms = fixture.firms;
+        tenant = fixture.tenant;
+        service = fixture.service();
     }
 
     @Test

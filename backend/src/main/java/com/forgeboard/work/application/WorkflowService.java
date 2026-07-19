@@ -12,7 +12,6 @@ import java.util.Locale;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.document.DocumentRequestDirectory;
@@ -53,44 +52,6 @@ public class WorkflowService {
     private final SavedWorkflowViewRepository savedViews;
     private final FirmDirectory firms;
 
-    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages,
-            WorkItemRepository items, ClientDirectory clients, ActivityRecorder activity, Clock clock) {
-        this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients;
-        this.activity = activity; this.clock = clock;
-        this.membershipAccess = null; this.assignments = null; this.employees = null;
-        this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
-        this.savedViews = null;
-        this.firms = null;
-    }
-
-    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
-            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
-            WorkItemAssignmentRepository assignments, EmployeeDirectory employees) {
-        this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
-        this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments; this.employees = employees;
-        this.documentRequests = null; this.documentLinks = null; this.activityQueries = null;
-        this.savedViews = null;
-        this.firms = null;
-    }
-
-    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
-            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
-            WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
-            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries) {
-        this(workflows, stages, items, clients, activity, clock, membershipAccess, assignments, employees,
-                documentRequests, documentLinks, activityQueries, null, null);
-    }
-
-    public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
-            ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
-            WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
-            WorkItemDocumentRequestRepository documentLinks, ActivityDirectory activityQueries,
-            SavedWorkflowViewRepository savedViews) {
-        this(workflows, stages, items, clients, activity, clock, membershipAccess, assignments, employees,
-                documentRequests, documentLinks, activityQueries, savedViews, null);
-    }
-
-    @Autowired
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
             ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
             WorkItemAssignmentRepository assignments, EmployeeDirectory employees, DocumentRequestDirectory documentRequests,
