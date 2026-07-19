@@ -17,6 +17,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added management-only workflow creation in the Next app, including editable accounting-stage defaults from both empty and populated workflow views. (`M2`)
+
+- Added inline workflow work-item creation and owner/administrator-only document-request linking in the full task workspace. The workflow board refreshes after confirmed optimistic-lock conflicts, and browser evidence covers tenant-negative linking. (`M2`)
+
 - Added a dedicated-host Next.js preview deployment with server-side firm allow-list rollout, dual-stack containers, gateway rollback, and CI image builds. (`M2`)
 
 - Added a firm-routed Next.js employee directory and provisioning form with owner/administrator visibility, firm-scoped cache refresh, and same-origin BFF requests. (`M2`)

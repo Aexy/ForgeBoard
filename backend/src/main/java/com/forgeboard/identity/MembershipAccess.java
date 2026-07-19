@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import com.forgeboard.identity.application.TenantAuthorizationService;
+import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
 
 /** Public identity-module contract for firm-scoped membership capability checks. */
@@ -16,6 +17,12 @@ public class MembershipAccess {
         this.authorization = authorization; this.memberships = memberships;
     }
     public void requireAssignmentManagement(SelectedTenant tenant) { authorization.requireAssignmentManagement(tenant); }
+    public void requireWorkflowManagement(SelectedTenant tenant) {
+        if (tenant.role() != MembershipRole.OWNER
+                && tenant.role() != MembershipRole.ADMINISTRATOR
+                && tenant.role() != MembershipRole.MANAGER)
+            throw new AccessDeniedException("Only owners, administrators, and managers can manage workflows");
+    }
     public void requireWorkflowViewManagement(SelectedTenant tenant) {
         if (!tenant.role().canManageMemberships())
             throw new AccessDeniedException("Only owners and administrators can manage shared workflow views");

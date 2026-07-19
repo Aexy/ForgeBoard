@@ -101,7 +101,7 @@ public class WorkflowService {
 
     @Transactional
     public BoardView createWorkflow(SelectedTenant tenant, WorkflowRequest request) {
-        requireWrite(tenant);
+        membershipAccess.requireWorkflowManagement(tenant);
         var now = clock.instant();
         String name = request.name().strip();
         lockFirmForWorkflowSlugAllocation(tenant.firmId());

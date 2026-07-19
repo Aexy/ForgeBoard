@@ -32,6 +32,19 @@ class MembershipAccessTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void permitsOnlyOwnersAdministratorsAndManagersToManageWorkflows() {
+        MembershipAccess access = new MembershipAccess(authorization, memberships);
+
+        assertThatCode(() -> access.requireWorkflowManagement(tenant(MembershipRole.OWNER))).doesNotThrowAnyException();
+        assertThatCode(() -> access.requireWorkflowManagement(tenant(MembershipRole.ADMINISTRATOR))).doesNotThrowAnyException();
+        assertThatCode(() -> access.requireWorkflowManagement(tenant(MembershipRole.MANAGER))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> access.requireWorkflowManagement(tenant(MembershipRole.MEMBER)))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> access.requireWorkflowManagement(tenant(MembershipRole.READ_ONLY)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
     private SelectedTenant tenant(MembershipRole role) {
         return new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "user@example.com", role);
     }

@@ -19,7 +19,8 @@ describe('WorkflowHub', () => {
   })
   afterEach(cleanup)
 
-  it('shows the no-workflow state and creates a firm-scoped workflow', async () => {
+  it.each(['OWNER', 'ADMINISTRATOR', 'MANAGER'] as const)('lets a %s reveal and submit the firm-scoped creation form', async (role) => {
+    mocks.firm.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role })
     mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'workflow-1', workflowSlug: 'monthly-close' }) })
     render(<WorkflowHub />)
     expect(screen.getByRole('heading', { name: 'No workflow yet' })).toBeVisible()
@@ -36,10 +37,10 @@ describe('WorkflowHub', () => {
     await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/firms/hearth/workflow/monthly-close'))
   })
 
-  it('does not expose creation to read-only memberships', () => {
-    mocks.firm.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' })
+  it.each(['MEMBER', 'READ_ONLY'] as const)('does not expose creation to %s memberships', (role) => {
+    mocks.firm.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role })
     render(<WorkflowHub />)
     expect(screen.queryByRole('button', { name: 'Create workflow' })).not.toBeInTheDocument()
-    expect(screen.getByText('Only firm owners and administrators can create workflows.')).toBeVisible()
+    expect(screen.getByText('Only firm owners, administrators, and managers can create workflows.')).toBeVisible()
   })
 })

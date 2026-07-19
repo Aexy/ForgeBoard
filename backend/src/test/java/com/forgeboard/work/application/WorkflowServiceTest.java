@@ -3,6 +3,7 @@ package com.forgeboard.work.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.never;
@@ -17,6 +18,9 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.springframework.security.access.AccessDeniedException;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.document.DocumentRequestDirectory;
@@ -163,6 +167,33 @@ class WorkflowServiceTest {
         assertThat(board.stages()).extracting(StageView::attention)
                 .containsExactly(StageAttention.BLOCKED, StageAttention.AWAITING_REVIEW);
         verify(activity).recordRestUserAction(any(), any(), any(), any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = MembershipRole.class, names = { "OWNER", "ADMINISTRATOR", "MANAGER" })
+    void createsWorkflowsForWorkflowManagementRoles(MembershipRole role) {
+        SelectedTenant manager = new SelectedTenant(tenant.firmId(), UUID.randomUUID(), "manager@example.com", role);
+        mockFirmSlugLock();
+        when(workflows.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.createWorkflow(manager, new WorkflowRequest("Monthly bookkeeping", List.of()));
+
+        verify(membershipAccess).requireWorkflowManagement(manager);
+        verify(workflows).save(any(WorkflowBoard.class));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = MembershipRole.class, names = { "MEMBER", "READ_ONLY" })
+    void rejectsWorkflowCreationForNonManagementRoles(MembershipRole role) {
+        SelectedTenant member = new SelectedTenant(tenant.firmId(), UUID.randomUUID(), "member@example.com", role);
+        doThrow(new AccessDeniedException("Workflow management is required"))
+                .when(membershipAccess).requireWorkflowManagement(member);
+
+        assertThatThrownBy(() -> service.createWorkflow(member, new WorkflowRequest("Monthly bookkeeping", List.of())))
+                .isInstanceOf(AccessDeniedException.class);
+
+        verify(membershipAccess).requireWorkflowManagement(member);
+        verifyNoInteractions(firms, workflows, stages, activity);
     }
 
     @Test
