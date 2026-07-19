@@ -73,7 +73,7 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
   await newWorkItem.getByLabel('Title').fill(urgentTitle)
   await newWorkItem.locator('select[name="priority"]').selectOption('URGENT')
   await newWorkItem.getByRole('button', { name: 'Create work item' }).click()
-  await expect(page.getByRole('alert')).toContainText('Work item created.')
+  await expect(page.getByRole('alert').filter({ hasText: 'Work item created.' })).toHaveText('Work item created.')
   await page.reload()
   await expect(page.getByRole('button', { name: `Open ${urgentTitle} details` })).toBeVisible()
   const createdBoard = await canonicalWorkflowBoard(request, headers, workflowData.id)
