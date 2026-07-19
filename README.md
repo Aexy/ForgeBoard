@@ -107,7 +107,7 @@ On macOS or Linux:
 cp .env.example .env
 ```
 
-The backend automatically reads this local, gitignored `.env` file when it starts. It supplies both the PostgreSQL container settings and the `DB_*` values used by Spring Boot; edit the copied file for your local credentials only.
+The backend automatically reads this local, gitignored `.env` file when it starts. It supplies both the PostgreSQL container settings and the `DB_*` values used by Spring Boot. Also set `FORGEBOARD_API_TOKEN_SECRET` to a random Base64 value of at least 32 bytes; it signs backend API-session JWTs and must not be committed.
 
 ### 2. Start PostgreSQL
 

@@ -95,7 +95,15 @@ public class SecurityConfiguration {
     }
 
     private SecretKey apiTokenKey(String configuredSecret) {
-        byte[] key = Base64.getDecoder().decode(configuredSecret);
+        if (configuredSecret == null || configuredSecret.isBlank()) {
+            throw new IllegalStateException("FORGEBOARD_API_TOKEN_SECRET must be configured");
+        }
+        final byte[] key;
+        try {
+            key = Base64.getDecoder().decode(configuredSecret);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException("FORGEBOARD_API_TOKEN_SECRET must be valid Base64", exception);
+        }
         if (key.length < 32) throw new IllegalStateException("FORGEBOARD_API_TOKEN_SECRET must contain at least 256 bits");
         return new SecretKeySpec(key, "HmacSHA256");
     }
