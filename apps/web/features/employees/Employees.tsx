@@ -3,7 +3,7 @@
 import { type FormEvent, useState } from 'react'
 
 import { useFirmContext } from '@/store/firm-cache-boundary'
-import { type Employee, useCreateEmployeeMutation, useGetEmployeesQuery } from '@/store/api'
+import { type Employee, useCreateEmployeeMutation, useGetEmployeesQuery } from './employees-transport'
 
 import styles from './Employees.module.css'
 

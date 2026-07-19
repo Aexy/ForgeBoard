@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { useFirmContext } from '@/store/firm-cache-boundary'
-import { type CreateWorkflowDetails, type StageAttention, useCreateWorkflowMutation, useGetWorkflowsQuery } from '@/store/api'
+import { type CreateWorkflowDetails, type StageAttention, useCreateWorkflowMutation, useGetWorkflowsQuery } from './workflow-transport'
 
 import styles from './WorkflowHub.module.css'
 

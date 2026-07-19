@@ -9,8 +9,10 @@ const mocks = vi.hoisted(() => ({
   createTemplate: vi.fn(), createEngagement: vi.fn(), createRequest: vi.fn(), receive: vi.fn(),
 }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/store/api', () => ({
-  useGetClientsQuery: mocks.clients, useGetWorkflowsQuery: mocks.workflows, useGetEngagementTemplatesQuery: mocks.templates, useGetEngagementsQuery: mocks.engagements, useGetDocumentRequestsQuery: mocks.requests,
+vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.clients }))
+vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowsQuery: mocks.workflows }))
+vi.mock('@/features/engagements/engagements-transport', () => ({
+  useGetEngagementTemplatesQuery: mocks.templates, useGetEngagementsQuery: mocks.engagements, useGetDocumentRequestsQuery: mocks.requests,
   useCreateEngagementTemplateMutation: () => [mocks.createTemplate, { isLoading: false }], useCreateEngagementMutation: () => [mocks.createEngagement, { isLoading: false }], useCreateDocumentRequestMutation: () => [mocks.createRequest, { isLoading: false }], useReceiveDocumentRequestMutation: () => [mocks.receive],
 }))
 import { Engagements } from '@/features/engagements/Engagements'

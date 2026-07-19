@@ -3,8 +3,10 @@
 import { type FormEvent, useMemo, useState } from 'react'
 
 import { useFirmContext } from '@/store/firm-cache-boundary'
+import type { Client } from '@/features/clients/clients-transport'
+import { useGetClientsQuery } from '@/features/clients/clients-transport'
+import { useGetWorkflowsQuery } from '@/features/workflow/workflow-transport'
 import {
-  type Client,
   type DocumentRequest,
   type Engagement,
   type EngagementTemplate,
@@ -12,13 +14,11 @@ import {
   useCreateDocumentRequestMutation,
   useCreateEngagementMutation,
   useCreateEngagementTemplateMutation,
-  useGetClientsQuery,
   useGetDocumentRequestsQuery,
   useGetEngagementsQuery,
   useGetEngagementTemplatesQuery,
-  useGetWorkflowsQuery,
   useReceiveDocumentRequestMutation,
-} from '@/store/api'
+} from './engagements-transport'
 
 import styles from './Engagements.module.css'
 

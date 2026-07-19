@@ -1,0 +1,7 @@
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { employeesApi } from './employees-transport'
+import { makeStore } from '@/store/store'
+const firmA = { firmId: 'firm-a', firmSlug: 'hearth', role: 'OWNER' as const }; const firmB = { firmId: 'firm-b', firmSlug: 'northstar', role: 'OWNER' as const }
+describe('employees transport', () => { beforeEach(() => vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify([]), { headers: { 'Content-Type': 'application/json' } }))))
+  it('posts employee provisioning through the BFF and refreshes only that firm directory', async () => { const store = makeStore(); await Promise.all([store.dispatch(employeesApi.endpoints.getEmployees.initiate({ firm: firmA })), store.dispatch(employeesApi.endpoints.getEmployees.initiate({ firm: firmB }))]); await store.dispatch(employeesApi.endpoints.createEmployee.initiate({ firm: firmA, employee: { displayName: 'Mira Miller', email: 'mira@example.com', temporaryPassword: 'temporary-password', role: 'MEMBER' } })); await new Promise((resolve) => setTimeout(resolve, 0)); const requests = vi.mocked(fetch).mock.calls.map(([input]) => input as Request); expect(requests.find((request) => request.method === 'POST')?.url).toContain('/api/forgeboard/identity/employees'); expect(requests.filter((request) => request.url.includes('identity/employees'))).toHaveLength(4) }) })

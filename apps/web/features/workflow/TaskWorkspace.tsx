@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 import { useFirmContext } from '@/store/firm-cache-boundary'
-import { type Employee, useGetEmployeesQuery, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useUpdateWorkItemReviewerMutation } from '@/store/api'
+import { useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useUpdateWorkItemReviewerMutation } from './workflow-transport'
+import { type Employee, useGetEmployeesQuery } from '@/features/employees/employees-transport'
 
 import styles from './WorkflowBoard.module.css'
 import { useWorkflowLanguage } from './useWorkflowLanguage'

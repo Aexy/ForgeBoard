@@ -7,11 +7,11 @@ const router = { replace: vi.fn(), push: vi.fn(), back: vi.fn() }
 const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), board: vi.fn(), detail: vi.fn(), views: vi.fn(), move: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/store/api', () => ({ useGetWorkflowBoardQuery: mocks.board, useGetWorkItemDetailQuery: mocks.detail, useGetWorkflowViewsQuery: mocks.views, useMoveWorkItemMutation: () => [mocks.move, { isLoading: false }] }))
+vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowBoardQuery: mocks.board, useGetWorkItemDetailQuery: mocks.detail, useGetWorkflowViewsQuery: mocks.views, useMoveWorkItemMutation: () => [mocks.move, { isLoading: false }] }))
 
 import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
 import { TaskPanel } from '@/features/workflow/TaskPanel'
-import type { WorkItemDetail } from '@/store/api'
+import type { WorkItemDetail } from '@/features/workflow/workflow-transport'
 
 const item = { id: 'task-1', taskReference: 'FB-1042', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL', rank: 1, version: 0, ownerUserId: null, ownerDisplayName: null, reviewerUserId: null, reviewerDisplayName: null }
 const board = { id: 'flow-1', workflowSlug: 'monthly-close', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE', position: 0, items: [item] }, { id: 'review', name: 'Review', attention: 'AWAITING_REVIEW', position: 1, items: [] }] }

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetEmployeesQuery: vi.fn(), create: vi.fn() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/store/api', () => ({ useGetEmployeesQuery: mocks.useGetEmployeesQuery, useCreateEmployeeMutation: () => [mocks.create, { isLoading: false }] }))
+vi.mock('@/features/employees/employees-transport', () => ({ useGetEmployeesQuery: mocks.useGetEmployeesQuery, useCreateEmployeeMutation: () => [mocks.create, { isLoading: false }] }))
 
 import { Employees } from '@/features/employees/Employees'
 

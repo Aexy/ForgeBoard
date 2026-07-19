@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ firm: vi.fn(), workflows: vi.fn(), create: vi.fn(), push: vi.fn(), replace: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push, replace: mocks.replace }) }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.firm }))
-vi.mock('@/store/api', () => ({ useGetWorkflowsQuery: mocks.workflows, useCreateWorkflowMutation: () => [mocks.create, { isLoading: false }] }))
+vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowsQuery: mocks.workflows, useCreateWorkflowMutation: () => [mocks.create, { isLoading: false }] }))
 
 import { WorkflowHub } from '@/features/workflow/WorkflowHub'
 

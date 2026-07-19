@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetMyWorkQuery: vi.fn() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/store/api', () => ({ useGetMyWorkQuery: mocks.useGetMyWorkQuery }))
+vi.mock('@/features/my-work/my-work-transport', () => ({ useGetMyWorkQuery: mocks.useGetMyWorkQuery }))
 import { MyWorkDashboard } from '@/features/my-work/MyWorkDashboard'
 
 describe('My Work route feature', () => {

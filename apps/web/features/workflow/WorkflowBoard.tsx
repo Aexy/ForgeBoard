@@ -4,7 +4,7 @@ import { DragEvent, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useFirmContext } from '@/store/firm-cache-boundary'
-import { type WorkItem, type WorkflowBoard as Board, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation } from '@/store/api'
+import { type WorkItem, type WorkflowBoard as Board, useGetWorkItemDetailQuery, useGetWorkflowBoardQuery, useGetWorkflowViewsQuery, useMoveWorkItemMutation } from './workflow-transport'
 
 import { WorkflowFilters } from './WorkflowFilters'
 import { TaskPanel } from './TaskPanel'

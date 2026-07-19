@@ -3,7 +3,7 @@
 import Link from 'next/link'
 
 import { useFirmContext } from '@/store/firm-cache-boundary'
-import { type EmployeeWorkItem, useGetMyWorkQuery } from '@/store/api'
+import { type EmployeeWorkItem, useGetMyWorkQuery } from './my-work-transport'
 
 import styles from './MyWorkDashboard.module.css'
 

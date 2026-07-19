@@ -8,7 +8,7 @@ const router = { replace: vi.fn() }
 let search = new URLSearchParams('action=work-item.moved&size=25')
 vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: () => search }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/store/api', () => ({ useGetAuditTrailQuery: mocks.useGetAuditTrailQuery }))
+vi.mock('@/features/audit/audit-transport', () => ({ useGetAuditTrailQuery: mocks.useGetAuditTrailQuery }))
 
 import { AuditTrail, auditSearchFromParams } from '@/features/audit/AuditTrail'
 

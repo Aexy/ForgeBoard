@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetClientsQuery: vi.fn(), create: vi.fn(), archive: vi.fn() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/store/api', () => ({ useGetClientsQuery: mocks.useGetClientsQuery, useCreateClientMutation: () => [mocks.create, { isLoading: false }], useArchiveClientMutation: () => [mocks.archive] }))
+vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.useGetClientsQuery, useCreateClientMutation: () => [mocks.create, { isLoading: false }], useArchiveClientMutation: () => [mocks.archive] }))
 import { Clients } from '@/features/clients/Clients'
 
 const activeClient = { id: 'client-1', displayName: 'Northstar', legalName: 'Northstar Studio GmbH', primaryEmail: 'hello@northstar.test', status: 'ACTIVE', version: 0 }

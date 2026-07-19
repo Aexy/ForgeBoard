@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 
-import { type AuditActorType, type AuditSource, type AuditTrailActivity, type AuditTrailFilters, useGetAuditTrailQuery } from '@/store/api'
+import { type AuditActorType, type AuditSource, type AuditTrailActivity, type AuditTrailFilters, useGetAuditTrailQuery } from './audit-transport'
 import { useFirmContext } from '@/store/firm-cache-boundary'
 
 import styles from './AuditTrail.module.css'

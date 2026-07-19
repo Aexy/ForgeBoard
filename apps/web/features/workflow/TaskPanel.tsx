@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-import type { WorkItemDetail } from '@/store/api'
+import type { WorkItemDetail } from './workflow-transport'
 
 import styles from './WorkflowBoard.module.css'
 import { useWorkflowLanguage } from './useWorkflowLanguage'

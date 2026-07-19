@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useWorkflowLanguage } from './useWorkflowLanguage'
-import type { WorkflowFilterView } from '@/store/api'
+import type { WorkflowFilterView } from './workflow-transport'
 import styles from './WorkflowBoard.module.css'
 import { filteredBoardPath, filtersFromSearch, type BoardFilters } from './workflow-route-state'
 

@@ -7,7 +7,8 @@ const router = { push: vi.fn(), replace: vi.fn(), back: vi.fn() }
 const mocks = vi.hoisted(() => ({ firm: vi.fn(), detail: vi.fn(), board: vi.fn(), employees: vi.fn(), updateReviewer: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => router }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.firm }))
-vi.mock('@/store/api', () => ({ useGetWorkItemDetailQuery: mocks.detail, useGetWorkflowBoardQuery: mocks.board, useGetEmployeesQuery: mocks.employees, useUpdateWorkItemReviewerMutation: () => [mocks.updateReviewer, { isLoading: false }] }))
+vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkItemDetailQuery: mocks.detail, useGetWorkflowBoardQuery: mocks.board, useUpdateWorkItemReviewerMutation: () => [mocks.updateReviewer, { isLoading: false }] }))
+vi.mock('@/features/employees/employees-transport', () => ({ useGetEmployeesQuery: mocks.employees }))
 
 import { TaskWorkspace } from '@/features/workflow/TaskWorkspace'
 
