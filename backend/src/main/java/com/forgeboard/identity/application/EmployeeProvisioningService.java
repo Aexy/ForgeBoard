@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.domain.FirmMembership;
 import com.forgeboard.identity.domain.ForgeBoardUser;
@@ -20,14 +21,16 @@ public class EmployeeProvisioningService {
     private final TenantAuthorizationService policy;
     private final UserRepository users;
     private final FirmMembershipRepository memberships;
+    private final EmployeeDirectory employees;
     private final PasswordEncoder passwordEncoder;
     private final ActivityRecorder activity;
     private final Clock clock;
 
     public EmployeeProvisioningService(TenantAuthorizationService policy, UserRepository users,
-            FirmMembershipRepository memberships, PasswordEncoder passwordEncoder,
+            FirmMembershipRepository memberships, EmployeeDirectory employees, PasswordEncoder passwordEncoder,
             ActivityRecorder activity, Clock clock) {
         this.policy = policy; this.users = users; this.memberships = memberships;
+        this.employees = employees;
         this.passwordEncoder = passwordEncoder; this.activity = activity; this.clock = clock;
     }
 
@@ -53,9 +56,7 @@ public class EmployeeProvisioningService {
     @Transactional(readOnly = true)
     public List<EmployeeView> list(SelectedTenant actor) {
         policy.requireMembershipManagement(actor);
-        return memberships.findAllByFirmIdOrderByCreatedAtAsc(actor.firmId()).stream()
-                .map(membership -> users.findById(membership.userId()).map(user -> view(membership, user)))
-                .flatMap(java.util.Optional::stream).toList();
+        return employees.list(actor.firmId());
     }
 
     private EmployeeView view(FirmMembership membership, ForgeBoardUser user) {

@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -20,6 +21,12 @@ import com.forgeboard.identity.application.OnboardingResult;
 import com.forgeboard.identity.application.SessionLoginRequest;
 import com.forgeboard.identity.security.ApiTokenService;
 import com.forgeboard.identity.domain.MembershipRole;
+import com.forgeboard.identity.domain.Firm;
+import com.forgeboard.identity.domain.FirmMembership;
+import com.forgeboard.identity.domain.ForgeBoardUser;
+import com.forgeboard.identity.persistence.FirmMembershipRepository;
+import com.forgeboard.identity.persistence.FirmRepository;
+import com.forgeboard.identity.persistence.UserRepository;
 import com.forgeboard.client.application.ClientRequest;
 import com.forgeboard.client.application.ClientService;
 import com.forgeboard.client.application.ClientView;
@@ -33,6 +40,7 @@ import com.forgeboard.work.domain.StageAttention;
 import com.forgeboard.work.application.WorkflowService;
 import com.forgeboard.work.domain.WorkPriority;
 import java.util.List;
+import java.time.Instant;
 import java.util.UUID;
 
 @SpringBootTest
@@ -53,6 +61,9 @@ class IdentityPostgresIntegrationTest {
     @Autowired ClientService clients;
     @Autowired WorkflowService workflows;
     @Autowired ApiTokenService apiTokens;
+    @Autowired FirmRepository firms;
+    @Autowired UserRepository users;
+    @Autowired FirmMembershipRepository memberships;
 
     @Test
     void flywaySchemaPersistsOnboardingAndItsAuditEvent() {
@@ -97,6 +108,32 @@ class IdentityPostgresIntegrationTest {
         assertThatThrownBy(() -> apiTokens.refresh(grant.refreshToken())).isInstanceOf(RuntimeException.class);
         assertThat(jdbc.sql("select count(*) from api_refresh_tokens where revoked_at is not null")
                 .query(Long.class).single()).isEqualTo(2);
+    }
+
+    @Test
+    @Transactional
+    void staffProjectionReturnsOnlyEnabledMembersOfTheSelectedFirmInCreationOrder() {
+        Instant start = Instant.parse("2026-07-19T00:00:00Z");
+        UUID selectedFirmId = UUID.randomUUID();
+        UUID otherFirmId = UUID.randomUUID();
+        firms.save(new Firm(selectedFirmId, "Selected Firm", "selected-staff-firm", start));
+        firms.save(new Firm(otherFirmId, "Other Firm", "other-staff-firm", start));
+
+        ForgeBoardUser first = users.save(new ForgeBoardUser(UUID.randomUUID(), "first.staff@example.com", "First Staff", "hash", start));
+        ForgeBoardUser second = users.save(new ForgeBoardUser(UUID.randomUUID(), "second.staff@example.com", "Second Staff", "hash", start));
+        ForgeBoardUser disabled = users.save(new ForgeBoardUser(UUID.randomUUID(), "disabled.staff@example.com", "Disabled Staff", "hash", start));
+        ForgeBoardUser otherFirmUser = users.save(new ForgeBoardUser(UUID.randomUUID(), "other.staff@example.com", "Other Staff", "hash", start));
+        users.save(new ForgeBoardUser(UUID.randomUUID(), "unaffiliated.staff@example.com", "Unaffiliated Staff", "hash", start));
+        FirmMembership firstMembership = memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId, first.id(), MembershipRole.MEMBER, start.plusSeconds(1)));
+        FirmMembership secondMembership = memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId, second.id(), MembershipRole.ADMINISTRATOR, start.plusSeconds(2)));
+        memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId, disabled.id(), MembershipRole.MEMBER, start.plusSeconds(3)));
+        memberships.save(new FirmMembership(UUID.randomUUID(), otherFirmId, otherFirmUser.id(), MembershipRole.OWNER, start.plusSeconds(1)));
+        users.flush();
+        assertThat(jdbc.sql("update users set enabled = false where id = :id").param("id", disabled.id()).update()).isEqualTo(1);
+
+        assertThat(memberships.findStaffByFirmIdOrderByCreatedAtAsc(selectedFirmId)).containsExactly(
+                new FirmMembershipRepository.FirmStaffRow(firstMembership.id(), first.id(), first.displayName(), first.email(), MembershipRole.MEMBER),
+                new FirmMembershipRepository.FirmStaffRow(secondMembership.id(), second.id(), second.displayName(), second.email(), MembershipRole.ADMINISTRATOR));
     }
 
     private long count(String table) {

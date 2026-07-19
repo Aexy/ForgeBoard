@@ -17,7 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.forgeboard.identity.domain.FirmMembership;
 import com.forgeboard.identity.domain.ForgeBoardUser;
 import com.forgeboard.identity.domain.MembershipRole;
+import com.forgeboard.identity.application.EmployeeView;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
+import com.forgeboard.identity.persistence.FirmMembershipRepository.FirmStaffRow;
 import com.forgeboard.identity.persistence.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,4 +45,17 @@ class EmployeeDirectoryTest {
         verify(memberships).findAllByFirmIdAndUserIdIn(firmId, List.of(memberId, otherFirmUserId));
         verify(users).findAllById(List.of(memberId));
     }
+
+    @Test
+    void listsEnabledFirmStaffInMembershipCreationOrder() {
+        UUID firmId = UUID.randomUUID();
+        EmployeeView first = new EmployeeView(UUID.randomUUID(), UUID.randomUUID(), "Mira Miller", "mira@example.com", MembershipRole.MEMBER);
+        EmployeeView second = new EmployeeView(UUID.randomUUID(), UUID.randomUUID(), "Omar Owner", "omar@example.com", MembershipRole.OWNER);
+        when(memberships.findStaffByFirmIdOrderByCreatedAtAsc(firmId)).thenReturn(List.of(
+                new FirmStaffRow(first.membershipId(), first.userId(), first.displayName(), first.email(), first.role()),
+                new FirmStaffRow(second.membershipId(), second.userId(), second.displayName(), second.email(), second.role())));
+
+        assertThat(new EmployeeDirectory(memberships, users).list(firmId)).containsExactly(first, second);
+    }
+
 }

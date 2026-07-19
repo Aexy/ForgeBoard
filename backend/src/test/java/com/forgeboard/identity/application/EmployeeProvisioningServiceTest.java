@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import com.forgeboard.identity.ActivityRecorder;
+import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.domain.FirmMembership;
 import com.forgeboard.identity.domain.ForgeBoardUser;
@@ -28,6 +29,7 @@ import com.forgeboard.identity.persistence.UserRepository;
 class EmployeeProvisioningServiceTest {
     @Mock TenantAuthorizationService policy; @Mock UserRepository users; @Mock FirmMembershipRepository memberships;
     @Mock PasswordEncoder passwords; @Mock ActivityRecorder activity;
+    @Mock EmployeeDirectory employees;
 
     @Test
     void ownerCreatesEmployeeMembershipAndAuditEvent() {
@@ -62,5 +64,18 @@ class EmployeeProvisioningServiceTest {
         verify(passwords, org.mockito.Mockito.never()).encode(any());
     }
 
-    private EmployeeProvisioningService service() { return new EmployeeProvisioningService(policy, users, memberships, passwords, activity, Clock.fixed(Instant.parse("2026-07-14T00:00:00Z"), ZoneOffset.UTC)); }
+    @Test
+    void listsEmployeesThroughTheFirmScopedDirectoryAfterAuthorizingTheActor() {
+        SelectedTenant tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
+        var expected = java.util.List.of(new EmployeeView(UUID.randomUUID(), UUID.randomUUID(), "Mira Miller", "mira@example.com", MembershipRole.MEMBER));
+        when(employees.list(tenant.firmId())).thenReturn(expected);
+
+        assertThat(service().list(tenant)).isEqualTo(expected);
+
+        var order = org.mockito.Mockito.inOrder(policy, employees);
+        order.verify(policy).requireMembershipManagement(tenant);
+        order.verify(employees).list(tenant.firmId());
+    }
+
+    private EmployeeProvisioningService service() { return new EmployeeProvisioningService(policy, users, memberships, employees, passwords, activity, Clock.fixed(Instant.parse("2026-07-14T00:00:00Z"), ZoneOffset.UTC)); }
 }
