@@ -4,10 +4,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const router = { replace: vi.fn(), push: vi.fn(), back: vi.fn() }
-const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), board: vi.fn(), detail: vi.fn(), views: vi.fn(), move: vi.fn() }))
+const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), board: vi.fn(), detail: vi.fn(), views: vi.fn(), move: vi.fn(), create: vi.fn(), updateOwner: vi.fn(), updateReviewer: vi.fn(), refetch: vi.fn() }))
 vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: () => new URLSearchParams() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowBoardQuery: mocks.board, useGetWorkItemDetailQuery: mocks.detail, useGetWorkflowViewsQuery: mocks.views, useMoveWorkItemMutation: () => [mocks.move, { isLoading: false }] }))
+vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowBoardQuery: mocks.board, useGetWorkItemDetailQuery: mocks.detail, useGetWorkflowViewsQuery: mocks.views, useMoveWorkItemMutation: () => [mocks.move, { isLoading: false }], useCreateWorkItemMutation: () => [mocks.create, { isLoading: false }], useUpdateWorkItemOwnerMutation: () => [mocks.updateOwner, { isLoading: false }], useUpdateWorkItemReviewerMutation: () => [mocks.updateReviewer, { isLoading: false }] }))
+vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: () => ({ data: [{ id: 'client-1', displayName: 'Hearth Bakery', status: 'ACTIVE' }] }) }))
 
 import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
 import { TaskPanel } from '@/features/workflow/TaskPanel'
@@ -19,7 +20,7 @@ const detail: WorkItemDetail = { item: { ...item, priority: 'NORMAL' }, clientDi
 
 describe('WorkflowBoard', () => {
   afterEach(cleanup)
-  beforeEach(() => { router.push.mockReset(); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.board.mockReturnValue({ data: board, isLoading: false, isError: false, refetch: vi.fn() }); mocks.detail.mockReturnValue({}); mocks.views.mockReturnValue({ data: [] }); mocks.move.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }) })
+  beforeEach(() => { router.push.mockReset(); mocks.refetch.mockReset(); mocks.refetch.mockResolvedValue(undefined); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.board.mockReturnValue({ data: board, isLoading: false, isError: false, refetch: mocks.refetch }); mocks.detail.mockReturnValue({}); mocks.views.mockReturnValue({ data: [] }); mocks.move.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.updateOwner.mockReturnValue({ unwrap: vi.fn() }); mocks.updateReviewer.mockReturnValue({ unwrap: vi.fn() }) })
   it('opens query-backed detail on click and the full task route on double click', () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
     const card = screen.getByRole('button', { name: 'Open July close details' })
@@ -39,6 +40,23 @@ describe('WorkflowBoard', () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
     fireEvent.click(screen.getByRole('button', { name: 'Move July close right' }))
     await vi.waitFor(() => expect(mocks.move).toHaveBeenCalledWith(expect.objectContaining({ firm: expect.objectContaining({ firmId: 'firm-1' }), workflowId: 'flow-1', itemId: 'task-1', targetStageId: 'review', expectedVersion: 0 })))
+  })
+  it('refetches only after a 409 move conflict and keeps the retry message', async () => {
+    mocks.move.mockReturnValue({ unwrap: vi.fn().mockRejectedValue({ status: 409 }) })
+    render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Move July close right' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('This work item was changed by another user. The board was refreshed; retry your move.')
+    expect(mocks.refetch).toHaveBeenCalledTimes(1)
+  })
+  it('creates a work item inline in its selected stage', async () => {
+    render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Add work item to Preparation' }))
+    fireEvent.change(screen.getByRole('form', { name: 'New work item' }).querySelector('select[name="clientId"]')!, { target: { value: 'client-1' } })
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Bank reconciliation' } })
+    fireEvent.submit(screen.getByRole('form', { name: 'New work item' }))
+    await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ workflowId: 'flow-1', details: expect.objectContaining({ stageId: 'todo', clientId: 'client-1', title: 'Bank reconciliation' }) })))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Work item created.')
+    expect(screen.queryByRole('form', { name: 'New work item' })).not.toBeInTheDocument()
   })
   it('displays a public task reference without rendering the internal id', () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)

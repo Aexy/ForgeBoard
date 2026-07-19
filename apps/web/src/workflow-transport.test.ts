@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getWorkflowBoard, moveWorkItem } from '@/features/workflow/workflow-transport'
+import { createWorkItem, getWorkflowBoard, moveWorkItem } from '@/features/workflow/workflow-transport'
 import { myWorkApi } from '@/features/my-work/my-work-transport'
 import { makeStore } from '@/store/store'
 
@@ -37,6 +37,16 @@ describe('workflow transport', () => {
     const requests = vi.mocked(fetch).mock.calls.map(([input]) => input as Request)
     const moveRequest = requests.find((request) => request.method === 'PATCH')
     expect(moveRequest?.url).toContain('/api/forgeboard/workflows/workflow-1/items/work-item-1/position')
+    expect(requests.filter((request) => request.url.includes('workflows/public/monthly-close'))).toHaveLength(3)
+    expect(requests.filter((request) => request.url.includes('dashboard/my-work'))).toHaveLength(3)
+  })
+  it('creates work items through the BFF and refreshes only the selected firm workflow and My Work', async () => {
+    const store = makeStore()
+    await Promise.all([store.dispatch(getWorkflowBoard.initiate({ firm: firmA, workflowSlug: 'monthly-close' })), store.dispatch(getWorkflowBoard.initiate({ firm: firmB, workflowSlug: 'monthly-close' })), store.dispatch(myWorkApi.endpoints.getMyWork.initiate({ firm: firmA })), store.dispatch(myWorkApi.endpoints.getMyWork.initiate({ firm: firmB }))])
+    await store.dispatch(createWorkItem.initiate({ firm: firmA, workflowId: 'workflow-1', details: { clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL' } }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const requests = vi.mocked(fetch).mock.calls.map(([input]) => input as Request)
+    expect(requests.find((request) => request.method === 'POST' && request.url.includes('/items'))?.url).toContain('/api/forgeboard/workflows/workflow-1/items')
     expect(requests.filter((request) => request.url.includes('workflows/public/monthly-close'))).toHaveLength(3)
     expect(requests.filter((request) => request.url.includes('dashboard/my-work'))).toHaveLength(3)
   })
