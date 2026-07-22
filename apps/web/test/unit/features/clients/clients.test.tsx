@@ -6,20 +6,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetClientsQuery: vi.fn(), create: vi.fn(), archive: vi.fn() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
 vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.useGetClientsQuery, useCreateClientMutation: () => [mocks.create, { isLoading: false }], useArchiveClientMutation: () => [mocks.archive] }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { Clients } from '@/features/clients/Clients'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+function renderWithLanguage(language: 'en' | 'de' = 'en') {
+  return render(<LanguageProvider initialLanguage={language}><Clients /></LanguageProvider>)
+}
 
 const activeClient = { id: 'client-1', displayName: 'Northstar', legalName: 'Northstar Studio GmbH', primaryEmail: 'hello@northstar.test', status: 'ACTIVE', version: 0 }
 describe('Clients route feature', () => {
   afterEach(cleanup)
   beforeEach(() => { mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.create.mockReset(); mocks.archive.mockReset() })
   it('shows loading, error, and empty states', () => {
-    mocks.useGetClientsQuery.mockReturnValue({ isLoading: true }); const view = render(<Clients />); expect(screen.getByText('Loading clients…')).toBeVisible()
-    mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, isError: true }); view.rerender(<Clients />); expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
-    mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [] }); view.rerender(<Clients />); expect(screen.getByText('No clients yet')).toBeVisible()
+    mocks.useGetClientsQuery.mockReturnValue({ isLoading: true }); const view = renderWithLanguage(); expect(screen.getByText('Loading clients…')).toBeVisible()
+    mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, isError: true }); view.rerender(<LanguageProvider initialLanguage="en"><Clients /></LanguageProvider>); expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
+    mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [] }); view.rerender(<LanguageProvider initialLanguage="en"><Clients /></LanguageProvider>); expect(screen.getByText('No clients yet')).toBeVisible()
   })
   it('creates and archives a client through the firm-scoped mutations', async () => {
     mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(activeClient) }); mocks.archive.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ ...activeClient, status: 'ARCHIVED' }) }); mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [activeClient] })
-    render(<Clients />)
+    renderWithLanguage()
     fireEvent.click(screen.getByRole('button', { name: '+ New client' }))
     fireEvent.change(screen.getByLabelText('Legal name'), { target: { value: activeClient.legalName } }); fireEvent.change(screen.getByLabelText('Display name'), { target: { value: activeClient.displayName } }); fireEvent.submit(screen.getByRole('button', { name: 'Save client' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ firm: expect.objectContaining({ firmId: 'firm-1' }) })))
@@ -28,7 +34,15 @@ describe('Clients route feature', () => {
   })
   it('does not render client mutations for a read-only membership', () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' }); mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [activeClient] })
-    render(<Clients />)
+    renderWithLanguage()
     expect(screen.queryByRole('button', { name: '+ New client' })).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument()
+  })
+  it('renders German presentation copy while retaining English request field names', () => {
+    mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [] })
+    renderWithLanguage('de')
+    expect(screen.getByRole('heading', { name: 'Mandanten' })).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: '+ Neuer Mandant' }))
+    expect(screen.getByLabelText('Rechtlicher Name')).toHaveAttribute('name', 'legalName')
+    expect(screen.getByRole('button', { name: 'Mandant speichern' })).toBeVisible()
   })
 })

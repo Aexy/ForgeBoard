@@ -16,8 +16,8 @@ vi.mock('next/navigation', () => ({ usePathname: mocks.usePathname, useRouter: (
 import { LanguageProvider } from '@/app/LanguageProvider'
 import { FirmNavigation } from '@/app/firms/[firmSlug]/FirmNavigation'
 
-function renderNavigation(role: 'OWNER' | 'MANAGER' = 'OWNER') {
-  return render(<LanguageProvider initialLanguage="en"><FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth', role }} userEmail="owner@example.com" /></LanguageProvider>)
+function renderNavigation(role: 'OWNER' | 'MANAGER' = 'OWNER', language: 'en' | 'de' = 'en') {
+  return render(<LanguageProvider initialLanguage={language}><FirmNavigation firm={{ firmId: 'firm-1', firmSlug: 'hearth', role }} userEmail="owner@example.com" /></LanguageProvider>)
 }
 
 describe('firm navigation', () => {
@@ -48,5 +48,13 @@ describe('firm navigation', () => {
     const navigation = screen.getByRole('navigation', { name: 'Primary navigation' })
     expect(navigation).toHaveAttribute('data-mobile-open', 'true')
     expect(within(navigation).getByRole('group', { name: 'Language' })).toBeVisible()
+  })
+
+  it('renders German navigation labels while retaining firm-scoped hrefs', () => {
+    renderNavigation('OWNER', 'de')
+
+    expect(screen.getByRole('link', { name: 'Meine Aufgaben' })).toHaveAttribute('href', '/firms/hearth/my-work')
+    expect(screen.getByRole('link', { name: 'Mandanten' })).toHaveAttribute('href', '/firms/hearth/clients')
+    expect(screen.getAllByRole('button', { name: 'Abmelden' })).toHaveLength(2)
   })
 })

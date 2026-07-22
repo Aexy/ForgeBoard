@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn(), signIn: vi.fn() }))
@@ -13,6 +13,7 @@ import { AccessScreen } from '@/app/(auth)/AccessScreen'
 
 describe('public access screen', () => {
   afterEach(() => {
+    cleanup()
     mocks.push.mockReset()
     mocks.refresh.mockReset()
     mocks.signIn.mockReset()
@@ -22,5 +23,14 @@ describe('public access screen', () => {
     render(<LanguageProvider initialLanguage="en"><AccessScreen /></LanguageProvider>)
 
     expect(screen.getByRole('group', { name: 'Language' })).toBeVisible()
+  })
+
+  it('renders German onboarding validation copy', () => {
+    render(<LanguageProvider initialLanguage="de"><AccessScreen /></LanguageProvider>)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Firma erstellen' })[0])
+    fireEvent.change(screen.getByLabelText('Passwort'), { target: { value: 'first-password' } })
+    fireEvent.change(screen.getByLabelText('Passwort bestätigen'), { target: { value: 'second-password' } })
+    fireEvent.submit(screen.getAllByRole('button', { name: 'Firma erstellen' })[1].closest('form')!)
+    expect(screen.getByRole('alert')).toHaveTextContent('Die Passwörter stimmen nicht überein')
   })
 })
