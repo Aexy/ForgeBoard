@@ -25,7 +25,7 @@ class PlatformControllerTest {
         mockMvc.perform(get("/api/platform"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("ForgeBoard"))
-                .andExpect(jsonPath("$.product").value("LedgerFlow"))
-                .andExpect(jsonPath("$.milestone").value("M0"));
+                .andExpect(jsonPath("$.product").doesNotExist())
+                .andExpect(jsonPath("$.milestone").value("M2"));
     }
 }

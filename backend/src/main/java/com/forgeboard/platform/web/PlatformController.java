@@ -11,8 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlatformController {
     @GetMapping
     Map<String, Object> platform() {
-        return Map.of("name", "ForgeBoard", "product", "LedgerFlow", "milestone", "M0",
+        return Map.of("name", "ForgeBoard", "milestone", "M2",
                 "status", "foundation", "time", Instant.now().toString());
     }
 }
-

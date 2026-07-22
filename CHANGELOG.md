@@ -42,6 +42,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Changed
 
+- Removed the obsolete LedgerFlow product metadata from the public platform diagnostic and updated its reported milestone to M2. (`M2`)
+
 - Moved the language selector above desktop user details and into the expanded mobile navigation menu. (`M2`)
 
 - Improved the mobile signed-in header, made the access form immediately usable on phones, added a mobile firm-creation prompt, unified native-select styling, and added ForgeBoard tab branding. (`M2`)
