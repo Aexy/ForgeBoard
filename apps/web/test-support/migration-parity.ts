@@ -6,6 +6,7 @@ import { migrationParityMatrix } from '@/test-support/migration-parity-matrix'
 
 const requiredJourneyIds = [
   'access-onboarding',
+  'language-selection',
   'workflow-task-create-link-unlink',
   'my-work',
   'clients',

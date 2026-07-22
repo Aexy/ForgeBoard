@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test'
 
 const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
 
-test('signs in through Auth.js and persists client work on direct firm routes', async ({ page, request }) => {
+test('persists the German language choice through Auth.js and direct firm routes', async ({ page, request }) => {
   const suffix = randomUUID().replaceAll('-', '')
   const firmSlug = `e2e-${suffix.slice(0, 16)}`
   const email = `e2e-${suffix}@forgeboard.test`
@@ -24,23 +24,27 @@ test('signs in through Auth.js and persists client work on direct firm routes', 
 
   await page.goto(`/firms/${firmSlug}/my-work`)
   await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Deutsch' }).click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de')
+  await page.getByLabel('E-Mail-Adresse').fill(email)
+  await page.getByLabel('Passwort').fill(password)
+  await page.getByRole('button', { name: 'Anmelden' }).click()
   await expect(page).toHaveURL(`/firms/${firmSlug}/my-work`, { timeout: 15_000 })
-  await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Meine Aufgaben' })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Clients' }).click()
+  await page.getByRole('link', { name: 'Mandanten' }).click()
   await expect(page).toHaveURL(`/firms/${firmSlug}/clients`)
-  await page.getByRole('button', { name: '+ New client' }).click()
-  await page.getByLabel('Legal name').fill(clientName)
-  await page.getByLabel('Display name').fill(clientName)
-  await page.getByLabel('Primary email').fill(`contact-${suffix}@forgeboard.test`)
-  await page.getByRole('button', { name: 'Save client' }).click()
+  await page.getByRole('button', { name: '+ Neuer Mandant' }).click()
+  await page.getByLabel('Rechtlicher Name').fill(clientName)
+  await page.getByLabel('Anzeigename').fill(clientName)
+  await page.getByLabel('Primäre E-Mail-Adresse').fill(`contact-${suffix}@forgeboard.test`)
+  await page.getByRole('button', { name: 'Mandant speichern' }).click()
   await expect(page.getByRole('heading', { name: clientName })).toBeVisible()
 
   await page.reload()
   await expect(page).toHaveURL(`/firms/${firmSlug}/clients`)
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de')
+  await expect(page.getByRole('link', { name: 'Meine Aufgaben' })).toBeVisible()
   await expect(page.getByRole('heading', { name: clientName })).toBeVisible()
 })
 
