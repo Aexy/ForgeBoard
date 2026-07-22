@@ -65,7 +65,7 @@ export function validateParityMatrix(markdown = migrationParityMatrix): string[]
     const workspaceRelativePath = relative(workspaceRoot, fullPath)
     const isWorkspaceTestPath = !isAbsolute(path)
       && !workspaceRelativePath.startsWith('..')
-      && (path.startsWith('apps/web/src/') || path.startsWith('apps/web/e2e/'))
+      && (path.startsWith('apps/web/test/unit/') || path.startsWith('apps/web/e2e/'))
       && /\.spec\.ts$|\.test\.tsx?$/.test(path)
     if (!isWorkspaceTestPath) {
       errors.push(`invalid test path: ${id}`)

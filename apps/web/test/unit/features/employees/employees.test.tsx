@@ -31,7 +31,7 @@ describe('Employees route feature', () => {
     mocks.useGetEmployeesQuery.mockReturnValue({ isLoading: false, data: [employee] })
     mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(employee) })
     render(<Employees />)
-    fireEvent.click(screen.getByRole('button', { name: '+ New employee' }))
+    fireEvent.click(screen.getByText('New employee'))
     fireEvent.change(screen.getByLabelText('Employee name'), { target: { value: employee.displayName } })
     fireEvent.change(screen.getByLabelText('Work email'), { target: { value: employee.email } })
     fireEvent.change(screen.getByLabelText('Temporary password'), { target: { value: 'temporary-password' } })

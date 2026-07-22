@@ -42,6 +42,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Changed
 
+- Improved the Next.js workspace for smaller screens: workflow stages now use expandable mobile sections, users can switch workflows from filters, and employee creation uses an accessible disclosure form. The unit test suite now follows feature and routing boundaries. (`M2`)
+
 - Removed the obsolete LedgerFlow product metadata from the public platform diagnostic and updated its reported milestone to M2. (`M2`)
 
 - Moved the language selector above desktop user details and into the expanded mobile navigation menu. (`M2`)

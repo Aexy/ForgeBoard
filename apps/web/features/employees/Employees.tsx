@@ -47,15 +47,17 @@ export function Employees() {
   return <section className={styles.workspace}>
     <header className={styles.heading}>
       <div><p className={styles.eyebrow}>Firm access</p><h1>Employees</h1><p>Create staff logins and make them available for work-item assignment.</p></div>
-      <button type="button" onClick={() => setCreating((value) => !value)}>{creating ? 'Cancel' : '+ New employee'}</button>
     </header>
-    {creating && <form className={styles.form} onSubmit={create}>
-      <label>Employee name<input name="displayName" required maxLength={160} autoComplete="name" /></label>
-      <label>Work email<input name="email" type="email" required maxLength={320} autoComplete="email" /></label>
-      <label>Temporary password<input name="temporaryPassword" type="password" required minLength={12} maxLength={200} autoComplete="new-password" /></label>
-      <label>Role<select name="role" defaultValue="MEMBER">{assignableRoles.map((role) => <option key={role} value={role}>{role.replace('_', ' ').toLowerCase()}</option>)}</select></label>
-      <button disabled={createResult.isLoading}>Create employee</button>
-    </form>}
+    <details className={styles.createPanel} open={creating} onToggle={(event) => setCreating(event.currentTarget.open)}>
+      <summary>{creating ? 'Cancel new employee' : 'New employee'}</summary>
+      <form className={styles.form} onSubmit={create}>
+        <label>Employee name<input name="displayName" required maxLength={160} autoComplete="name" /></label>
+        <label>Work email<input name="email" type="email" required maxLength={320} autoComplete="email" /></label>
+        <label>Temporary password<input name="temporaryPassword" type="password" required minLength={12} maxLength={200} autoComplete="new-password" /></label>
+        <label>Role<select name="role" defaultValue="MEMBER">{assignableRoles.map((role) => <option key={role} value={role}>{role.replace('_', ' ').toLowerCase()}</option>)}</select></label>
+        <button disabled={createResult.isLoading}>Create employee</button>
+      </form>
+    </details>
     {error && <p className={styles.error} role="alert">{error}</p>}
     {employees.isError ? <p className={styles.error} role="alert">Employees could not be loaded.</p> : employees.isLoading ? <p aria-live="polite">Loading employees…</p> : employees.data?.length === 0 ? <div className={styles.empty}><h2>No employees yet</h2><p>Create the first employee login for this firm.</p></div> : <div className={styles.list} aria-label="Employees">{employees.data?.map((employee: Employee) => <article className={styles.row} key={employee.membershipId}><div><h2>{employee.displayName}</h2><p>{employee.email}</p></div><span>{employee.role.replace('_', ' ').toLowerCase()}</span></article>)}</div>}
   </section>

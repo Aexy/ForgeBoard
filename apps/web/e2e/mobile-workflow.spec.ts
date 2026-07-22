@@ -10,6 +10,7 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
   const email = `e2e-mobile-${suffix}@forgeboard.test`
   const password = 'playwright-test-password'
   const title = `Mobile close ${suffix.slice(0, 8)}`
+  const reviewTitle = `Mobile review ${suffix.slice(0, 8)}`
 
   const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
     data: { firmName: `E2E Mobile ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: email, ownerName: 'Playwright Owner', password },
@@ -42,6 +43,12 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
   expect(item.status()).toBe(201)
   const itemData = await item.json() as { id: string }
 
+  const reviewItem = await request.post(`${apiBaseURL}/api/workflows/${workflowData.id}/items`, {
+    headers,
+    data: { clientId: clientData.id, stageId: workflowData.stages[1].id, title: reviewTitle, description: '', dueDate: null, priority: 'NORMAL' },
+  })
+  expect(reviewItem.status()).toBe(201)
+
   const board = await request.get(`${apiBaseURL}/api/workflows/${workflowData.id}`, { headers })
   expect(board.status()).toBe(200)
   const boardData = await board.json() as { workflowSlug: string; stages: Array<{ items: Array<{ id: string; taskReference: string }> }> }
@@ -65,6 +72,14 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
 
   const workflowBoard = page.getByLabel('Mobile workflow workflow')
   await expect(workflowBoard).toBeVisible()
+  expect(await workflowBoard.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await expect(page.getByRole('button', { name: 'Toggle Prepare stage' })).toHaveAttribute('aria-expanded', 'true')
+  const reviewToggle = page.getByRole('button', { name: 'Toggle Review stage' })
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false')
+  await reviewToggle.click()
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('button', { name: `Open ${reviewTitle} details` })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Add work item to Review' })).toBeVisible()
 
   await page.getByRole('button', { name: `Open ${title} task workspace` }).click()
   await expect(page).toHaveURL(`${boardPath}/tasks/${createdItem!.taskReference}`)

@@ -12,7 +12,7 @@ describe('Next migration parity matrix', () => {
   })
 
   it('also validates the human-readable documentation matrix when present', () => {
-    const documentationMatrix = resolve(fileURLToPath(new URL('../../../', import.meta.url)), 'docs/superpowers/next-migration-parity.md')
+    const documentationMatrix = resolve(fileURLToPath(new URL('../../../../../', import.meta.url)), 'docs/superpowers/next-migration-parity.md')
 
     if (existsSync(documentationMatrix)) expect(validateParityMatrix(readFileSync(documentationMatrix, 'utf8'))).toEqual([])
   })

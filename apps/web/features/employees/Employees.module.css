@@ -1,15 +1,20 @@
-.workspace { display: grid; gap: 1.5rem; }
+.workspace { display: grid; gap: 1.25rem; max-width: 1500px; padding: 1.5rem; }
 .heading { display: flex; gap: 1rem; align-items: flex-start; justify-content: space-between; }
 .heading h1, .row h2, .empty h2, .denied h1 { margin: 0; }
 .heading p, .row p, .empty p, .denied p { margin: 0.35rem 0 0; }
 .eyebrow { color: var(--forge-green-800); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.form { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); padding: 1rem; border: 1px solid var(--forge-border); border-radius: 0.75rem; background: var(--forge-surface); }
-.form label { display: grid; gap: 0.4rem; font-weight: 600; }
-.form input, .form select { min-width: 0; }
-.form button { align-self: end; }
+.createPanel { border: 1px solid #c8dbce; border-radius: .65rem; background: #fff; }
+.createPanel summary { cursor: pointer; padding: .8rem .9rem; color: #254535; font-size: .88rem; font-weight: 750; }
+.createPanel[open] summary { border-bottom: 1px solid #e2ebe5; }
+.form { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); padding: .9rem; }
+.form label { display: grid; gap: .3rem; color: #53635b; font-size: .78rem; font-weight: 700; }
+.form input, .form select, .form button { min-width: 0; min-height: 2.5rem; border: 1px solid #ccd6d0; border-radius: .45rem; background: #fff; font: inherit; padding: .45rem .6rem; }
+.form button { align-self: end; color: #fff; border-color: #21613d; background: #287447; font-weight: 750; cursor: pointer; }
+.form button:disabled { cursor: not-allowed; opacity: .65; }
+.createPanel summary:focus-visible, .form input:focus-visible, .form select:focus-visible, .form button:focus-visible { outline: 3px solid var(--forge-green-800); outline-offset: 2px; }
 .error { color: #a11e26; }
 .empty, .denied { padding: 1.5rem; border: 1px solid var(--forge-border); border-radius: 0.75rem; background: var(--forge-surface); }
 .list { display: grid; gap: 0.75rem; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid var(--forge-border); border-radius: 0.75rem; background: var(--forge-surface); }
 .row span { text-transform: capitalize; }
-@media (max-width: 40rem) { .heading, .row { align-items: stretch; flex-direction: column; } }
+@media (max-width: 40rem) { .workspace { gap: 1rem; padding: 1rem; }.heading, .row { align-items: stretch; flex-direction: column; }.form { grid-template-columns: 1fr; } }
