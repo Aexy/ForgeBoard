@@ -79,7 +79,7 @@ test('opens operational routes directly for their authorized roles', async ({ pa
 
   await page.goto(`/firms/${firm.firmSlug}/employees`)
   await expect(page.getByRole('heading', { name: 'Employees' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'New employee' })).toBeVisible()
+  await expect(page.locator('summary').filter({ hasText: 'New employee' })).toBeVisible()
 
   const managerContext = await browser.newContext()
   const managerPage = await managerContext.newPage()
@@ -104,7 +104,7 @@ test('does not expose operational writes or restricted routes to read-only staff
 
   await page.goto(`/firms/${firm.firmSlug}/employees`)
   await expect(page.locator('main [role="alert"]')).toContainText('Only owners and administrators can manage employee access.')
-  await expect(page.getByRole('button', { name: 'New employee' })).toHaveCount(0)
+  await expect(page.locator('summary').filter({ hasText: 'New employee' })).toHaveCount(0)
 
   await page.goto(`/firms/${firm.firmSlug}/audit-trail`)
   await expect(page.locator('main [role="alert"]')).toContainText('Only firm owners and managers can view the activity trail.')
@@ -121,7 +121,7 @@ test('provisions a read-only employee through the browser and preserves their re
   }
 
   await signInAt(page, `/firms/${firm.firmSlug}/employees`, firm.owner)
-  await page.getByRole('button', { name: 'New employee' }).click()
+  await page.locator('summary').filter({ hasText: 'New employee' }).click()
   await page.getByLabel('Employee name').fill(employee.displayName)
   await page.getByLabel('Work email').fill(employee.email)
   await page.getByLabel('Temporary password').fill(employee.password)
