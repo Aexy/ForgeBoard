@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as baseRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +11,9 @@ vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.firm }))
 vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowsQuery: mocks.workflows, useCreateWorkflowMutation: () => [mocks.create, { isLoading: false }] }))
 
 import { WorkflowHub } from '@/features/workflow/WorkflowHub'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+const render = (ui: ReactElement) => baseRender(<LanguageProvider initialLanguage="en">{ui}</LanguageProvider>)
 
 describe('WorkflowHub', () => {
   beforeEach(() => {

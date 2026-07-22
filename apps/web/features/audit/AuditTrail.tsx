@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { type AuditActorType, type AuditSource, type AuditTrailActivity, type AuditTrailFilters, useGetAuditTrailQuery } from './audit-transport'
 import { useFirmContext } from '@/store/firm-cache-boundary'
+import { useLanguage } from '@/app/LanguageProvider'
 
 import styles from './AuditTrail.module.css'
 
@@ -80,6 +81,7 @@ function actionLabel(action: string): string {
 
 export function AuditTrail({ basePath }: Readonly<{ basePath: string }>) {
   const firm = useFirmContext()
+  const { t } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
   const search = auditSearchFromParams(searchParams)
@@ -93,19 +95,19 @@ export function AuditTrail({ basePath }: Readonly<{ basePath: string }>) {
     router.replace(auditUrl(basePath, updated))
   }
 
-  if (!canView) return <section className={styles.workspace}><h1>Activity trail</h1><p className={styles.denied} role="alert">Only firm owners and managers can view the activity trail.</p></section>
+  if (!canView) return <section className={styles.workspace}><h1>{t('audit.title')}</h1><p className={styles.denied} role="alert">{t('audit.denied')}</p></section>
 
   return <section className={styles.workspace}>
-    <header className={styles.heading}><div><p className={styles.eyebrow}>Firm oversight</p><h1>Activity trail</h1><p>Review recorded changes across this firm.</p></div></header>
-    <div className={styles.filters} aria-label="Activity trail filters">
-      <label>Action<input aria-label="Action" value={search.action ?? ''} onChange={(event) => replace({ action: event.target.value || undefined })} /></label>
-      <label>Actor<select aria-label="Actor" value={search.actorType ?? ''} onChange={(event) => replace({ actorType: (event.target.value || undefined) as AuditActorType | undefined })}><option value="">All actors</option><option value="USER">User</option><option value="SERVICE">Service</option><option value="SYSTEM">System</option></select></label>
-      <label>Source<select aria-label="Source" value={search.source ?? ''} onChange={(event) => replace({ source: (event.target.value || undefined) as AuditSource | undefined })}><option value="">All sources</option><option value="WEB">Web</option><option value="REST">REST</option><option value="MCP">MCP</option><option value="JOB">Job</option></select></label>
-      <label>From<input aria-label="From" type="date" value={search.from ?? ''} onChange={(event) => replace({ from: event.target.value || undefined })} /></label>
-      <label>To<input aria-label="To" type="date" value={search.to ?? ''} onChange={(event) => replace({ to: event.target.value || undefined })} /></label>
-      <label>Page size<select aria-label="Page size" value={search.size} onChange={(event) => replace({ size: Number(event.target.value) })}><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
+    <header className={styles.heading}><div><p className={styles.eyebrow}>{t('audit.eyebrow')}</p><h1>{t('audit.title')}</h1><p>{t('audit.description')}</p></div></header>
+    <div className={styles.filters} aria-label={t('audit.filters')}>
+      <label>{t('audit.action')}<input aria-label={t('audit.action')} value={search.action ?? ''} onChange={(event) => replace({ action: event.target.value || undefined })} /></label>
+      <label>{t('audit.actor')}<select aria-label={t('audit.actor')} value={search.actorType ?? ''} onChange={(event) => replace({ actorType: (event.target.value || undefined) as AuditActorType | undefined })}><option value="">{t('audit.allActors')}</option><option value="USER">{t('audit.actorUser')}</option><option value="SERVICE">{t('audit.actorService')}</option><option value="SYSTEM">{t('audit.actorSystem')}</option></select></label>
+      <label>{t('audit.source')}<select aria-label={t('audit.source')} value={search.source ?? ''} onChange={(event) => replace({ source: (event.target.value || undefined) as AuditSource | undefined })}><option value="">{t('audit.allSources')}</option><option value="WEB">{t('audit.sourceWeb')}</option><option value="REST">{t('audit.sourceRest')}</option><option value="MCP">{t('audit.sourceMcp')}</option><option value="JOB">{t('audit.sourceJob')}</option></select></label>
+      <label>{t('audit.from')}<input aria-label={t('audit.from')} type="date" value={search.from ?? ''} onChange={(event) => replace({ from: event.target.value || undefined })} /></label>
+      <label>{t('audit.to')}<input aria-label={t('audit.to')} type="date" value={search.to ?? ''} onChange={(event) => replace({ to: event.target.value || undefined })} /></label>
+      <label>{t('audit.pageSize')}<select aria-label={t('audit.pageSize')} value={search.size} onChange={(event) => replace({ size: Number(event.target.value) })}><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
     </div>
-    {result.isError ? <p className={styles.error} role="alert">The activity trail could not be loaded.</p> : result.isLoading ? <p aria-live="polite">Loading activity trail…</p> : result.data?.items.length === 0 ? <div className={styles.empty}><h2>No activity found</h2><p>Try changing the selected filters or return later.</p></div> : <ol className={styles.list}>{result.data?.items.map((item, index) => <li key={`${item.occurredAt}-${item.targetId}-${index}`}><strong>{actionLabel(item.action)}</strong><span>{activitySummary(item)}</span><time dateTime={item.occurredAt}>{new Date(item.occurredAt).toLocaleString()}</time><small>{item.actorType.toLowerCase()} via {item.source.toLowerCase()}</small></li>)}</ol>}
-    {result.data?.nextCursor && <button type="button" onClick={() => replace({ cursor: result.data?.nextCursor ?? undefined }, false)}>Next page</button>}
+    {result.isError ? <p className={styles.error} role="alert">{t('audit.loadError')}</p> : result.isLoading ? <p aria-live="polite">{t('audit.loading')}</p> : result.data?.items.length === 0 ? <div className={styles.empty}><h2>{t('audit.empty')}</h2><p>{t('audit.emptyDescription')}</p></div> : <ol className={styles.list}>{result.data?.items.map((item, index) => <li key={`${item.occurredAt}-${item.targetId}-${index}`}><strong>{actionLabel(item.action)}</strong><span>{activitySummary(item)}</span><time dateTime={item.occurredAt}>{new Date(item.occurredAt).toLocaleString()}</time><small>{item.actorType.toLowerCase()} via {item.source.toLowerCase()}</small></li>)}</ol>}
+    {result.data?.nextCursor && <button type="button" onClick={() => replace({ cursor: result.data?.nextCursor ?? undefined }, false)}>{t('audit.nextPage')}</button>}
   </section>
 }

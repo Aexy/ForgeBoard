@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as baseRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const router = { replace: vi.fn(), push: vi.fn(), back: vi.fn() }
@@ -13,6 +14,9 @@ vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: () 
 import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
 import { TaskPanel } from '@/features/workflow/TaskPanel'
 import type { WorkItemDetail } from '@/features/workflow/workflow-transport'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+const render = (ui: ReactElement) => baseRender(<LanguageProvider initialLanguage="en">{ui}</LanguageProvider>)
 
 const item = { id: 'task-1', taskReference: 'FB-1042', clientId: 'client-1', stageId: 'todo', title: 'July close', description: '', dueDate: null, priority: 'NORMAL', rank: 1, version: 0, ownerUserId: null, ownerDisplayName: null, reviewerUserId: null, reviewerDisplayName: null }
 const board = { id: 'flow-1', workflowSlug: 'monthly-close', name: 'Monthly close', stages: [{ id: 'todo', name: 'Preparation', attention: 'NONE', position: 0, items: [item] }, { id: 'review', name: 'Review', attention: 'AWAITING_REVIEW', position: 1, items: [] }] }
@@ -42,8 +46,8 @@ describe('WorkflowBoard', () => {
     const reviewItem = { ...item, id: 'task-2', taskReference: 'FB-1043', stageId: 'review', title: 'Review close' }
     mocks.board.mockReturnValue({ data: { ...board, stages: [{ ...board.stages[0] }, { ...board.stages[1], items: [reviewItem] }] }, isLoading: false, isError: false, refetch: mocks.refetch })
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
-    const preparation = await screen.findByRole('button', { name: 'Toggle Preparation stage' })
-    const review = screen.getByRole('button', { name: 'Toggle Review stage' })
+    const preparation = await screen.findByRole('button', { name: 'Toggle stage Preparation' })
+    const review = screen.getByRole('button', { name: 'Toggle stage Review' })
     expect(preparation).toHaveAttribute('aria-expanded', 'true')
     expect(review).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('button', { name: 'Open Review close details' })).not.toBeInTheDocument()
@@ -55,7 +59,7 @@ describe('WorkflowBoard', () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })
     mocks.board.mockReturnValue({ data: { ...board, stages: board.stages.map((stage) => ({ ...stage, items: [] })) }, isLoading: false, isError: false, refetch: mocks.refetch })
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
-    expect(await screen.findByRole('button', { name: 'Toggle Preparation stage' })).toHaveAttribute('aria-expanded', 'true')
+    expect(await screen.findByRole('button', { name: 'Toggle stage Preparation' })).toHaveAttribute('aria-expanded', 'true')
   })
   it('opens query-backed detail on click and the full task route on double click', () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
@@ -74,13 +78,13 @@ describe('WorkflowBoard', () => {
   })
   it('moves a card only through the confirmed mutation', async () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Move July close right' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move right July close' }))
     await vi.waitFor(() => expect(mocks.move).toHaveBeenCalledWith(expect.objectContaining({ firm: expect.objectContaining({ firmId: 'firm-1' }), workflowId: 'flow-1', itemId: 'task-1', targetStageId: 'review', expectedVersion: 0 })))
   })
   it('refetches only after a 409 move conflict and keeps the retry message', async () => {
     mocks.move.mockReturnValue({ unwrap: vi.fn().mockRejectedValue({ status: 409 }) })
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Move July close right' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Move right July close' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('This work item was changed by another user. The board was refreshed; retry your move.')
     expect(mocks.refetch).toHaveBeenCalledTimes(1)
   })

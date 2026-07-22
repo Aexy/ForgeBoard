@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useWorkflowLanguage } from './useWorkflowLanguage'
+import { useLanguage } from '@/app/LanguageProvider'
 import type { WorkflowFilterView, WorkflowSummary } from './workflow-transport'
 import styles from './WorkflowBoard.module.css'
 import { boardPathWithoutTask, filteredBoardPath, filtersFromSearch, type BoardFilters } from './workflow-route-state'
@@ -13,7 +13,7 @@ function dueFilter(value: WorkflowFilterView['dueState']) { return value === 'OV
 export function WorkflowFilters({ basePath, savedViews = [], workflows = [] }: Readonly<{ basePath: string; savedViews?: WorkflowFilterView[]; workflows?: WorkflowSummary[] }>) {
   const router = useRouter()
   const search = useSearchParams()
-  const t = useWorkflowLanguage()
+  const { t } = useLanguage()
   const filters = filtersFromSearch(search)
   const replace = (next: Partial<BoardFilters>) => {
     router.replace(filteredBoardPath(basePath, search, next))
@@ -24,16 +24,16 @@ export function WorkflowFilters({ basePath, savedViews = [], workflows = [] }: R
   }
   const applyView = (viewId: string) => { const view = savedViews.find((candidate) => candidate.id === viewId); if (view) replace({ client: view.clientId ?? '', owner: view.ownerUserId ?? '', due: dueFilter(view.dueState), priority: view.priority ?? '', unassigned: Boolean(view.unassigned) }) }
   return <details className={styles.workflowFilters}>
-    <summary>{t('Filters')}</summary>
+    <summary>{t('workflow.filters')}</summary>
     <div>
-      {workflows.length > 1 && <label>{t('Workflow')}<select aria-label={t('Workflow')} value={basePath.slice(basePath.lastIndexOf('/') + 1)} onChange={(event) => switchWorkflow(event.target.value)}>{workflows.map((workflow) => <option key={workflow.id} value={workflow.workflowSlug}>{workflow.name}</option>)}</select></label>}
-      <label>{t('Client')}<input aria-label={t('Client')} value={filters.client} onChange={(event) => replace({ client: event.target.value })} /></label>
-      <label>{t('Owner')}<input aria-label={t('Owner')} value={filters.owner} onChange={(event) => replace({ owner: event.target.value })} /></label>
-      <label>{t('Due state')}<select aria-label={t('Due state')} value={filters.due} onChange={(event) => replace({ due: event.target.value })}><option value="">{t('All due states')}</option><option value="overdue">{t('Overdue')}</option><option value="today">{t('Due today')}</option><option value="soon">{t('Due soon')}</option><option value="none">{t('No due date')}</option></select></label>
-      <label>{t('Priority')}<select aria-label={t('Priority')} value={filters.priority} onChange={(event) => replace({ priority: event.target.value })}><option value="">{t('All priorities')}</option>{['LOW', 'NORMAL', 'HIGH', 'URGENT'].map((priority) => <option key={priority}>{priority}</option>)}</select></label>
-      <label><input aria-label={t('Unassigned')} type="checkbox" checked={filters.unassigned} onChange={(event) => replace({ unassigned: event.target.checked })} />{t('Unassigned')}</label>
-      {savedViews.length > 0 && <label>Saved view<select aria-label="Apply saved workflow view" defaultValue="" onChange={(event) => applyView(event.target.value)}><option value="">Apply saved view</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>}
-      <button type="button" onClick={() => replace({ client: '', owner: '', due: '', priority: '', unassigned: false })}>{t('Reset filters')}</button>
+      {workflows.length > 1 && <label>{t('navigation.workflow')}<select aria-label={t('navigation.workflow')} value={basePath.slice(basePath.lastIndexOf('/') + 1)} onChange={(event) => switchWorkflow(event.target.value)}>{workflows.map((workflow) => <option key={workflow.id} value={workflow.workflowSlug}>{workflow.name}</option>)}</select></label>}
+      <label>{t('common.client')}<input aria-label={t('common.client')} value={filters.client} onChange={(event) => replace({ client: event.target.value })} /></label>
+      <label>{t('common.owner')}<input aria-label={t('common.owner')} value={filters.owner} onChange={(event) => replace({ owner: event.target.value })} /></label>
+      <label>{t('workflow.dueState')}<select aria-label={t('workflow.dueState')} value={filters.due} onChange={(event) => replace({ due: event.target.value })}><option value="">{t('workflow.allDueStates')}</option><option value="overdue">{t('workflow.overdue')}</option><option value="today">{t('workflow.dueToday')}</option><option value="soon">{t('workflow.dueSoon')}</option><option value="none">{t('workflow.noDueDate')}</option></select></label>
+      <label>{t('common.priority')}<select aria-label={t('common.priority')} value={filters.priority} onChange={(event) => replace({ priority: event.target.value })}><option value="">{t('workflow.allPriorities')}</option>{['LOW', 'NORMAL', 'HIGH', 'URGENT'].map((priority) => <option key={priority}>{priority}</option>)}</select></label>
+      <label><input aria-label={t('common.unassigned')} type="checkbox" checked={filters.unassigned} onChange={(event) => replace({ unassigned: event.target.checked })} />{t('common.unassigned')}</label>
+      {savedViews.length > 0 && <label>{t('workflow.savedView')}<select aria-label={t('workflow.applySavedView')} defaultValue="" onChange={(event) => applyView(event.target.value)}><option value="">{t('workflow.applySavedView')}</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>}
+      <button type="button" onClick={() => replace({ client: '', owner: '', due: '', priority: '', unassigned: false })}>{t('workflow.resetFilters')}</button>
     </div>
   </details>
 }

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as baseRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 
 const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetAuditTrailQuery: vi.fn() }))
 const router = { replace: vi.fn() }
@@ -11,6 +12,9 @@ vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmCon
 vi.mock('@/features/audit/audit-transport', () => ({ useGetAuditTrailQuery: mocks.useGetAuditTrailQuery }))
 
 import { AuditTrail, auditSearchFromParams } from '@/features/audit/AuditTrail'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+const render = (ui: ReactElement, language: 'en' | 'de' = 'en') => baseRender(<LanguageProvider initialLanguage={language}>{ui}</LanguageProvider>)
 
 describe('Audit trail route feature', () => {
   beforeEach(() => { router.replace.mockReset(); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.useGetAuditTrailQuery.mockReturnValue({ isLoading: false, data: { items: [{ actorUserId: 'user-1', actorType: 'USER', source: 'WEB', action: 'work-item.moved', targetType: 'work-item', targetId: 'item-1', summary: { title: 'July close' }, occurredAt: '2026-07-16T10:00:00Z' }], nextCursor: 'next-cursor' } }) })
@@ -43,5 +47,11 @@ describe('Audit trail route feature', () => {
     render(<AuditTrail basePath="/firms/hearth/audit-trail" />)
     expect(screen.getByRole('alert')).toHaveTextContent('Only firm owners and managers')
     expect(mocks.useGetAuditTrailQuery).toHaveBeenCalledWith(expect.anything(), { skip: true })
+  })
+
+  it('translates audit filters without changing the canonical query values', () => {
+    render(<AuditTrail basePath="/firms/hearth/audit-trail" />, 'de')
+    expect(screen.getByRole('heading', { name: 'Aktivitätsverlauf' })).toBeVisible()
+    expect(screen.getByLabelText('Quelle')).toHaveValue('')
   })
 })

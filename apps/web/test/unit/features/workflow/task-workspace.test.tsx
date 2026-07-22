@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as baseRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const router = { push: vi.fn(), replace: vi.fn(), back: vi.fn() }
@@ -11,6 +12,9 @@ vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkItemDetailQ
 vi.mock('@/features/employees/employees-transport', () => ({ useGetEmployeesQuery: mocks.employees }))
 
 import { TaskWorkspace } from '@/features/workflow/TaskWorkspace'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+const render = (ui: ReactElement) => baseRender(<LanguageProvider initialLanguage="en">{ui}</LanguageProvider>)
 
 const item = { id: 'internal-task-id', taskReference: 'FB-1042', clientId: 'client-1', stageId: 'todo', title: 'July close', description: 'Reconcile bank statements.', dueDate: '2026-07-31', priority: 'NORMAL', rank: 1, version: 0, ownerUserId: null, ownerDisplayName: null, reviewerUserId: null, reviewerDisplayName: null }
 

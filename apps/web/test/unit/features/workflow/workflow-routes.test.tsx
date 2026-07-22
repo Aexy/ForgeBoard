@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as baseRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const router = { replace: vi.fn(), push: vi.fn(), back: vi.fn() }
@@ -8,6 +9,9 @@ let search = new URLSearchParams('priority=URGENT&unassigned=true')
 vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: () => search }))
 
 import { WorkflowFilters, filtersFromSearch } from '@/features/workflow/WorkflowFilters'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+const render = (ui: ReactElement, language: 'en' | 'de' = 'en') => baseRender(<LanguageProvider initialLanguage={language}>{ui}</LanguageProvider>)
 
 describe('workflow route state', () => {
   afterEach(() => { cleanup(); localStorage.clear() })
@@ -21,9 +25,8 @@ describe('workflow route state', () => {
     expect(router.replace).toHaveBeenCalledWith('/firms/hearth/workflow/flow-1?priority=URGENT&unassigned=true&due=soon')
   })
 
-  it('uses the legacy persisted German preference for workflow filters', async () => {
-    localStorage.setItem('forgeboard.language', 'de')
-    render(<WorkflowFilters basePath="/firms/hearth/workflow/flow-1" />)
+  it('uses the shared German preference for workflow filters', async () => {
+    render(<WorkflowFilters basePath="/firms/hearth/workflow/flow-1" />, 'de')
     expect(await screen.findByText('Fälligkeitsstatus')).toBeInTheDocument()
     expect(screen.getByText('Filter zurücksetzen')).toBeInTheDocument()
   })

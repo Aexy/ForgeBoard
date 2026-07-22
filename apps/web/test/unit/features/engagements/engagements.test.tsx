@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render as baseRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   createTemplate: vi.fn(), createEngagement: vi.fn(), createRequest: vi.fn(), receive: vi.fn(),
 }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.clients }))
 vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowsQuery: mocks.workflows }))
 vi.mock('@/features/engagements/engagements-transport', () => ({
@@ -16,6 +18,9 @@ vi.mock('@/features/engagements/engagements-transport', () => ({
   useCreateEngagementTemplateMutation: () => [mocks.createTemplate, { isLoading: false }], useCreateEngagementMutation: () => [mocks.createEngagement, { isLoading: false }], useCreateDocumentRequestMutation: () => [mocks.createRequest, { isLoading: false }], useReceiveDocumentRequestMutation: () => [mocks.receive],
 }))
 import { Engagements } from '@/features/engagements/Engagements'
+import { LanguageProvider } from '@/app/LanguageProvider'
+
+const render = (ui: ReactElement, language: 'en' | 'de' = 'en') => baseRender(<LanguageProvider initialLanguage={language}>{ui}</LanguageProvider>)
 
 const client = { id: 'client-1', displayName: 'Northstar', legalName: 'Northstar GmbH', primaryEmail: null, status: 'ACTIVE', version: 0 }
 const template = { id: 'template-1', name: 'Monthly bookkeeping', workflowId: 'workflow-1', recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare {{period}}', dueDay: 20, version: 0 }
@@ -32,9 +37,15 @@ describe('Engagements route feature', () => {
     mocks.engagements.mockReturnValue({ isLoading: true })
     const view = render(<Engagements />)
     expect(screen.getByText('Loading engagements…')).toBeVisible()
-    mocks.engagements.mockReturnValue({ isLoading: false, isError: true, data: [] }); view.rerender(<Engagements />)
+    mocks.engagements.mockReturnValue({ isLoading: false, isError: true, data: [] }); view.rerender(<LanguageProvider initialLanguage="en"><Engagements /></LanguageProvider>)
     expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
     expect(screen.getByText('No engagements yet')).toBeVisible()
+  })
+
+  it('keeps API values while rendering German engagement controls', () => {
+    render(<Engagements />, 'de')
+    expect(screen.getByRole('heading', { name: 'Aufträge' })).toBeVisible()
+    expect(screen.getByRole('button', { name: '+ Neue Vorlage' })).toBeVisible()
   })
 
   it('creates firm-scoped templates, engagements, and metadata-only document requests', async () => {
