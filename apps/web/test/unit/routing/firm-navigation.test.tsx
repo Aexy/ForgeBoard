@@ -40,14 +40,15 @@ describe('firm navigation', () => {
     expect(screen.getByRole('link', { name: 'Activity trail' })).toBeInTheDocument()
   })
 
-  it('places the selector in desktop account controls and the expanded mobile menu', () => {
+  it('places the desktop selector next to the ForgeBoard mark and retains it in the expanded mobile menu', () => {
     renderNavigation()
 
-    expect(screen.getAllByRole('group', { name: 'Language' })).toHaveLength(2)
+    const [desktopLanguage, mobileLanguage] = screen.getAllByRole('group', { name: 'Language' })
+    expect(screen.getByRole('link', { name: 'ForgeBoard home' }).parentElement).toContainElement(desktopLanguage)
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
     const navigation = screen.getByRole('navigation', { name: 'Primary navigation' })
     expect(navigation).toHaveAttribute('data-mobile-open', 'true')
-    expect(within(navigation).getByRole('group', { name: 'Language' })).toBeVisible()
+    expect(within(navigation).getByRole('group', { name: 'Language' })).toBe(mobileLanguage)
   })
 
   it('renders German navigation labels while retaining firm-scoped hrefs', () => {

@@ -40,7 +40,10 @@ export function FirmNavigation({ firm, userEmail }: Readonly<FirmNavigationProps
       <Link className={styles.brand} href={`/firms/${firm.firmSlug}/workflow`} aria-label={t('navigation.home')}>
         <img src="/forgeboard-logo.svg" alt="ForgeBoard" />
       </Link>
-      <button className={styles.menuToggle} type="button" aria-expanded={mobileMenuOpen} aria-controls="firm-primary-navigation" onClick={() => setMobileMenuOpen((open) => !open)}>{t('navigation.menu')}</button>
+      <div className={styles.headerActions}>
+        <LanguageToggle className={styles.desktopLanguageToggle} />
+        <button className={styles.menuToggle} type="button" aria-expanded={mobileMenuOpen} aria-controls="firm-primary-navigation" onClick={() => setMobileMenuOpen((open) => !open)}>{t('navigation.menu')}</button>
+      </div>
     </div>
     <div className={styles.workspaceLabel}><span>{t('navigation.workspace')}</span><strong>{firm.firmSlug}</strong></div>
     <nav id="firm-primary-navigation" className={styles.links} aria-label={t('navigation.primary')} data-mobile-open={mobileMenuOpen}>
@@ -58,7 +61,6 @@ export function FirmNavigation({ firm, userEmail }: Readonly<FirmNavigationProps
     <div className={styles.account}>
       <span className={styles.avatar} aria-hidden="true">{initials}</span>
       <div><strong>{userEmail.split('@')[0]}</strong><span>{userEmail}</span></div>
-      <LanguageToggle className={styles.desktopLanguageToggle} />
       <button className={styles.signOut} type="button" onClick={() => signOut({ callbackUrl: '/' })}>{t('navigation.signOut')}</button>
     </div>
   </div>
