@@ -173,7 +173,7 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   })
   expect(concurrentMove.status()).toBe(200)
 
-  await card.getByRole('button', { name: `Move ${title} right` }).click()
+  await card.getByRole('button', { name: `Move right ${title}` }).click()
   await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveText('This work item was changed by another user. The board was refreshed; retry your move.')
   await expect(page.getByLabel('Review stage').locator('article').filter({ hasText: title })).toBeVisible()
 })
@@ -324,7 +324,7 @@ test('shows a Spring authorization denial and preserves board state for read-onl
   await expect(page.getByRole('button', { name: 'Link Read only document' })).toHaveCount(0)
   await page.goBack()
   await expect(page).toHaveURL(boardPath)
-  await card.getByRole('button', { name: `Move ${title} right` }).click()
+  await card.getByRole('button', { name: `Move right ${title}` }).click()
   await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveText('The work item could not be moved.')
 
   await page.reload()
