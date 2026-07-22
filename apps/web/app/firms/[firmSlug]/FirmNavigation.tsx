@@ -7,6 +7,7 @@ import { useState } from 'react'
 
 import type { FirmContext } from '@/lib/firm-context'
 
+import { LanguageToggle } from '../../LanguageToggle'
 import styles from './FirmNavigation.module.css'
 
 const commonLinks = [
@@ -52,12 +53,14 @@ export function FirmNavigation({ firm, userEmail }: Readonly<FirmNavigationProps
           return <li key={link.href}><Link href={href} aria-current={active ? 'page' : undefined} onClick={() => setMobileMenuOpen(false)}><i aria-hidden="true">{String(index + 1).padStart(2, '0')}</i>{link.label}</Link></li>
         })}
       </ol>
+      <LanguageToggle className={styles.mobileLanguageToggle} />
       <button className={styles.mobileSignOut} type="button" onClick={() => signOut({ callbackUrl: '/' })}>Sign out</button>
     </nav>
     <aside className={styles.sidebarNote} aria-label="Workspace summary"><span>Everything in view</span><p>Deadlines, ownership, and handoffs in one accountable workspace.</p></aside>
     <div className={styles.account}>
       <span className={styles.avatar} aria-hidden="true">{initials}</span>
       <div><strong>{userEmail.split('@')[0]}</strong><span>{userEmail}</span></div>
+      <LanguageToggle className={styles.desktopLanguageToggle} />
       <button className={styles.signOut} type="button" onClick={() => signOut({ callbackUrl: '/' })}>Sign out</button>
     </div>
   </div>

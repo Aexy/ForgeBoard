@@ -17,7 +17,7 @@
 .sidebarNote { background: #1b382d; border: 1px solid #315044; border-radius: .875rem; color: #dce8e1; margin: 1.25rem 0; padding: 1.125rem; position: relative; z-index: 1; }
 .sidebarNote span { color: #92d6aa; font-size: .6875rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .sidebarNote p { color: #9fb4aa; font-size: .75rem; line-height: 1.55; margin: .5625rem 0 0; }
-.account { align-items: center; border-top: 1px solid #315044; display: grid; gap: .625rem; grid-template-columns: 2.125rem minmax(0, 1fr) auto; margin-top: 1.25rem; padding-top: 1.25rem; position: relative; z-index: 1; }
+.account { align-items: center; border-top: 1px solid #315044; display: grid; gap: .625rem; grid-template-columns: 2.125rem minmax(0, 1fr) auto auto; margin-top: 1.25rem; padding-top: 1.25rem; position: relative; z-index: 1; }
 .avatar { background: #92d6aa; border-radius: .625rem; color: #14261f; display: grid; font-weight: 800; height: 2.125rem; place-items: center; width: 2.125rem; }
 .account div { display: grid; gap: .125rem; min-width: 0; }
 .account strong, .account div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -25,5 +25,5 @@
 .account div span { color: #9fb4aa; font-size: .6875rem; }
 .signOut, .mobileSignOut, .menuToggle { background: transparent; border: 0; color: #dce8e1; cursor: pointer; font: inherit; font-size: .6875rem; font-weight: 700; padding: .3125rem; }
 .signOut:hover, .mobileSignOut:hover { color: #92d6aa; }
-.mobileSignOut, .menuToggle { display: none; }
-@media (max-width: 51.99rem) { .navigation { min-height: auto; padding: 1.125rem 1.25rem; } .navigation::after, .workspaceLabel, .sidebarNote, .account { display: none; } .mobileHeader { align-items: center; display: flex; justify-content: space-between; width: 100%; } .menuToggle { border: 1px solid #527062; border-radius: .5rem; display: block; padding: .5rem .75rem; } .links { display: none; margin-top: .75rem; overflow: visible; } .links[data-mobile-open='true'] { display: block; } .mobileSignOut { border-top: 1px solid #315044; display: block; margin-top: .375rem; padding-top: .75rem; text-align: left; width: 100%; } }
+.desktopLanguageToggle { background: #315044; }.desktopLanguageToggle button { color: #dce8e1; }.desktopLanguageToggle button[aria-pressed='true'] { background: #f4f8f5; color: #173126; }.mobileLanguageToggle { display: none; margin-top: .75rem; }.mobileSignOut, .menuToggle { display: none; }
+@media (max-width: 51.99rem) { .navigation { min-height: auto; padding: 1.125rem 1.25rem; } .navigation::after, .workspaceLabel, .sidebarNote, .account { display: none; } .mobileHeader { align-items: center; display: flex; justify-content: space-between; width: 100%; } .menuToggle { border: 1px solid #527062; border-radius: .5rem; display: block; padding: .5rem .75rem; } .links { display: none; margin-top: .75rem; overflow: visible; } .links[data-mobile-open='true'] { display: block; } .mobileLanguageToggle { display: inline-flex; } .mobileSignOut { border-top: 1px solid #315044; display: block; margin-top: .375rem; padding-top: .75rem; text-align: left; width: 100%; } }

@@ -1,0 +1,5 @@
+.toggle { align-items: center; background: #edf1ee; border-radius: .625rem; display: inline-flex; gap: .125rem; padding: .1875rem; }
+.toggle button { background: transparent; border: 0; border-radius: .4375rem; color: #4c6257; cursor: pointer; font: inherit; font-size: .6875rem; font-weight: 750; line-height: 1; padding: .4375rem .5rem; }
+.toggle button[aria-pressed='true'] { background: #fff; box-shadow: 0 .0625rem .1875rem #14261f20; color: #173126; }
+.toggle button:hover { color: #173126; }
+.toggle button:focus-visible { outline: .1875rem solid #17663d; outline-offset: .125rem; }
