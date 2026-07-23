@@ -15,7 +15,6 @@ services:
       FORGEBOARD_PUBLIC_ORIGIN: https://${NEXT_PREVIEW_HOST}
       FORGEBOARD_API_BASE_URL: ${FORGEBOARD_API_BASE_URL:?set to the existing private Spring service URL}
       FORGEBOARD_TOKEN_ISSUER: ${FORGEBOARD_TOKEN_ISSUER:?set in the deployment secret file}
-      FORGEBOARD_PREVIEW_FIRM_SLUGS: ${FORGEBOARD_PREVIEW_FIRM_SLUGS:?set in the deployment secret file}
     networks:
       - default
       - backend
