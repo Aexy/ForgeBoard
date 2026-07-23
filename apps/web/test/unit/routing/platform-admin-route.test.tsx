@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/auth', () => ({ auth: mocks.auth }))
 vi.mock('next/navigation', () => ({ notFound: mocks.notFound, redirect: mocks.redirect, useRouter: () => ({ refresh: vi.fn() }) }))
 vi.mock('@/features/platform-admin/PlatformAdminDashboard', () => ({ PlatformAdminDashboard: () => <h1>Platform administration</h1> }))
+vi.mock('@/app/platform-admin/PlatformNavigation', () => ({ PlatformNavigation: () => <nav aria-label="Platform administration" /> }))
 
 import PlatformAdminLayout from '@/app/platform-admin/layout'
 import PlatformAdminPage from '@/app/platform-admin/page'

@@ -40,7 +40,7 @@ export type CreatePlatformEmployee = {
   role: MembershipRole
 }
 
-const platformUrl = (path: string) => `/api/platform-admin/${path}`
+const platformUrl = (path: string) => new URL(`/api/platform-admin/${path}`, window.location.origin).toString()
 
 export const platformAdminApi = forgeboardApi.injectEndpoints({
   endpoints: (build) => ({

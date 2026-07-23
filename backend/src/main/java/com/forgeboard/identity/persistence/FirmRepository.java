@@ -18,10 +18,8 @@ public interface FirmRepository extends JpaRepository<Firm, UUID> {
             + "firm.id, firm.name, firm.slug, firm.status, firm.createdAt, count(membership)) "
             + "from Firm firm left join FirmMembership membership on membership.firmId = firm.id "
             + "where lower(firm.name) like lower(concat('%', :query, '%')) "
-            + "or lower(firm.slug) like lower(concat('%', :query, '%')) "
             + "group by firm.id, firm.name, firm.slug, firm.status, firm.createdAt order by firm.name asc",
-            countQuery = "select count(firm) from Firm firm where lower(firm.name) like lower(concat('%', :query, '%')) "
-                    + "or lower(firm.slug) like lower(concat('%', :query, '%'))")
+            countQuery = "select count(firm) from Firm firm where lower(firm.name) like lower(concat('%', :query, '%'))")
     Page<PlatformFirmRow> findPlatformFirms(@Param("query") String query, Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

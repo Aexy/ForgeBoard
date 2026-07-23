@@ -9,8 +9,8 @@ export default async function HomePage({ searchParams }: Readonly<{ searchParams
   const callbackUrl = params.callbackUrl?.startsWith('/firms/') && !params.callbackUrl.startsWith('//') ? params.callbackUrl : undefined
   const firm = session?.firms[0]
   if (session?.user?.id && session.error !== 'RefreshAccessTokenError') {
-    if (callbackUrl || firm || session.platformAdministrator) {
-      redirect(callbackUrl ?? (firm ? `/firms/${firm.slug}/my-work` : '/platform-admin'))
+    if (session.platformAdministrator || callbackUrl || firm) {
+      redirect(session.platformAdministrator ? '/platform-admin' : callbackUrl ?? `/firms/${firm!.slug}/my-work`)
     }
   }
   return <AccessScreen callbackUrl={callbackUrl} />

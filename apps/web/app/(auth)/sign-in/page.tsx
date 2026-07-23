@@ -8,7 +8,7 @@ export default async function SignInPage({ searchParams }: Readonly<{ searchPara
   const session = await auth()
   const firm = session?.firms[0]
   if (session?.user?.id && session.error !== 'RefreshAccessTokenError') {
-    redirect(safeCallbackUrl ?? (firm ? `/firms/${firm.slug}/my-work` : session.platformAdministrator ? '/platform-admin' : '/'))
+    redirect(session.platformAdministrator ? '/platform-admin' : safeCallbackUrl ?? (firm ? `/firms/${firm.slug}/my-work` : '/'))
   }
   redirect(safeCallbackUrl ? `/?callbackUrl=${encodeURIComponent(safeCallbackUrl)}` : '/')
 }

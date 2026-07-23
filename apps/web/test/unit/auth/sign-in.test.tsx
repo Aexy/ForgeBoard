@@ -3,9 +3,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ signIn: vi.fn(), push: vi.fn(), refresh: vi.fn() }))
+const mocks = vi.hoisted(() => ({ signIn: vi.fn(), replace: vi.fn(), refresh: vi.fn() }))
 vi.mock('next-auth/react', () => ({ signIn: mocks.signIn }))
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push, refresh: mocks.refresh }) }))
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }) }))
 import { SignInForm } from '@/app/(auth)/sign-in/SignInForm'
 import { LanguageProvider } from '@/app/LanguageProvider'
 
@@ -15,7 +15,7 @@ function renderWithLanguage(language: 'en' | 'de' = 'en') {
 
 describe('sign-in form', () => {
   afterEach(cleanup)
-  beforeEach(() => { mocks.signIn.mockReset(); mocks.push.mockReset(); mocks.refresh.mockReset() })
+  beforeEach(() => { mocks.signIn.mockReset(); mocks.replace.mockReset(); mocks.refresh.mockReset() })
   it('signs in and returns to the requested firm route', async () => {
     mocks.signIn.mockResolvedValue({ url: '/firms/hearth/my-work' })
     render(<LanguageProvider initialLanguage="en"><SignInForm callbackUrl="/firms/hearth/my-work" /></LanguageProvider>)
@@ -23,7 +23,7 @@ describe('sign-in form', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct-password' } })
     fireEvent.submit(screen.getByRole('button', { name: 'Sign in' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.signIn).toHaveBeenCalledWith('credentials', expect.objectContaining({ email: 'owner@example.com', password: 'correct-password', callbackUrl: '/firms/hearth/my-work' })))
-    expect(mocks.push).toHaveBeenCalledWith('/firms/hearth/my-work')
+    expect(mocks.replace).toHaveBeenCalledWith('/?callbackUrl=%2Ffirms%2Fhearth%2Fmy-work&postSignIn=1')
   })
   it('shows a recoverable error after failed credentials', async () => {
     mocks.signIn.mockResolvedValue({ error: 'CredentialsSignin' })
