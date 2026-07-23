@@ -20,6 +20,7 @@ const privateToken = {
   refreshToken: 'spring-refresh-token',
   user: { id: 'user-1', email: 'owner@example.com' },
   firms: [{ id: 'firm-1', slug: 'hearth', name: 'Hearth', role: 'OWNER' as const }],
+  platformAdministrator: true,
 }
 
 describe('server-only Auth.js API session', () => {
@@ -30,7 +31,7 @@ describe('server-only Auth.js API session', () => {
 
   it('reads Spring credentials from the encrypted Auth.js JWT instead of the browser session', async () => {
     mocks.getToken.mockResolvedValue(privateToken)
-    const browserSession = { user: privateToken.user, firms: privateToken.firms }
+    const browserSession = { user: privateToken.user, firms: privateToken.firms, platformAdministrator: true }
 
     await expect(apiSessionFromRequest(new Request('http://localhost:3000/api/forgeboard/clients'), browserSession))
       .resolves.toMatchObject({ accessToken: 'spring-access-token', refreshToken: 'spring-refresh-token' })
@@ -46,6 +47,7 @@ describe('server-only Auth.js API session', () => {
     await expect(apiSessionFromRequest(new Request('http://localhost:3000/api/forgeboard/clients'), {
       user: { id: 'other-user', email: 'other@example.com' },
       firms: privateToken.firms,
+      platformAdministrator: false,
     })).resolves.toBeUndefined()
   })
 })

@@ -28,7 +28,6 @@ export default defineConfig({
       FORGEBOARD_PUBLIC_ORIGIN: baseURL,
       // Fixture firms are generated per test. Do not inherit a deployment
       // preview allow-list into the isolated local Next dev server.
-      FORGEBOARD_PREVIEW_FIRM_SLUGS: '',
     },
   },
   projects: [

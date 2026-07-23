@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server'
 import { authorizedFirmRoute } from '@/lib/authorized-firm-route'
 import { firmContextCookieBinding } from '@/lib/firm-context-cookie'
 import { isAllowedMutationOrigin } from '@/lib/mutation-origin'
-import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 
 const SAFE_RESPONSE_HEADERS = [
   'content-type',
@@ -53,7 +52,6 @@ async function proxy(request: Request, context: RouteContext): Promise<NextRespo
   if (result.kind === 'authentication-required') return jsonError(401, 'Authentication is required')
   if (result.kind === 'firm-not-found' || result.route.firm.firmId !== cookieBinding.firm.firmId) return jsonError(404, 'Firm not found')
   const { firm, api } = result.route
-  if (!isPreviewFirmEnabled(firm.firmSlug)) return jsonError(403, 'This firm is not enabled for the preview')
 
   const { path } = await context.params
   if (path.length === 0) return jsonError(404, 'API resource not found')

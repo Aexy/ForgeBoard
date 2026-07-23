@@ -45,7 +45,6 @@ describe('ForgeBoard BFF proxy', () => {
     vi.stubEnv('FORGEBOARD_API_BASE_URL', 'http://spring:8080')
     vi.stubEnv('FORGEBOARD_TOKEN_ISSUER', 'forgeboard')
     vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://localhost:3000')
-    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', '')
     vi.stubEnv('NODE_ENV', 'test')
     mocks.auth.mockResolvedValue(session)
     mocks.apiSessionFromRequest.mockResolvedValue(apiSession)
@@ -92,17 +91,7 @@ describe('ForgeBoard BFF proxy', () => {
     expect(mocks.upstreamResponse).not.toHaveBeenCalled()
   })
 
-  it('rejects a stale signed context for a firm removed from the preview allow-list', async () => {
-    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'other-firm')
-    const response = await GET(await request(), routeContext)
-
-    expect(response.status).toBe(403)
-    expect(mocks.apiSessionFromRequest).toHaveBeenCalled()
-    expect(mocks.upstreamResponse).not.toHaveBeenCalled()
-  })
-
-  it('returns 404, not preview denial, for another user\'s signed non-preview firm context', async () => {
-    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'hearth')
+  it('returns 404 for another user\'s signed firm context', async () => {
     const response = await GET(await request('GET', {
       headers: {
         Cookie: `forgeboard-firm-context=${await createFirmContextValue('other-user', {
@@ -165,7 +154,6 @@ describe('ForgeBoard BFF proxy', () => {
   it('does not allow development host aliases in production', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://127.0.0.1:3000')
-    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'hearth')
     const response = await POST(await request('POST', {
       headers: { Origin: 'http://localhost:3000', 'Content-Type': 'application/json' },
       body: '{}',

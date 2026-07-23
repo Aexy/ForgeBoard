@@ -23,4 +23,10 @@ server:
 forgeboard:
   api-token:
     secret: ${FORGEBOARD_API_TOKEN_SECRET}
+  platform-admin:
+    emails: ${FORGEBOARD_PLATFORM_ADMIN_EMAILS:}
+    bootstrap:
+      enabled: ${FORGEBOARD_PLATFORM_ADMIN_BOOTSTRAP_ENABLED:false}
+      email: ${FORGEBOARD_PLATFORM_ADMIN_BOOTSTRAP_EMAIL:}
+      initial-password: ${FORGEBOARD_PLATFORM_ADMIN_BOOTSTRAP_INITIAL_PASSWORD:}
 

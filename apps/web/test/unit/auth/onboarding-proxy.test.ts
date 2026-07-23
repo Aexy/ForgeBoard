@@ -9,7 +9,6 @@ describe('public onboarding BFF', () => {
     vi.stubEnv('FORGEBOARD_API_BASE_URL', 'http://spring:8080')
     vi.stubEnv('FORGEBOARD_TOKEN_ISSUER', 'forgeboard')
     vi.stubEnv('FORGEBOARD_PUBLIC_ORIGIN', 'http://localhost:3000')
-    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', '')
     vi.stubEnv('NODE_ENV', 'test')
     vi.stubGlobal('fetch', vi.fn())
   })

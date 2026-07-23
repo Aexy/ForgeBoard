@@ -10,6 +10,7 @@ export interface AccessibleFirm {
 export interface BrowserSession {
   user: { id: string; email: string }
   firms: AccessibleFirm[]
+  platformAdministrator: boolean
   error?: 'RefreshAccessTokenError'
 }
 
@@ -20,6 +21,7 @@ export interface ServerApiSession {
   refreshToken: string
   user: BrowserSession['user']
   firms: AccessibleFirm[]
+  platformAdministrator: boolean
 }
 
 export interface ApiGrant {
@@ -28,4 +30,5 @@ export interface ApiGrant {
   refreshToken: string
   identity: { email: string }
   firms: AccessibleFirm[]
+  platformAdministrator: boolean
 }

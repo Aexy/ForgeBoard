@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ redirect: vi.fn(() => { throw new Error('REDIRECT') }), auth: vi.fn(), enabled: vi.fn(() => true) }))
+const mocks = vi.hoisted(() => ({ redirect: vi.fn(() => { throw new Error('REDIRECT') }), auth: vi.fn() }))
 vi.mock('next/navigation', () => ({ redirect: mocks.redirect }))
 vi.mock('@/auth', () => ({ auth: mocks.auth }))
-vi.mock('@/lib/preview-rollout', () => ({ isPreviewFirmEnabled: mocks.enabled }))
 import SignInPage from '@/app/(auth)/sign-in/page'
 
 describe('sign-in route', () => {
@@ -27,5 +26,13 @@ describe('sign-in route', () => {
     mocks.auth.mockResolvedValue({ user: { id: 'user-1' }, firms: [{ slug: 'hearth' }] })
     await expect(SignInPage({ searchParams: Promise.resolve({}) })).rejects.toThrow('REDIRECT')
     expect(mocks.redirect).toHaveBeenCalledWith('/firms/hearth/my-work')
+  })
+
+  it('sends a platform administrator without firms to platform administration', async () => {
+    mocks.auth.mockResolvedValue({ user: { id: 'admin-1' }, firms: [], platformAdministrator: true })
+
+    await expect(SignInPage({ searchParams: Promise.resolve({}) })).rejects.toThrow('REDIRECT')
+
+    expect(mocks.redirect).toHaveBeenCalledWith('/platform-admin')
   })
 })

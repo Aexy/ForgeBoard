@@ -1,0 +1,25 @@
+.workspace { display: grid; gap: 1.25rem; margin: 0 auto; max-width: 68rem; padding: 2rem 1rem; }
+.heading { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; }
+.heading h1 { margin: .2rem 0; }
+.heading p:last-child { color: var(--forge-text-muted); margin: 0; max-width: 42rem; }
+.eyebrow { color: var(--forge-green-800); font-size: .8rem; font-weight: 700; letter-spacing: .08em; margin: 0; text-transform: uppercase; }
+.heading > button, .form button, .search button { background: var(--forge-green-800); color: white; }
+.heading button, .form button, .search button, .row button { border: 1px solid var(--forge-green-800); border-radius: .35rem; font: inherit; padding: .55rem .8rem; }
+.search { display: grid; gap: .35rem; max-width: 32rem; }
+.search label, .form label { font-weight: 600; }
+.search div { display: flex; gap: .5rem; }
+.search input, .form input { border: 1px solid var(--forge-border); border-radius: .3rem; font: inherit; padding: .55rem; width: 100%; }
+.form { background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: .8rem; max-width: 42rem; padding: 1rem; }
+.form h2 { font-size: 1.1rem; margin: 0; }
+.form label { display: grid; gap: .35rem; }
+.list { display: grid; gap: .7rem; }
+.row { align-items: center; background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: .8rem; grid-template-columns: minmax(12rem, 1fr) auto auto auto; padding: .9rem 1rem; }
+.row h2 { font-size: 1rem; margin: 0; }
+.row p { color: var(--forge-text-muted); margin: .2rem 0 0; }
+.row span { font-weight: 600; text-transform: capitalize; }
+.row button { background: transparent; color: var(--forge-green-800); }
+.row .danger { border-color: #a11e26; color: #a11e26; }
+.row[data-status='SUSPENDED'] { opacity: .7; }
+.empty { border: 1px dashed var(--forge-border); border-radius: .5rem; padding: 1rem; }
+.error { color: #a11e26; }
+@media (max-width: 42rem) { .heading { flex-direction: column; } .row { align-items: stretch; grid-template-columns: 1fr; } .search div { flex-direction: column; } }

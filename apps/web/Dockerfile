@@ -32,7 +32,6 @@ ENV AUTH_URL=http://build.invalid
 ENV FORGEBOARD_API_BASE_URL=http://spring.invalid
 ENV FORGEBOARD_TOKEN_ISSUER=forgeboard-build
 ENV FORGEBOARD_PUBLIC_ORIGIN=http://build.invalid
-ENV FORGEBOARD_PREVIEW_FIRM_SLUGS=build-placeholder
 
 RUN pnpm --filter @forgeboard/web build
 

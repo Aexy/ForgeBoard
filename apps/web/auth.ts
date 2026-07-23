@@ -55,6 +55,7 @@ function privateGrantFrom(token: unknown): PrivateAuthToken | undefined {
     refreshToken: candidate.refreshToken!,
     user,
     firms: candidate.firms!,
+    platformAdministrator: candidate.platformAdministrator === true,
     ...(candidate.error ? { error: candidate.error } : {}),
   }
 }

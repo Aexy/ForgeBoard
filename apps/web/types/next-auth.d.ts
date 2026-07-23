@@ -5,6 +5,7 @@ declare module 'next-auth' {
   interface Session {
     user: { id: string; email: string } & DefaultSession['user']
     firms: AccessibleFirm[]
+    platformAdministrator: boolean
     error?: 'RefreshAccessTokenError'
   }
 
@@ -13,6 +14,7 @@ declare module 'next-auth' {
     accessTokenExpiresAt?: number
     refreshToken?: string
     firms?: AccessibleFirm[]
+    platformAdministrator?: boolean
   }
 }
 
@@ -22,6 +24,7 @@ declare module '@auth/core/jwt' {
     accessTokenExpiresAt?: number
     refreshToken?: string
     firms?: AccessibleFirm[]
+    platformAdministrator?: boolean
     error?: 'RefreshAccessTokenError'
   }
 }

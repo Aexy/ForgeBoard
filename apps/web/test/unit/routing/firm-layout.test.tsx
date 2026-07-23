@@ -24,7 +24,6 @@ vi.mock('next/navigation', () => ({
 }))
 
 vi.mock('@/auth', () => ({ auth: mocks.auth }))
-vi.mock('@/lib/preview-rollout', () => ({ isPreviewFirmEnabled: () => true }))
 
 vi.mock('@forgeboard/ui', () => ({
   AppShell: ({ navigation, children }: { navigation: ReactNode; children: ReactNode }) => <div>{navigation}{children}</div>,

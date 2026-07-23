@@ -18,7 +18,7 @@ describe('Auth.js Spring credential broker', () => {
   it('keeps Spring credentials private while exposing only browser-safe session fields', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({
       accessToken: 'spring-access-token', accessTokenExpiresAt: '2026-07-16T12:15:00Z', refreshToken: 'spring-refresh-token',
-      identity: { email: 'owner@example.com' }, firms: [{ id: 'firm-1', slug: 'hearth', name: 'Hearth', role: 'OWNER' }],
+      identity: { email: 'owner@example.com' }, firms: [{ id: 'firm-1', slug: 'hearth', name: 'Hearth', role: 'OWNER' }], platformAdministrator: true,
     })))
     const { authConfig } = await import('@/auth')
     const provider = authConfig.providers[0] as unknown as { options: { authorize: (input: Record<string, string>) => Promise<Record<string, unknown> | null> } }
@@ -34,7 +34,7 @@ describe('Auth.js Spring credential broker', () => {
       newSession: undefined,
       trigger: undefined,
     } as never)
-    expect(session).toEqual(expect.objectContaining({ user: { id: 'owner@example.com', email: 'owner@example.com' }, firms: [] }))
+    expect(session).toEqual(expect.objectContaining({ user: { id: 'owner@example.com', email: 'owner@example.com' }, firms: [], platformAdministrator: false }))
     expect(JSON.stringify(session)).not.toContain('spring-access-token')
     expect(JSON.stringify(session)).not.toContain('spring-refresh-token')
   })
@@ -42,7 +42,7 @@ describe('Auth.js Spring credential broker', () => {
   it('rotates credentials shortly before expiry and signals a failed refresh without exposing tokens', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response('{}', { status: 401 }))
     const { refreshPrivateToken } = await import('@/auth')
-    const refreshed = await refreshPrivateToken({ accessToken: 'old', accessTokenExpiresAt: 1, refreshToken: 'refresh', user: { id: 'user-1', email: 'owner@example.com' }, firms: [] })
+    const refreshed = await refreshPrivateToken({ accessToken: 'old', accessTokenExpiresAt: 1, refreshToken: 'refresh', user: { id: 'user-1', email: 'owner@example.com' }, firms: [], platformAdministrator: false })
     expect(refreshed.error).toBe('RefreshAccessTokenError')
   })
 

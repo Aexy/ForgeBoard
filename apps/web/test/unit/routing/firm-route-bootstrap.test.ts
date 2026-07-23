@@ -44,12 +44,10 @@ describe('direct firm-route bootstrap', () => {
     })
   })
 
-  it('redirects an accessible but disabled firm to the preview access notice', async () => {
-    vi.stubEnv('FORGEBOARD_PREVIEW_FIRM_SLUGS', 'another-firm')
-
+  it('establishes context for every session-accessible firm without a rollout allow-list', async () => {
     const response = await runMiddleware(new NextRequest('http://localhost:3000/firms/hearth/workflow/workflow-1'))
 
-    expect(response.headers.get('location')).toBe('http://localhost:3000/preview-unavailable')
-    expect(response.cookies.get(FIRM_CONTEXT_COOKIE)).toBeUndefined()
+    expect(response.headers.get('x-middleware-next')).toBe('1')
+    expect(response.cookies.get(FIRM_CONTEXT_COOKIE)).toBeDefined()
   })
 })

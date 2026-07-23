@@ -25,6 +25,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 
 import com.forgeboard.identity.application.FirmAccessService;
+import com.forgeboard.identity.application.PlatformAdminPolicy;
 import com.forgeboard.identity.application.SessionLoginRequest;
 import com.forgeboard.identity.domain.ApiRefreshToken;
 import com.forgeboard.identity.domain.ForgeBoardUser;
@@ -37,6 +38,7 @@ class ApiTokenServiceTest {
     @Mock RefreshTokenRepository refreshTokens;
     @Mock UserRepository users;
     @Mock FirmAccessService firmAccess;
+    @Mock PlatformAdminPolicy platformAdmins;
 
     private final Clock clock = Clock.fixed(Instant.parse("2026-07-16T12:00:00Z"), ZoneOffset.UTC);
 
@@ -59,6 +61,7 @@ class ApiTokenServiceTest {
         when(refreshTokens.findByTokenHash(anyString())).thenReturn(Optional.of(token));
         when(users.findById(userId)).thenReturn(Optional.of(user));
         when(firmAccess.list(user.email())).thenReturn(List.of());
+        when(platformAdmins.isPlatformAdministrator(user.email())).thenReturn(true);
         when(jwtEncoder.encode(any())).thenReturn(Jwt.withTokenValue("signed-access-token").header("alg", "HS256")
                 .claim("sub", user.email()).build());
         ApiTokenService service = service();
@@ -67,6 +70,7 @@ class ApiTokenServiceTest {
 
         assertThat(rotated.refreshToken()).isNotEqualTo("opaque-refresh-token");
         assertThat(rotated.accessToken()).isEqualTo("signed-access-token");
+        assertThat(rotated.platformAdministrator()).isTrue();
         verify(refreshTokens).save(any(ApiRefreshToken.class));
         assertThatThrownBy(() -> service.refresh("opaque-refresh-token"))
                 .isInstanceOf(BadCredentialsException.class)
@@ -75,6 +79,6 @@ class ApiTokenServiceTest {
     }
 
     private ApiTokenService service() {
-        return new ApiTokenService(authenticationManager, jwtEncoder, refreshTokens, users, firmAccess, clock);
+        return new ApiTokenService(authenticationManager, jwtEncoder, refreshTokens, users, firmAccess, platformAdmins, clock);
     }
 }

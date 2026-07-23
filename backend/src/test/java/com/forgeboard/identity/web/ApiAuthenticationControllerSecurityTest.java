@@ -46,7 +46,7 @@ class ApiAuthenticationControllerSecurityTest {
     @Test
     void grantDoesNotCreateABrowserSession() throws Exception {
         when(tokens.grant(any())).thenReturn(new ApiGrant("access-token-value", Instant.parse("2026-07-16T12:15:00Z"),
-                "refresh-token-value", new SessionIdentity("owner@example.com"), List.<FirmAccessView>of()));
+                "refresh-token-value", new SessionIdentity("owner@example.com"), List.<FirmAccessView>of(), false));
 
         mockMvc.perform(post("/api/auth/grant").contentType("application/json")
                         .content("{\"email\":\"owner@example.com\",\"password\":\"correct horse battery\"}"))

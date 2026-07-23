@@ -21,6 +21,9 @@ public class FirmMembership {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private MembershipStatus status;
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private MembershipRole role;
     @Column(name = "created_at", nullable = false)
@@ -36,6 +39,7 @@ public class FirmMembership {
         this.id = id;
         this.firmId = firmId;
         this.userId = userId;
+        this.status = MembershipStatus.ACTIVE;
         this.role = role;
         this.createdAt = now;
         this.updatedAt = now;
@@ -45,4 +49,20 @@ public class FirmMembership {
     public UUID id() { return id; }
     public UUID userId() { return userId; }
     public MembershipRole role() { return role; }
+    public MembershipStatus status() { return status; }
+
+    public void changeRole(MembershipRole role, Instant now) {
+        this.role = role;
+        this.updatedAt = now;
+    }
+
+    public void suspend(Instant now) {
+        this.status = MembershipStatus.SUSPENDED;
+        this.updatedAt = now;
+    }
+
+    public void reactivate(Instant now) {
+        this.status = MembershipStatus.ACTIVE;
+        this.updatedAt = now;
+    }
 }

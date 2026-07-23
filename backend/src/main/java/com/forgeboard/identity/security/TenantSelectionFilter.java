@@ -31,7 +31,8 @@ public class TenantSelectionFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return !path.startsWith("/api/") || path.equals("/api/platform")
+        return !path.startsWith("/api/") || path.equals("/api/platform") || path.equals("/api/platform-admin")
+                || path.startsWith("/api/platform-admin/")
                 || path.equals("/api/onboarding/firms") || path.equals("/api/auth/csrf")
                 || path.equals("/api/auth/session") || path.equals("/api/auth/grant")
                 || path.equals("/api/auth/refresh") || path.equals("/api/auth/revoke")

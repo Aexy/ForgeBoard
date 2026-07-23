@@ -3,7 +3,6 @@ import { AppShell } from '@forgeboard/ui'
 
 import { auth } from '@/auth'
 import { firmContextForSlug } from '@/lib/firm-context'
-import { isPreviewFirmEnabled } from '@/lib/preview-rollout'
 import { FirmCacheBoundary, FirmContextProvider } from '@/store/firm-cache-boundary'
 
 import { FirmNavigation } from './FirmNavigation'
@@ -17,7 +16,6 @@ export default async function FirmLayout({ children, params }: Readonly<{
 
   const firm = firmContextForSlug(session, firmSlug)
   if (!firm) notFound()
-  if (!isPreviewFirmEnabled(firm.firmSlug)) redirect('/preview-unavailable')
 
   return (
     <FirmCacheBoundary firmId={firm.firmId}>

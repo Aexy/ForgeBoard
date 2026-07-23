@@ -2,10 +2,13 @@
 
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 
-export const forgeboardTagTypes = ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail', 'Engagement', 'EngagementTemplate', 'DocumentRequest'] as const
+export const forgeboardTagTypes = ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail', 'Engagement', 'EngagementTemplate', 'DocumentRequest', 'PlatformFirm', 'PlatformEmployee'] as const
 export type ForgeboardTagType = typeof forgeboardTagTypes[number]
 
 export const firmTag = (firmId: string, id?: string) => id ? `${firmId}:${id}` : firmId
+
+/** Platform administration is deliberately not firm-scoped. */
+export const platformTag = (id?: string) => id ?? 'LIST'
 
 // Browser calls remain same-origin. The absolute fallback only lets the
 // node-based unit suite construct WHATWG Requests without a browser origin.

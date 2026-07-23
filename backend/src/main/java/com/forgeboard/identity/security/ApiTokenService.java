@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.forgeboard.identity.application.FirmAccessService;
 import com.forgeboard.identity.application.FirmAccessView;
+import com.forgeboard.identity.application.PlatformAdminPolicy;
 import com.forgeboard.identity.application.SessionIdentity;
 import com.forgeboard.identity.application.SessionLoginRequest;
 import com.forgeboard.identity.domain.ApiRefreshToken;
@@ -42,16 +43,19 @@ public class ApiTokenService {
     private final RefreshTokenRepository refreshTokens;
     private final UserRepository users;
     private final FirmAccessService firmAccess;
+    private final PlatformAdminPolicy platformAdmins;
     private final Clock clock;
     private final SecureRandom random = new SecureRandom();
 
     public ApiTokenService(AuthenticationManager authenticationManager, JwtEncoder jwtEncoder,
-            RefreshTokenRepository refreshTokens, UserRepository users, FirmAccessService firmAccess, Clock clock) {
+            RefreshTokenRepository refreshTokens, UserRepository users, FirmAccessService firmAccess,
+            PlatformAdminPolicy platformAdmins, Clock clock) {
         this.authenticationManager = authenticationManager;
         this.jwtEncoder = jwtEncoder;
         this.refreshTokens = refreshTokens;
         this.users = users;
         this.firmAccess = firmAccess;
+        this.platformAdmins = platformAdmins;
         this.clock = clock;
     }
 
@@ -98,7 +102,8 @@ public class ApiTokenService {
         JwtClaimsSet claims = JwtClaimsSet.builder().issuer(ISSUER).audience(List.of(AUDIENCE)).subject(user.email())
                 .issuedAt(now).expiresAt(accessExpiry).id(jti.toString()).claim("user_id", user.id().toString()).build();
         return new ApiGrant(jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue(), accessExpiry,
-                refreshToken, new SessionIdentity(user.email()), firmAccess.list(user.email()));
+                refreshToken, new SessionIdentity(user.email()), firmAccess.list(user.email()),
+                platformAdmins.isPlatformAdministrator(user.email()));
     }
 
     private ForgeBoardUser activeUser(String email) {
@@ -128,5 +133,5 @@ public class ApiTokenService {
     private BadCredentialsException invalidGrant() { return new BadCredentialsException("Invalid API credentials"); }
 
     public record ApiGrant(String accessToken, Instant accessTokenExpiresAt, String refreshToken,
-            SessionIdentity identity, List<FirmAccessView> firms) { }
+            SessionIdentity identity, List<FirmAccessView> firms, boolean platformAdministrator) { }
 }
