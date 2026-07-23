@@ -3,6 +3,7 @@ package com.forgeboard.identity.web;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -53,5 +54,16 @@ class ApiAuthenticationControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Set-Cookie"))
                 .andExpect(jsonPath("$.accessToken").value("access-token-value"));
+    }
+
+    @Test
+    void retiredCookieSessionRoutesAreUnavailable() throws Exception {
+        mockMvc.perform(get("/api/auth/session"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/session").contentType("application/json")
+                        .content("{\"email\":\"owner@example.com\",\"password\":\"correct horse battery\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/auth/csrf"))
+                .andExpect(status().isUnauthorized());
     }
 }

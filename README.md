@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/src/assets/forgeboard-logo.svg" alt="ForgeBoard" width="420" />
+  <img src="apps/web/public/forgeboard-logo.svg" alt="ForgeBoard" width="420" />
 </p>
 
 <p align="center">
@@ -68,9 +68,9 @@ Scheduled jobs ─────────────────────�
 
 | Layer | Technology |
 | --- | --- |
-| Web client | React, TypeScript, Vite, TanStack Query |
+| Web client | Next.js App Router, React, TypeScript, Redux Toolkit, RTK Query, CSS Modules |
 | Backend | Java 21, Spring Boot, Spring MVC, Spring Data JPA |
-| Security | Spring Security, session authentication, CSRF protection, tenant selection |
+| Security | Auth.js browser sessions, same-origin Next BFF, Spring bearer APIs, tenant selection |
 | Database | PostgreSQL with Flyway migrations |
 | Testing | JUnit, AssertJ, MockMvc, Testcontainers, Vitest, Testing Library |
 | Deployment | OCI container with Docker Compose for local infrastructure |
@@ -79,8 +79,7 @@ Scheduled jobs ─────────────────────�
 
 ```text
 backend/     Spring Boot application, domain modules, migrations, and tests
-frontend/    React application, API clients, UI components, and tests
-apps/web/    Next.js migration target; introduced alongside Vite until cutover
+apps/web/    Routed Next.js application, BFF, UI components, and tests
 packages/    Shared frontend API-client, UI, and configuration packages
 deploy/      Local and production deployment configuration
 ```
@@ -123,14 +122,13 @@ mvn -f backend/pom.xml spring-boot:run
 
 The API is available at `http://localhost:8080`.
 
-### 4. Start the frontend
+### 4. Start the web application
 
 ```bash
-pnpm --dir frontend install
-pnpm --dir frontend dev
+pnpm --filter @forgeboard/web dev
 ```
 
-The web application is available at `http://localhost:5173` and proxies `/api` requests to the backend.
+The web application is available at `http://localhost:3000`. Its same-origin `/api/forgeboard/*` BFF routes obtain the server-side Auth.js session and forward a bearer credential to Spring; browser code never receives Spring credentials.
 
 Open the application, create the first firm and owner account, then configure a client and workflow from the guided interface.
 
@@ -145,11 +143,12 @@ mvn -f backend/pom.xml test
 Run the frontend tests and production build:
 
 ```bash
-pnpm --dir frontend test
-pnpm --dir frontend build
+pnpm web:test
+pnpm web:check
+pnpm web:build
 ```
 
-Run the Next.js migration browser check after PostgreSQL and Spring Boot are running:
+Run the browser check after PostgreSQL and Spring Boot are running:
 
 ```bash
 pnpm --filter @forgeboard/web test:e2e
@@ -159,30 +158,12 @@ The check starts Next.js, creates an isolated local firm through the onboarding 
 
 PostgreSQL integration tests use Testcontainers and require a working Docker environment.
 
-## Dual-stack preview deployment
-
-The migration pilot adds a dedicated Next preview hostname while the existing legacy Vite/Spring deployment remains unchanged. The preview connects to that existing private Spring service over the deployment-supplied `FORGEBOARD_BACKEND_NETWORK`, so pilot firms use the same data plane. It permits only the server-configured `FORGEBOARD_PREVIEW_FIRM_SLUGS` and fails closed in production without that allow-list.
-
-Provide the deployment variables through an external secret file or secret store, then start the dual stack from the repository root:
-
-```bash
-docker compose --env-file /run/secrets/forgeboard-preview.env -f deploy/compose.next.yaml up -d --build
-```
-
-Use disposable pilot credentials to run the [preview smoke check](deploy/README.next-preview.md). To roll back, remove the preview hostname's gateway/DNS route or stop the Next service; the legacy host remains available and no database rollback is needed.
-
 ## API conventions
 
-Browser clients authenticate with an HTTP session. Every tenant request explicitly selects a firm:
+Browser clients use Auth.js cookies only with the Next application. The server-side BFF forwards a bearer credential to Spring and never forwards Spring cookies to the browser. Every tenant request explicitly selects a firm:
 
 ```http
 X-ForgeBoard-Firm: <firm-id>
-```
-
-Mutating session requests also send the CSRF token returned by:
-
-```http
-GET /api/auth/csrf
 ```
 
 Core API areas include:
@@ -205,7 +186,7 @@ Controllers remain thin: authorization, validation, transactions, domain rules, 
 
 - Every tenant-owned table carries a firm identifier.
 - Every tenant operation verifies the authenticated user's firm membership.
-- Browser mutations require CSRF protection.
+- Browser sessions are Auth.js-only; protected Spring APIs require bearer authentication and are stateless.
 - Passwords are hashed with BCrypt.
 - Database constraints reinforce cross-tenant consistency.
 - Activity records cover browser and API mutations.

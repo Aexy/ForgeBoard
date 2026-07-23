@@ -322,7 +322,7 @@ test('shows a Spring authorization denial and preserves board state for read-onl
   await expect(card.getByRole('button', { name: `Open ${title} details` })).toBeVisible({ timeout: 15_000 })
   await card.getByRole('button', { name: `Open ${title} task workspace` }).click()
   await expect(page.getByRole('button', { name: 'Link Read only document' })).toHaveCount(0)
-  await page.goBack()
+  await page.goto(boardPath)
   await expect(page).toHaveURL(boardPath)
   await card.getByRole('button', { name: `Move right ${title}` }).click()
   await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveText('The work item could not be moved.')

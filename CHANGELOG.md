@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Removed
+
+- Retired the legacy Vite browser application and Spring browser-session/CSRF surface. ForgeBoard now uses the routed Next.js application, Auth.js browser sessions, and server-side BFF bearer forwarding; no deployment was changed. (`M2`)
+
 ### Added
 
 - Added management-only workflow creation in the Next app, including editable accounting-stage defaults from both empty and populated workflow views. (`M2`)

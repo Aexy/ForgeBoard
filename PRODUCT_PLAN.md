@@ -1,7 +1,7 @@
 # ForgeBoard Product Plan
 
 **Status:** Approved outcome-led roadmap for product and engineering decisions  
-**Last updated:** 2026-07-13  
+**Last updated:** 2026-07-23
 **Initial market:** Independent accounting and bookkeeping firms with 5–50 staff
 
 ### Planning principles
@@ -211,15 +211,15 @@ Use a modular monolith organized by business capability. Prefer package-level bo
 
 ### Frontend
 
-- React with TypeScript
-- Vite
-- TanStack Query
+- Next.js App Router with React and TypeScript
+- Auth.js browser sessions and same-origin BFF route handlers
+- Redux Toolkit and RTK Query
 - dnd-kit
 - React Hook Form
-- A small accessible component system using Tailwind CSS
+- A small accessible component system using CSS Modules
 - Vitest and Playwright
 
-The frontend will be compiled and served by Spring Boot for the initial SaaS deployment. It may be placed behind a CDN later.
+Next.js is the only browser application. Auth.js owns browser sessions; server-side BFF route handlers forward Spring-issued bearer credentials without exposing them to browser code. Spring remains authoritative for identity, authorization, tenancy, audit, and business behavior. Deployment topology is intentionally deferred until a deployment is in scope.
 
 ### Data and infrastructure
 

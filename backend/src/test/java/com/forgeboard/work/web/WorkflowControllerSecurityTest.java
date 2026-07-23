@@ -6,7 +6,6 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -63,29 +62,28 @@ class WorkflowControllerSecurityTest {
     }
 
     @Test
-    void rejectsSavedViewCreationWithoutCsrfBeforeCallingApplicationService() throws Exception {
+    void rejectsUnauthenticatedSavedViewCreationBeforeCallingApplicationService() throws Exception {
         UUID firmId = UUID.randomUUID();
         authorize(firmId, MembershipRole.OWNER);
 
         mockMvc.perform(post("/api/workflows/views")
-                        .with(user("owner@example.com"))
-                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"name\":\"Overdue work\"}"))
-                .andExpect(status().isForbidden());
+                .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Overdue work\"}"))
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(workflows);
     }
 
     @Test
-    void routesCsrfProtectedSavedViewCreationForAdministrators() throws Exception {
+    void routesAuthenticatedSavedViewCreationForAdministrators() throws Exception {
         UUID firmId = UUID.randomUUID();
         SelectedTenant tenant = authorize(firmId, MembershipRole.ADMINISTRATOR);
         when(workflows.createSavedView(eq(tenant), any())).thenReturn(new WorkflowFilterView(UUID.randomUUID(),
                 "Overdue work", null, null, "OVERDUE", null, null));
 
         mockMvc.perform(post("/api/workflows/views")
-                        .with(user("owner@example.com")).with(csrf())
+                        .with(user("owner@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Overdue work\",\"dueState\":\"OVERDUE\"}"))
@@ -103,7 +101,7 @@ class WorkflowControllerSecurityTest {
                 .when(workflows).deleteSavedView(tenant, viewId);
 
         mockMvc.perform(delete("/api/workflows/views/" + viewId)
-                        .with(user("member@example.com")).with(csrf())
+                        .with(user("member@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId))
                 .andExpect(status().isForbidden());
     }
@@ -117,7 +115,7 @@ class WorkflowControllerSecurityTest {
                 .when(workflows).deleteSavedView(tenant, viewId);
 
         mockMvc.perform(delete("/api/workflows/views/" + viewId)
-                        .with(user("owner@example.com")).with(csrf())
+                        .with(user("owner@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId))
                 .andExpect(status().isNotFound());
     }
@@ -146,29 +144,28 @@ class WorkflowControllerSecurityTest {
     }
 
     @Test
-    void rejectsReviewerAssignmentWithoutCsrfBeforeCallingTheApplicationService() throws Exception {
+    void rejectsUnauthenticatedReviewerAssignmentBeforeCallingTheApplicationService() throws Exception {
         UUID firmId = UUID.randomUUID();
         authorize(firmId, MembershipRole.OWNER);
 
         mockMvc.perform(put(itemPath(UUID.randomUUID(), UUID.randomUUID()) + "/reviewer")
-                        .with(user("owner@example.com"))
-                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userId\":\"" + UUID.randomUUID() + "\"}"))
-                .andExpect(status().isForbidden());
+                .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"userId\":\"" + UUID.randomUUID() + "\"}"))
+                .andExpect(status().isUnauthorized());
 
         verifyNoInteractions(workflows);
     }
 
     @Test
-    void allowsCsrfProtectedReviewerAssignmentForOwners() throws Exception {
+    void allowsAuthenticatedReviewerAssignmentForOwners() throws Exception {
         UUID firmId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID itemId = UUID.randomUUID();
         SelectedTenant tenant = authorize(firmId, MembershipRole.OWNER);
 
         mockMvc.perform(put(itemPath(workflowId, itemId) + "/reviewer")
-                        .with(user("owner@example.com")).with(csrf())
+                        .with(user("owner@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + UUID.randomUUID() + "\"}"))
@@ -189,7 +186,7 @@ class WorkflowControllerSecurityTest {
                 .when(workflows).linkDocumentRequest(tenant, workflowId, itemId, requestId);
 
         mockMvc.perform(put(itemPath(workflowId, itemId) + "/document-requests/" + requestId)
-                        .with(user("readonly@example.com")).with(csrf())
+                        .with(user("readonly@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId))
                 .andExpect(status().isForbidden());
     }
@@ -205,7 +202,7 @@ class WorkflowControllerSecurityTest {
                 .when(workflows).assignReviewer(eq(tenant), eq(workflowId), eq(itemId), any());
 
         mockMvc.perform(put(itemPath(workflowId, itemId) + "/reviewer")
-                        .with(user("manager@example.com")).with(csrf())
+                        .with(user("manager@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + UUID.randomUUID() + "\"}"))
@@ -253,7 +250,7 @@ class WorkflowControllerSecurityTest {
                 .thenThrow(new WorkNotFoundException("Document request was not found for this work item's client"));
 
         mockMvc.perform(put(itemPath(workflowId, itemId) + "/document-requests/" + requestId)
-                        .with(user("owner@example.com")).with(csrf())
+                        .with(user("owner@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId))
                 .andExpect(status().isNotFound());
     }
@@ -269,7 +266,7 @@ class WorkflowControllerSecurityTest {
                 .thenThrow(new WorkNotFoundException("Document request link was not found in the selected work item"));
 
         mockMvc.perform(delete(itemPath(workflowId, itemId) + "/document-requests/" + requestId)
-                        .with(user("owner@example.com")).with(csrf())
+                        .with(user("owner@example.com"))
                         .header(TenantSelectionFilter.FIRM_HEADER, firmId))
                 .andExpect(status().isNotFound());
     }

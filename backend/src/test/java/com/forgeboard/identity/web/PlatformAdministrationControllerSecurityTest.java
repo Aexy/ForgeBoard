@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -64,13 +63,10 @@ class PlatformAdministrationControllerSecurityTest {
     }
 
     @Test
-    void platformMutationUsesNormalCsrfProtection() throws Exception {
+    void platformMutationRequiresAuthenticationAndReachesTheApplicationService() throws Exception {
         UUID firmId = UUID.randomUUID();
         mockMvc.perform(post("/api/platform-admin/firms/" + firmId + "/suspension")
                         .with(user("admin@example.com")))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/platform-admin/firms/" + firmId + "/suspension")
-                        .with(user("admin@example.com")).with(csrf()))
                 .andExpect(status().isOk());
         verify(administration).suspendFirm(any(), eq(firmId));
     }

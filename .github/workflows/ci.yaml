@@ -30,8 +30,6 @@ jobs:
         run: |
           FORGEBOARD_API_TOKEN_SECRET="$(openssl rand -base64 32)" mvn --batch-mode --file backend/pom.xml verify
       - run: pnpm install --frozen-lockfile
-      - name: Legacy Vite frontend test and build
-        run: pnpm --dir frontend test && pnpm --dir frontend build
       - name: Next frontend test, typecheck, and build
         run: pnpm web:test && pnpm web:check && pnpm web:build
       - name: Build Next preview deployment image
