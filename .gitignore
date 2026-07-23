@@ -19,6 +19,7 @@ playwright-report/
 .pnpm-store/
 .env
 .env.local
+e2e.env
 !.env.example
 .agents/
 docs/

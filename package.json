@@ -5,6 +5,7 @@
   "scripts": {
     "web:check": "pnpm --filter @forgeboard/web --fail-if-no-match check",
     "web:test": "pnpm --filter @forgeboard/web test",
-    "web:build": "pnpm --filter @forgeboard/web build"
+    "web:build": "pnpm --filter @forgeboard/web build",
+    "web:e2e": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-web-e2e.ps1"
   }
 }
