@@ -75,6 +75,7 @@ describe('WorkflowBoard', () => {
     fireEvent.click(card)
     expect(router.push).toHaveBeenLastCalledWith('/firms/hearth/workflow/monthly-close?task=FB-1042')
     expect(router.push).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: 'Move FB-1042: July close' })).toHaveAttribute('aria-describedby')
   })
   it('reserves the drag handle for members who can move work items', () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
