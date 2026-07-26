@@ -12,8 +12,8 @@ export function useBoardOperations({ firm, workflowId, refetchBoard }: Readonly<
   const [updateReviewer, reviewerResult] = useUpdateWorkItemReviewerMutation()
   return {
     create: (stageId: string, details: Omit<CreateWorkItemDetails, 'stageId'>) => createWorkItem({ firm, workflowId, details: { ...details, stageId } }).unwrap(),
-    move: async (item: WorkItem, stageId: string) => {
-      try { return await moveWorkItem({ firm, workflowId, itemId: item.id, targetStageId: stageId, expectedVersion: item.version }).unwrap() }
+    move: async (item: WorkItem, stageId: string, reviewNote?: string) => {
+      try { return await moveWorkItem({ firm, workflowId, itemId: item.id, targetStageId: stageId, expectedVersion: item.version, reviewNote }).unwrap() }
       catch (error) { if (statusOf(error) === 409) { await refetchBoard(); throw new Error('This work item was changed by another user. The board was refreshed; retry your move.') } throw error }
     },
     assignOwner: (itemId: string, ownerUserId: string | null) => updateOwner({ firm, workflowId, itemId, ownerUserId }).unwrap(),

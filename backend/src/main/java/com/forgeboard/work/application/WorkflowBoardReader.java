@@ -13,6 +13,7 @@ import com.forgeboard.document.DocumentRequestSummary;
 import com.forgeboard.identity.ActivityDirectory;
 import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.SelectedTenant;
+import com.forgeboard.work.WorkItemEngagementDetails;
 import com.forgeboard.work.domain.AssignmentRole;
 import com.forgeboard.work.domain.WorkItem;
 import com.forgeboard.work.domain.WorkflowBoard;
@@ -34,11 +35,12 @@ class WorkflowBoardReader {
     private final DocumentRequestDirectory documentRequests;
     private final WorkItemDocumentRequestRepository documentLinks;
     private final ActivityDirectory activityQueries;
+    private final WorkItemEngagementDetails engagementDetails;
 
     WorkflowBoardReader(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
             ClientDirectory clients, WorkItemAssignmentRepository assignments, EmployeeDirectory employees,
             DocumentRequestDirectory documentRequests, WorkItemDocumentRequestRepository documentLinks,
-            ActivityDirectory activityQueries) {
+            ActivityDirectory activityQueries, WorkItemEngagementDetails engagementDetails) {
         this.workflows = workflows;
         this.stages = stages;
         this.items = items;
@@ -48,6 +50,7 @@ class WorkflowBoardReader {
         this.documentRequests = documentRequests;
         this.documentLinks = documentLinks;
         this.activityQueries = activityQueries;
+        this.engagementDetails = engagementDetails;
     }
 
     @Transactional(readOnly = true)
@@ -73,7 +76,8 @@ class WorkflowBoardReader {
                         .orElseThrow(() -> new WorkNotFoundException("Document request was not found in the selected firm")))
                 .map(this::documentView).toList();
         return new WorkItemDetailView(viewWithRoles(item), clientDisplayName, linkedRequests,
-                activityQueries.recent(tenant, "work-item", item.id()));
+                activityQueries.recent(tenant, "work-item", item.id()),
+                engagementDetails.findByWorkItem(tenant.firmId(), item.id()).orElse(null));
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +93,7 @@ class WorkflowBoardReader {
         Map<UUID, String> names = roles.isEmpty() ? Map.of()
                 : employees.displayNames(workflow.firmId(), roles.values().stream().flatMap(role -> role.values().stream()).distinct().toList());
         List<StageView> stageViews = stageList.stream().map(stage -> new StageView(stage.id(), stage.name(), stage.attention(),
-                stage.position(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
+                stage.position(), stage.finalStage(), itemList.stream().filter(item -> item.stageId().equals(stage.id()))
                         .map(item -> view(item, roles.getOrDefault(item.id(), Map.of()), names)).toList())).toList();
         return new BoardView(workflow.id(), workflow.name(), workflow.workflowSlug(), stageViews);
     }

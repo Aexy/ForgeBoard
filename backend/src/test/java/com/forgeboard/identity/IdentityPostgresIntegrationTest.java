@@ -77,7 +77,8 @@ class IdentityPostgresIntegrationTest {
                 new WorkflowRequest("Monthly bookkeeping", List.of(
                         new WorkflowStageRequest("Waiting", StageAttention.NONE),
                         new WorkflowStageRequest("Preparation", StageAttention.NONE),
-                        new WorkflowStageRequest("Review", StageAttention.AWAITING_REVIEW))));
+                        new WorkflowStageRequest("Review", StageAttention.AWAITING_REVIEW),
+                        new WorkflowStageRequest("Complete", StageAttention.NONE, true))));
         WorkItemView item = workflows.createItem(tenant, board.id(), new WorkItemRequest(client.id(),
                 board.stages().get(0).id(), "June bookkeeping", "", null, WorkPriority.NORMAL));
         workflows.moveItem(tenant, board.id(), item.id(),
@@ -88,7 +89,7 @@ class IdentityPostgresIntegrationTest {
         assertThat(count("firm_memberships")).isEqualTo(1);
         assertThat(count("clients")).isEqualTo(1);
         assertThat(count("workflows")).isEqualTo(1);
-        assertThat(count("workflow_stages")).isEqualTo(3);
+        assertThat(count("workflow_stages")).isEqualTo(4);
         assertThat(count("work_items")).isEqualTo(1);
         assertThat(count("activity_events")).isEqualTo(5);
         assertThat(jdbc.sql("select stage_id from work_items where id = :id").param("id", item.id())

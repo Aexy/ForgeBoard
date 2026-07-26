@@ -12,8 +12,16 @@ type OperationalFirm = {
   owner: Credentials
   manager: Credentials
   readOnly: Credentials
+  preparer: Credentials
+  reviewer: Credentials
   clientName: string
   workflowName: string
+  workflowId: string
+  workflowSlug: string
+  firmId: string
+  ownerToken: string
+  preparerUserId: string
+  reviewerUserId: string
 }
 
 async function signInAt(page: Page, path: string, credentials: Credentials) {
@@ -31,6 +39,8 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
   const owner = { email: `e2e-owner-${suffix}@forgeboard.test`, password }
   const manager = { email: `e2e-manager-${suffix}@forgeboard.test`, password }
   const readOnly = { email: `e2e-readonly-${suffix}@forgeboard.test`, password }
+  const preparer = { email: `e2e-preparer-${suffix}@forgeboard.test`, password }
+  const reviewer = { email: `e2e-reviewer-${suffix}@forgeboard.test`, password }
 
   const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
     data: { firmName: `E2E Operations ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: owner.email, ownerName: 'Playwright Owner', password },
@@ -52,22 +62,39 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
 
   const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers,
-    data: { name: workflowName, stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: {
+      name: workflowName,
+      stages: [
+        { name: 'Prepare', attention: 'NONE', finalStage: false },
+        { name: 'Blocked', attention: 'BLOCKED', finalStage: false },
+        { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false },
+        { name: 'Complete', attention: 'NONE', finalStage: true },
+      ],
+    },
   })
   expect(workflow.status()).toBe(201)
+  const createdWorkflow = await workflow.json() as { id: string; workflowSlug: string }
 
-  for (const employee of [
+  const employees = await Promise.all([
     { ...manager, displayName: 'Playwright Manager', role: 'MANAGER' },
     { ...readOnly, displayName: 'Playwright Read only', role: 'READ_ONLY' },
-  ]) {
+    { ...preparer, displayName: 'Playwright Preparer', role: 'MEMBER' },
+    { ...reviewer, displayName: 'Playwright Reviewer', role: 'MEMBER' },
+  ].map(async (employee) => {
     const provision = await request.post(`${apiBaseURL}/api/identity/employees`, {
       headers,
       data: { displayName: employee.displayName, email: employee.email, temporaryPassword: employee.password, role: employee.role },
     })
     expect(provision.status()).toBe(201)
-  }
+    return provision.json() as Promise<{ userId: string }>
+  }))
 
-  return { firmSlug, owner, manager, readOnly, clientName, workflowName }
+  return {
+    firmSlug, owner, manager, readOnly, preparer, reviewer, clientName, workflowName,
+    workflowId: createdWorkflow.id, workflowSlug: createdWorkflow.workflowSlug, firmId: credentials.firms[0].id,
+    ownerToken: credentials.accessToken,
+    preparerUserId: employees[2].userId, reviewerUserId: employees[3].userId,
+  }
 }
 
 test('opens operational routes directly for their authorized roles', async ({ page, browser, request }) => {
@@ -194,3 +221,86 @@ test('runs an owner engagement and document-request operating loop through the b
   await expect(managerPage.getByRole('listitem').filter({ hasText: 'Document-Request Received' })).toContainText('ForgeBoard activity')
   await managerContext.close()
 })
+
+test('runs the engagement review lifecycle through the browser without moving the completed card', async ({ page, browser, request }) => {
+  const firm = await createOperationalFirm(request)
+  const headers = { Authorization: `Bearer ${firm.ownerToken}`, 'X-ForgeBoard-Firm': firm.firmId }
+  const template = await request.post(`${apiBaseURL}/api/engagements/templates`, {
+    headers,
+    data: { name: `Lifecycle ${firm.firmSlug.slice(-6)}`, workflowId: firm.workflowId, recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare lifecycle', dueDay: 20 },
+  })
+  expect(template.status()).toBe(201)
+  const createdTemplate = await template.json() as { id: string }
+  const clients = await request.get(`${apiBaseURL}/api/clients`, { headers })
+  expect(clients.status()).toBe(200)
+  const client = (await clients.json() as Array<{ id: string }>)[0]
+  const engagementResponse = await request.post(`${apiBaseURL}/api/engagements/templates/${createdTemplate.id}/instances`, {
+    headers,
+    data: { clientId: client.id, periodStart: '2026-07-01' },
+  })
+  expect(engagementResponse.status()).toBe(201)
+  const engagement = await engagementResponse.json() as { id: string; workItemId: string }
+  await exerciseLifecycleBrowserFlow(page, browser, request, firm, headers, engagement)
+})
+
+async function exerciseLifecycleBrowserFlow(page: Page, browser: import('@playwright/test').Browser, request: APIRequestContext, firm: OperationalFirm, headers: Record<string, string>, engagement: { id: string; workItemId: string }) {
+  const initialBoard = await request.get(`${apiBaseURL}/api/workflows/public/${firm.workflowSlug}`, { headers })
+  expect(initialBoard.status()).toBe(200)
+  const board = await initialBoard.json() as { stages: Array<{ id: string; name: string; items: Array<{ id: string; stageId: string }> }> }
+  const prepare = board.stages.find((stage) => stage.name === 'Prepare')!
+  const workItem = prepare.items.find((item) => item.id === engagement.workItemId)!
+  for (const [path, body] of [
+    [`owner`, { ownerUserId: firm.preparerUserId }],
+    [`reviewer`, { userId: firm.reviewerUserId }],
+  ] as const) {
+    const response = await request.put(`${apiBaseURL}/api/workflows/${firm.workflowId}/items/${workItem.id}/${path}`, { headers, data: body })
+    expect(response.status()).toBe(200)
+  }
+
+  const preparerContext = await browser.newContext(); const preparerPage = await preparerContext.newPage()
+  await signInAt(preparerPage, `/firms/${firm.firmSlug}/workflow/${firm.workflowSlug}`, firm.preparer)
+  await preparerPage.getByRole('button', { name: /Move right Prepare lifecycle/ }).click()
+  await expect(preparerPage.getByRole('heading', { name: 'Review', exact: true })).toBeVisible()
+
+  const reviewerContext = await browser.newContext(); const reviewerPage = await reviewerContext.newPage()
+  await signInAt(reviewerPage, `/firms/${firm.firmSlug}/workflow/${firm.workflowSlug}`, firm.reviewer)
+  await reviewerPage.getByRole('button', { name: /Move left Prepare lifecycle/ }).click()
+  await reviewerPage.getByLabel('Review note').fill('Please correct the reconciliation.')
+  await reviewerPage.getByRole('button', { name: 'Return work' }).click()
+  await expect(reviewerPage.getByRole('heading', { name: 'Prepare', exact: true })).toBeVisible()
+
+  await preparerPage.reload()
+  await preparerPage.getByRole('button', { name: /Move right Prepare lifecycle/ }).click()
+  await reviewerPage.reload()
+  await reviewerPage.getByRole('button', { name: /Move right Prepare lifecycle/ }).click()
+  await expect.poll(async () => {
+    const completed = await request.get(`${apiBaseURL}/api/engagements/${engagement.id}`, { headers })
+    expect(completed.status()).toBe(200)
+    return (await completed.json() as { engagement: { status: string } }).engagement.status
+  }).toBe('COMPLETE')
+  const completedDetail = await request.get(`${apiBaseURL}/api/engagements/${engagement.id}`, { headers })
+  expect((await completedDetail.json() as { history: { reviewDecisions: Array<{ decision: string; note: string | null }> } }).history.reviewDecisions)
+    .toEqual(expect.arrayContaining([
+      expect.objectContaining({ decision: 'RETURNED', note: 'Please correct the reconciliation.' }),
+      expect.objectContaining({ decision: 'APPROVED', note: null }),
+    ]))
+
+  const managerContext = await browser.newContext(); const managerPage = await managerContext.newPage()
+  await signInAt(managerPage, `/firms/${firm.firmSlug}/engagements`, firm.manager)
+  await managerPage.getByRole('button', { name: 'reopen' }).click()
+  await expect(managerPage.getByRole('button', { name: 'cancel' })).toBeVisible()
+  managerPage.once('dialog', (dialog) => dialog.accept())
+  await managerPage.getByRole('button', { name: 'cancel' }).click()
+  await expect(managerPage.getByRole('button', { name: 'archive' })).toBeVisible()
+  managerPage.once('dialog', (dialog) => dialog.accept())
+  await managerPage.getByRole('button', { name: 'archive' }).click()
+  await expect(managerPage.getByRole('button', { name: 'unarchive' })).toBeVisible()
+  managerPage.once('dialog', (dialog) => dialog.accept())
+  await managerPage.getByRole('button', { name: 'unarchive' }).click()
+  await expect(managerPage.getByText('cancelled', { exact: true })).toBeVisible()
+
+  const finalBoard = await request.get(`${apiBaseURL}/api/workflows/public/${firm.workflowSlug}`, { headers })
+  const finalStages = (await finalBoard.json() as { stages: Array<{ name: string; items: Array<{ id: string }> }> }).stages
+  expect(finalStages.find((stage) => stage.name === 'Complete')!.items.map((item) => item.id)).toContain(workItem.id)
+  await Promise.all([preparerContext.close(), reviewerContext.close(), managerContext.close()])
+}

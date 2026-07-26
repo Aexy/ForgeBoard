@@ -178,6 +178,10 @@ const englishMessages = {
   'workflow.documentRequestUpdateError': 'The document request could not be updated.',
   'workflow.documentStatusRequested': 'requested',
   'workflow.documentStatusReceived': 'received',
+  'workflow.returnForPreparation': 'Return for preparation',
+  'workflow.reviewNote': 'Review note',
+  'workflow.returnWork': 'Return work',
+  'workflow.engagementLifecycle': 'Engagement lifecycle',
   // Engagements
   'engagements.eyebrow': 'Recurring client work',
   'engagements.title': 'Engagements',
@@ -231,6 +235,20 @@ const englishMessages = {
   'engagements.monthly': 'monthly',
   'engagements.quarterly': 'quarterly',
   'engagements.annual': 'annual',
+  'engagements.statusBlocked': 'blocked',
+  'engagements.statusAwaitingReview': 'awaiting review',
+  'engagements.statusComplete': 'complete',
+  'engagements.statusCancelled': 'cancelled',
+  'engagements.statusArchived': 'archived',
+  'engagements.noReviewDecisions': 'No review decisions yet.',
+  'engagements.returned': 'Returned',
+  'engagements.approved': 'Approved',
+  'engagements.lifecycleStatus': 'Status:',
+  'engagements.cancel': 'Cancel engagement',
+  'engagements.reopen': 'Reopen engagement',
+  'engagements.archive': 'Archive engagement',
+  'engagements.unarchive': 'Unarchive engagement',
+  'engagements.lifecycleError': 'The engagement lifecycle could not be updated.',
   // Employees
   'employees.eyebrow': 'Firm access',
   'employees.title': 'Employees',
@@ -358,6 +376,8 @@ const germanMessages = {
   'workflow.openWorkItems': 'offene Aufgaben', 'workflow.moved': 'verschoben.', 'workflow.workItemCreated': 'Aufgabe erstellt.', 'workflow.workItemCreateError': 'Die Aufgabe konnte nicht erstellt werden.', 'workflow.addWorkItem': 'Aufgabe hinzufügen', 'workflow.addWorkItemTo': 'Aufgabe hinzufügen zu', 'workflow.newWorkItem': 'Neue Aufgabe', 'workflow.title': 'Titel', 'workflow.selectClient': 'Mandant auswählen', 'workflow.creating': 'Wird erstellt…', 'workflow.createWorkItem': 'Aufgabe erstellen', 'workflow.moveLeft': 'Nach links verschieben', 'workflow.moveRight': 'Nach rechts verschieben', 'workflow.toggleStage': 'Phase umschalten', 'workflow.newWorkflow': 'Neuer Arbeitsablauf', 'workflow.workflowName': 'Name des Arbeitsablaufs', 'workflow.stage': 'Phase', 'workflow.name': 'Name', 'workflow.attention': 'Aufmerksamkeit', 'workflow.normalFlow': 'Normaler Ablauf', 'workflow.blocked': 'Blockiert', 'workflow.awaitingReview': 'Wartet auf Prüfung', 'workflow.createError': 'Der Arbeitsablauf konnte nicht erstellt werden. Verwenden Sie mindestens zwei benannte Phasen.', 'workflow.creatingWorkflow': 'Arbeitsablauf wird erstellt…', 'workflow.opening': 'Wird geöffnet', 'workflow.reviewerUpdateError': 'Die prüfende Person konnte nicht aktualisiert werden.', 'workflow.documentRequestUpdateError': 'Die Dokumentenanforderung konnte nicht aktualisiert werden.', 'workflow.documentStatusRequested': 'angefordert', 'workflow.documentStatusReceived': 'eingegangen',
   'engagements.loadPartialError': 'Einige Auftragsdaten konnten nicht geladen werden. Aktualisieren Sie die Seite und versuchen Sie es erneut.', 'engagements.beforeStart': 'Bevor Sie beginnen', 'engagements.beforeStartDescription': 'Erstellen Sie mindestens einen aktiven Mandanten und Arbeitsablauf, bevor Sie eine Auftragsvorlage erstellen.', 'engagements.newTemplate': '+ Neue Vorlage', 'engagements.startEngagement': '+ Auftrag starten', 'engagements.newTemplateTitle': 'Neue Auftragsvorlage', 'engagements.name': 'Name', 'engagements.workflow': 'Arbeitsablauf', 'engagements.selectWorkflow': 'Arbeitsablauf auswählen', 'engagements.recurrence': 'Wiederholung', 'engagements.defaultWorkItem': 'Standardaufgabe', 'engagements.dueDay': 'Fälligkeitstag', 'engagements.saveTemplate': 'Vorlage speichern', 'engagements.startTitle': 'Auftrag starten', 'engagements.template': 'Vorlage', 'engagements.selectTemplate': 'Vorlage auswählen', 'engagements.selectClient': 'Mandant auswählen', 'engagements.periodStart': 'Periodenbeginn', 'engagements.active': 'Aktive Aufträge', 'engagements.scheduledCycles': 'geplante Mandantenzyklen', 'engagements.emptyTitle': 'Noch keine Aufträge', 'engagements.emptyDescription': 'Erstellen Sie eine Vorlage und starten Sie dann den ersten Mandantenzyklus.', 'engagements.boardWorkItemCreated': 'Board-Aufgabe erstellt', 'engagements.documentRequests': 'Dokumentenanforderungen', 'engagements.metadataOnly': 'Nur Metadaten — hier werden keine Dokumente gespeichert.', 'engagements.request': '+ Anforderung', 'engagements.requestLabel': 'Anforderung', 'engagements.secureReference': 'Sichere Referenz', 'engagements.sendRequest': 'Anforderung senden', 'engagements.loadingRequests': 'Anforderungen werden geladen…', 'engagements.emptyRequests': 'Keine Dokumentenanforderungen', 'engagements.emptyRequestsDescription': 'Verfolgen Sie, was Sie benötigen, ohne das Quelldokument zu speichern.', 'engagements.reference': 'Referenz:', 'engagements.markReceived': 'Als eingegangen markieren', 'engagements.statusActive': 'aktiv', 'engagements.statusRequested': 'angefordert', 'engagements.statusReceived': 'eingegangen', 'engagements.monthly': 'monatlich', 'engagements.quarterly': 'vierteljährlich', 'engagements.annual': 'jährlich',
   'audit.denied': 'Nur Firmeninhaber und Manager können den Aktivitätsverlauf sehen.', 'audit.eyebrow': 'Firmenübersicht', 'audit.description': 'Prüfen Sie die erfassten Änderungen in dieser Firma.', 'audit.filters': 'Filter für den Aktivitätsverlauf', 'audit.action': 'Aktion', 'audit.actor': 'Akteur', 'audit.allActors': 'Alle Akteure', 'audit.actorUser': 'Benutzer', 'audit.actorService': 'Dienst', 'audit.actorSystem': 'System', 'audit.source': 'Quelle', 'audit.allSources': 'Alle Quellen', 'audit.sourceWeb': 'Web', 'audit.sourceRest': 'REST', 'audit.sourceMcp': 'MCP', 'audit.sourceJob': 'Aufgabe', 'audit.from': 'Von', 'audit.to': 'Bis', 'audit.pageSize': 'Seitengröße', 'audit.emptyDescription': 'Ändern Sie die ausgewählten Filter oder versuchen Sie es später erneut.', 'audit.nextPage': 'Nächste Seite',
+  'workflow.returnForPreparation': 'Zur Vorbereitung zurückgeben', 'workflow.reviewNote': 'Prüfhinweis', 'workflow.returnWork': 'Arbeit zurückgeben', 'workflow.engagementLifecycle': 'Auftragslebenszyklus',
+  'engagements.statusBlocked': 'blockiert', 'engagements.statusAwaitingReview': 'wartet auf Prüfung', 'engagements.statusComplete': 'abgeschlossen', 'engagements.statusCancelled': 'abgebrochen', 'engagements.statusArchived': 'archiviert', 'engagements.noReviewDecisions': 'Noch keine Prüfentscheidungen.', 'engagements.returned': 'Zurückgegeben', 'engagements.approved': 'Genehmigt', 'engagements.lifecycleStatus': 'Status:', 'engagements.cancel': 'Auftrag abbrechen', 'engagements.reopen': 'Auftrag wieder öffnen', 'engagements.archive': 'Auftrag archivieren', 'engagements.unarchive': 'Auftrag wiederherstellen', 'engagements.lifecycleError': 'Der Auftragslebenszyklus konnte nicht aktualisiert werden.',
 } as const satisfies Record<MessageKey, string>
 
 export const messages = {

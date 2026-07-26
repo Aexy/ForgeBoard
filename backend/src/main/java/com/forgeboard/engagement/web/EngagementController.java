@@ -16,6 +16,8 @@ import com.forgeboard.engagement.application.EngagementService;
 import com.forgeboard.engagement.application.EngagementTemplateRequest;
 import com.forgeboard.engagement.application.EngagementTemplateView;
 import com.forgeboard.engagement.application.EngagementView;
+import com.forgeboard.engagement.EngagementDetail;
+import com.forgeboard.engagement.application.ExpectedVersionRequest;
 import com.forgeboard.identity.SelectedTenant;
 import jakarta.validation.Valid;
 
@@ -28,6 +30,36 @@ public class EngagementController {
     @GetMapping
     List<EngagementView> list(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
         return engagements.listEngagements(tenant);
+    }
+
+    @GetMapping("/{engagementId}")
+    EngagementDetail get(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId) {
+        return engagements.getEngagement(tenant, engagementId);
+    }
+
+    @PostMapping("/{engagementId}/cancel")
+    EngagementView cancel(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId, @Valid @RequestBody ExpectedVersionRequest request) {
+        return engagements.cancel(tenant, engagementId, request);
+    }
+
+    @PostMapping("/{engagementId}/reopen")
+    EngagementView reopen(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId, @Valid @RequestBody ExpectedVersionRequest request) {
+        return engagements.reopen(tenant, engagementId, request);
+    }
+
+    @PostMapping("/{engagementId}/archive")
+    EngagementView archive(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId, @Valid @RequestBody ExpectedVersionRequest request) {
+        return engagements.archive(tenant, engagementId, request);
+    }
+
+    @PostMapping("/{engagementId}/unarchive")
+    EngagementView unarchive(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId, @Valid @RequestBody ExpectedVersionRequest request) {
+        return engagements.unarchive(tenant, engagementId, request);
     }
 
     @GetMapping("/templates")

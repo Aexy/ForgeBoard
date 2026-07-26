@@ -5,8 +5,10 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import com.forgeboard.work.application.WorkNotFoundException;
 import com.forgeboard.work.application.WorkItemConflictException;
+import com.forgeboard.work.WorkItemLifecycleConflictException;
 
 @RestControllerAdvice(assignableTypes = {WorkflowController.class, EmployeeDashboardController.class})
 class WorkflowExceptionHandler {
@@ -25,5 +27,13 @@ class WorkflowExceptionHandler {
     @ExceptionHandler(WorkItemConflictException.class)
     ProblemDetail conflict(WorkItemConflictException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+    @ExceptionHandler(WorkItemLifecycleConflictException.class)
+    ProblemDetail lifecycleConflict(WorkItemLifecycleConflictException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    ProblemDetail optimisticConflict(ObjectOptimisticLockingFailureException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "This work item was changed by another user");
     }
 }

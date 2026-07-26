@@ -101,10 +101,9 @@ Core entities:
 
 Product rules that must be decided before M2 exits:
 
-- Engagement lifecycle, including cancel, reopen, complete, and archive
+- Engagement lifecycle and completion semantics are decided: an assigned owner submits a linked engagement to an awaiting-review stage; only its assigned reviewer may return it one ordered stage with a required note or approve it into the sole final stage, which completes the engagement. Blocked stages synchronize lifecycle status. Completed, cancelled, and archived engagements reject board moves until explicitly reopened. Only owners and managers may cancel, reopen, archive, or unarchive; those stewardship actions never move the board card. Review decisions are immutable tenant-scoped history, while audit summaries remain redacted.
 - Whether an engagement owns one workflow instance or may span several
 - How template edits affect engagements already created
-- Completion semantics versus simply entering a final workflow stage
 - Owner/reviewer defaults, reassignment, absence, and workload visibility
 - Deadline timezone, weekend/holiday, override, and escalation rules
 - Document reminder, expiry, and external-reference safety rules
@@ -426,7 +425,7 @@ Targets remain hypotheses until pilot baselines exist and are reviewed after two
 | Risk or missing decision | Why it matters | Resolve by |
 | --- | --- | --- |
 | No design-partner evidence is recorded | The roadmap may optimize an imagined workflow | Before M2 scope locks |
-| Engagement lifecycle and template-version rules are unspecified | Recurrence and reporting will conflict | Early M2 |
+| Template-version rules are unspecified | Template edits may make recurrence and reporting ambiguous | Early M2 |
 | Deadline and calendar rules are unspecified | Accounting deadlines cannot be trusted | Early M2 |
 | Roles lack an explicit permission matrix | Browser/MCP parity cannot be proven | M2 |
 | Invitations, reset, removal, export, and deletion are absent | Pilots cannot be operated safely | M3 |

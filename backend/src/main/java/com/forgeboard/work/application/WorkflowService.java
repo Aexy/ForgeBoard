@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,6 +32,8 @@ import com.forgeboard.work.persistence.WorkItemAssignmentRepository;
 import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
 import com.forgeboard.work.persistence.SavedWorkflowViewRepository;
 import com.forgeboard.work.domain.SavedWorkflowView;
+import com.forgeboard.work.WorkItemLifecycleMove;
+import com.forgeboard.work.WorkItemLifecyclePolicy;
 
 @Service
 public class WorkflowService {
@@ -48,16 +51,17 @@ public class WorkflowService {
     private final SavedWorkflowViewRepository savedViews;
     private final FirmDirectory firms;
     private final WorkflowBoardReader reader;
+    private final WorkItemLifecyclePolicy lifecyclePolicy;
 
     public WorkflowService(WorkflowRepository workflows, WorkflowStageRepository stages, WorkItemRepository items,
             ClientDirectory clients, ActivityRecorder activity, Clock clock, MembershipAccess membershipAccess,
             WorkItemAssignmentRepository assignments, DocumentRequestDirectory documentRequests,
             WorkItemDocumentRequestRepository documentLinks, SavedWorkflowViewRepository savedViews, FirmDirectory firms,
-            WorkflowBoardReader reader) {
+            WorkflowBoardReader reader, WorkItemLifecyclePolicy lifecyclePolicy) {
         this.workflows = workflows; this.stages = stages; this.items = items; this.clients = clients; this.activity = activity;
         this.clock = clock; this.membershipAccess = membershipAccess; this.assignments = assignments;
         this.documentRequests = documentRequests; this.documentLinks = documentLinks;
-        this.savedViews = savedViews; this.firms = firms; this.reader = reader;
+        this.savedViews = savedViews; this.firms = firms; this.reader = reader; this.lifecyclePolicy = lifecyclePolicy;
     }
 
     @Transactional(readOnly = true)
@@ -102,6 +106,11 @@ public class WorkflowService {
     @Transactional
     public BoardView createWorkflow(SelectedTenant tenant, WorkflowRequest request) {
         membershipAccess.requireWorkflowManagement(tenant);
+        if (request.stages().stream().filter(WorkflowStageRequest::finalStage).count() != 1)
+            throw new IllegalArgumentException("A workflow must have exactly one final stage");
+        if (request.stages().stream().anyMatch(stage -> stage.finalStage()
+                && stage.attention() == com.forgeboard.work.domain.StageAttention.AWAITING_REVIEW))
+            throw new IllegalArgumentException("A final workflow stage cannot await review");
         var now = clock.instant();
         String name = request.name().strip();
         lockFirmForWorkflowSlugAllocation(tenant.firmId());
@@ -110,7 +119,8 @@ public class WorkflowService {
         List<WorkflowStage> createdStages = new ArrayList<>();
         for (int position = 0; position < request.stages().size(); position++) {
             createdStages.add(stages.save(new WorkflowStage(UUID.randomUUID(), tenant.firmId(), workflow.id(),
-                    request.stages().get(position).name().strip(), request.stages().get(position).attention(), position, now)));
+                    request.stages().get(position).name().strip(), request.stages().get(position).attention(), position,
+                    request.stages().get(position).finalStage(), now)));
         }
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "workflow.created", "workflow",
                 workflow.id(), Map.of("name", workflow.name(), "stageCount", createdStages.size()));
@@ -147,16 +157,28 @@ public class WorkflowService {
     public WorkItemView moveItem(SelectedTenant tenant, UUID workflowId, UUID itemId, MoveWorkItemRequest request) {
         requireWrite(tenant);
         requireWorkflow(tenant, workflowId);
-        lockStage(tenant.firmId(), workflowId, request.targetStageId());
         WorkItem item = requireItem(tenant, workflowId, itemId);
         if (!Long.valueOf(item.version()).equals(request.expectedVersion())) throw new WorkItemConflictException();
-        WorkItem before = neighbor(tenant, workflowId, request.targetStageId(), itemId, request.beforeItemId());
-        WorkItem after = neighbor(tenant, workflowId, request.targetStageId(), itemId, request.afterItemId());
-        BigDecimal rank = rankBetween(tenant.firmId(), workflowId, request.targetStageId(), before, after);
+        Map<UUID, WorkflowStage> lockedStages = lockDistinctStages(tenant.firmId(), workflowId,
+                item.stageId(), request.targetStageId());
+        WorkflowStage source = lockedStages.get(item.stageId());
+        WorkflowStage requestedTarget = lockedStages.get(request.targetStageId());
+        List<WorkflowStage> orderedStages = stages.findAllByFirmIdAndWorkflowIdOrderByPositionAsc(tenant.firmId(), workflowId);
+        UUID precedingSourceStageId = orderedStages.stream().filter(stage -> stage.position() == source.position() - 1)
+                .map(WorkflowStage::id).findFirst().orElse(null);
+        UUID effectiveStageId = lifecyclePolicy.onWorkItemMove(new WorkItemLifecycleMove(tenant.firmId(), item.id(),
+                tenant.userId(), requestedTarget.id(), precedingSourceStageId, requestedTarget.finalStage(),
+                requestedTarget.attention() == com.forgeboard.work.domain.StageAttention.AWAITING_REVIEW,
+                source.attention() == com.forgeboard.work.domain.StageAttention.BLOCKED,
+                requestedTarget.attention() == com.forgeboard.work.domain.StageAttention.BLOCKED, request.reviewNote()));
+        if (!effectiveStageId.equals(requestedTarget.id())) lockStage(tenant.firmId(), workflowId, effectiveStageId);
+        WorkItem before = neighbor(tenant, workflowId, effectiveStageId, itemId, request.beforeItemId());
+        WorkItem after = neighbor(tenant, workflowId, effectiveStageId, itemId, request.afterItemId());
+        BigDecimal rank = rankBetween(tenant.firmId(), workflowId, effectiveStageId, before, after);
         UUID previousStage = item.stageId();
-        item.move(request.targetStageId(), rank, clock.instant());
+        item.move(effectiveStageId, rank, clock.instant());
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.moved", "work-item", item.id(),
-                Map.of("fromStageId", previousStage.toString(), "toStageId", request.targetStageId().toString()));
+                Map.of("fromStageId", previousStage.toString(), "toStageId", effectiveStageId.toString()));
         return reader.view(item);
     }
 
@@ -268,9 +290,17 @@ public class WorkflowService {
                 .orElseThrow(() -> new WorkNotFoundException("Workflow was not found in the selected firm"));
     }
 
-    private void lockStage(UUID firmId, UUID workflowId, UUID stageId) {
-        stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, firmId, workflowId)
+    private WorkflowStage lockStage(UUID firmId, UUID workflowId, UUID stageId) {
+        return stages.findByIdAndFirmIdAndWorkflowIdForUpdate(stageId, firmId, workflowId)
                 .orElseThrow(() -> new WorkNotFoundException("Stage was not found in the selected workflow"));
+    }
+
+    private Map<UUID, WorkflowStage> lockDistinctStages(UUID firmId, UUID workflowId, UUID firstStageId,
+            UUID secondStageId) {
+        Map<UUID, WorkflowStage> locked = new java.util.HashMap<>();
+        java.util.stream.Stream.of(firstStageId, secondStageId).distinct().sorted(Comparator.naturalOrder())
+                .forEach(stageId -> locked.put(stageId, lockStage(firmId, workflowId, stageId)));
+        return locked;
     }
 
     private WorkItem requireItem(SelectedTenant tenant, UUID workflowId, UUID itemId) {

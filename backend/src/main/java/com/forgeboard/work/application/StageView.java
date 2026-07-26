@@ -5,4 +5,4 @@ import java.util.UUID;
 
 import com.forgeboard.work.domain.StageAttention;
 
-public record StageView(UUID id, String name, StageAttention attention, int position, List<WorkItemView> items) {}
+public record StageView(UUID id, String name, StageAttention attention, int position, boolean finalStage, List<WorkItemView> items) {}

@@ -14,6 +14,8 @@ import com.forgeboard.work.domain.AssignmentRole;
 import com.forgeboard.work.domain.WorkItemAssignment;
 
 public interface WorkItemAssignmentRepository extends JpaRepository<WorkItemAssignment, UUID> {
+    List<WorkItemAssignment> findAllByFirmIdAndWorkItemId(UUID firmId, UUID workItemId);
+
     @Modifying(flushAutomatically = true)
     @Query("delete from WorkItemAssignment a where a.firmId = :firmId and a.workItemId = :workItemId and a.assignmentRole = :role")
     void deleteByFirmIdAndWorkItemIdAndAssignmentRole(@Param("firmId") UUID firmId,

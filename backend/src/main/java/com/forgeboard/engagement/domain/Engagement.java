@@ -24,6 +24,8 @@ public class Engagement {
     @Column(name = "period_end", nullable = false) private LocalDate periodEnd;
     @Column(name = "due_date", nullable = false) private LocalDate dueDate;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16) private EngagementStatus status;
+    @Column(name = "status_changed_at", nullable = false) private Instant statusChangedAt;
+    @Enumerated(EnumType.STRING) @Column(name = "archived_from_status", length = 16) private EngagementStatus archivedFromStatus;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
     @Version private long version;
@@ -33,9 +35,11 @@ public class Engagement {
             LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate, Instant now) {
         this.id = id; this.firmId = firmId; this.templateId = templateId; this.clientId = clientId;
         this.workflowId = workflowId; this.workItemId = workItemId; this.periodStart = periodStart; this.periodEnd = periodEnd;
-        this.dueDate = dueDate; this.status = EngagementStatus.OPEN; this.createdAt = now; this.updatedAt = now;
+        this.dueDate = dueDate; this.status = EngagementStatus.ACTIVE; this.statusChangedAt = now;
+        this.createdAt = now; this.updatedAt = now;
     }
     public UUID id() { return id; }
+    public UUID firmId() { return firmId; }
     public UUID templateId() { return templateId; }
     public UUID clientId() { return clientId; }
     public UUID workflowId() { return workflowId; }
@@ -44,5 +48,52 @@ public class Engagement {
     public LocalDate periodEnd() { return periodEnd; }
     public LocalDate dueDate() { return dueDate; }
     public EngagementStatus status() { return status; }
+    public Instant statusChangedAt() { return statusChangedAt; }
+    public EngagementStatus archivedFromStatus() { return archivedFromStatus; }
     public long version() { return version; }
+
+    public void submitForReview(Instant now) { transition(EngagementStatus.ACTIVE, EngagementStatus.AWAITING_REVIEW, now); }
+    public void markBlocked(Instant now) { transition(EngagementStatus.ACTIVE, EngagementStatus.BLOCKED, now); }
+    public void resumeActive(Instant now) { transition(EngagementStatus.BLOCKED, EngagementStatus.ACTIVE, now); }
+    public void approve(Instant now) { transition(EngagementStatus.AWAITING_REVIEW, EngagementStatus.COMPLETE, now); }
+    public void returnForPreparation(Instant now) { transition(EngagementStatus.AWAITING_REVIEW, EngagementStatus.ACTIVE, now); }
+
+    public void cancel(Instant now) {
+        if (status != EngagementStatus.ACTIVE && status != EngagementStatus.BLOCKED && status != EngagementStatus.AWAITING_REVIEW)
+            throw invalid("cancel");
+        changeTo(EngagementStatus.CANCELLED, now);
+    }
+
+    public void reopen(Instant now) {
+        if (status != EngagementStatus.COMPLETE && status != EngagementStatus.CANCELLED) throw invalid("reopen");
+        changeTo(EngagementStatus.ACTIVE, now);
+    }
+
+    public void archive(Instant now) {
+        if (status != EngagementStatus.COMPLETE && status != EngagementStatus.CANCELLED) throw invalid("archive");
+        archivedFromStatus = status;
+        changeTo(EngagementStatus.ARCHIVED, now);
+    }
+
+    public void unarchive(Instant now) {
+        if (status != EngagementStatus.ARCHIVED || archivedFromStatus == null) throw invalid("unarchive");
+        EngagementStatus restore = archivedFromStatus;
+        archivedFromStatus = null;
+        changeTo(restore, now);
+    }
+
+    private void transition(EngagementStatus expected, EngagementStatus target, Instant now) {
+        if (status != expected) throw invalid(target.name().toLowerCase());
+        changeTo(target, now);
+    }
+
+    private void changeTo(EngagementStatus target, Instant now) {
+        status = target;
+        statusChangedAt = now;
+        updatedAt = now;
+    }
+
+    private IllegalStateException invalid(String action) {
+        return new IllegalStateException("Cannot " + action + " engagement from " + status);
+    }
 }

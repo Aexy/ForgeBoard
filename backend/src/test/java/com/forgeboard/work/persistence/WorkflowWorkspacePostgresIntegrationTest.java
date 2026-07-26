@@ -137,7 +137,7 @@ class WorkflowWorkspacePostgresIntegrationTest {
         SelectedTenant tenant = new SelectedTenant(result.firmId(), result.ownerId(), result.ownerEmail(), MembershipRole.OWNER);
         ClientView client = clients.create(tenant, new ClientRequest("Client " + unique, "Client " + suffix, null));
         BoardView board = workflows.createWorkflow(tenant, new WorkflowRequest("Workflow " + unique, List.of(
-                new WorkflowStageRequest("Preparation", StageAttention.NONE))));
+                new WorkflowStageRequest("Preparation", StageAttention.NONE, true))));
         WorkItemView item = workflows.createItem(tenant, board.id(), new WorkItemRequest(client.id(),
                 board.stages().getFirst().id(), "First task", "", null, WorkPriority.NORMAL));
         return new Fixture(tenant, client, board, item);
@@ -148,7 +148,7 @@ class WorkflowWorkspacePostgresIntegrationTest {
         ready.countDown();
         start.await();
         return workflows.createWorkflow(tenant, new WorkflowRequest(name, List.of(
-                new WorkflowStageRequest("Preparation", StageAttention.NONE))));
+                new WorkflowStageRequest("Preparation", StageAttention.NONE, true))));
     }
 
     private record Fixture(SelectedTenant tenant, ClientView client, BoardView board, WorkItemView item) {

@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -45,7 +46,7 @@ class EngagementServiceTest {
     void setUp() {
         now = Instant.parse("2026-07-13T09:00:00Z");
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
-        service = new EngagementService(templates, engagements, workflows, clients, activity, Clock.fixed(now, ZoneOffset.UTC));
+        service = new EngagementService(templates, engagements, mock(com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository.class), workflows, clients, activity, Clock.fixed(now, ZoneOffset.UTC));
     }
 
     @Test

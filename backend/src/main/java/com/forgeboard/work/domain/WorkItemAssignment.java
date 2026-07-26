@@ -28,4 +28,5 @@ public class WorkItemAssignment {
         this.assignmentRole = assignmentRole; this.assignedAt = assignedAt; this.assignedByUserId = assignedByUserId;
     }
     public UUID userId() { return userId; }
+    public AssignmentRole assignmentRole() { return assignmentRole; }
 }

@@ -31,6 +31,7 @@ import com.forgeboard.identity.EmployeeDirectory;
 import com.forgeboard.identity.FirmDirectory;
 import com.forgeboard.identity.MembershipAccess;
 import com.forgeboard.identity.SelectedTenant;
+import com.forgeboard.work.WorkItemLifecycleConflictException;
 import com.forgeboard.work.domain.AssignmentRole;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.work.domain.WorkItem;
@@ -44,6 +45,8 @@ import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
 import com.forgeboard.work.persistence.SavedWorkflowViewRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
+import com.forgeboard.work.WorkItemLifecycleConflictException;
+import com.forgeboard.work.WorkItemLifecyclePolicy;
 
 class WorkflowServiceTest {
     WorkflowRepository workflows;
@@ -59,6 +62,7 @@ class WorkflowServiceTest {
     ActivityDirectory activityQueries;
     SavedWorkflowViewRepository savedViews;
     FirmDirectory firms;
+    WorkItemLifecyclePolicy engagementLifecycle;
     WorkflowService service;
     SelectedTenant tenant;
     Instant now;
@@ -80,6 +84,7 @@ class WorkflowServiceTest {
         activityQueries = fixture.activityQueries;
         savedViews = fixture.savedViews;
         firms = fixture.firms;
+        engagementLifecycle = fixture.engagementLifecycle;
         tenant = fixture.tenant;
         service = fixture.service();
     }
@@ -160,7 +165,7 @@ class WorkflowServiceTest {
 
         BoardView board = service.createWorkflow(tenant,
                 new WorkflowRequest("Monthly bookkeeping", List.of(
-                        new WorkflowStageRequest("Client dependency", StageAttention.BLOCKED),
+                        new WorkflowStageRequest("Client dependency", StageAttention.BLOCKED, true),
                         new WorkflowStageRequest("Quality check", StageAttention.AWAITING_REVIEW))));
 
         assertThat(board.stages()).extracting(StageView::position).containsExactly(0, 1);
@@ -175,8 +180,10 @@ class WorkflowServiceTest {
         SelectedTenant manager = new SelectedTenant(tenant.firmId(), UUID.randomUUID(), "manager@example.com", role);
         mockFirmSlugLock();
         when(workflows.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(stages.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.createWorkflow(manager, new WorkflowRequest("Monthly bookkeeping", List.of()));
+        service.createWorkflow(manager, new WorkflowRequest("Monthly bookkeeping", List.of(
+                new WorkflowStageRequest("Complete", StageAttention.NONE, true))));
 
         verify(membershipAccess).requireWorkflowManagement(manager);
         verify(workflows).save(any(WorkflowBoard.class));
@@ -202,8 +209,10 @@ class WorkflowServiceTest {
         when(workflows.existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping")).thenReturn(true);
         when(workflows.existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping-2")).thenReturn(false);
         when(workflows.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(stages.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        BoardView board = service.createWorkflow(tenant, new WorkflowRequest(" Monthly bookkeeping! ", List.of()));
+        BoardView board = service.createWorkflow(tenant, new WorkflowRequest(" Monthly bookkeeping! ", List.of(
+                new WorkflowStageRequest("Complete", StageAttention.NONE, true))));
 
         assertThat(board.workflowSlug()).isEqualTo("monthly-bookkeeping-2");
         verify(workflows).existsByFirmIdAndWorkflowSlug(tenant.firmId(), "monthly-bookkeeping");
@@ -330,6 +339,53 @@ class WorkflowServiceTest {
                 new MoveWorkItemRequest(stageId, null, null, moving.version() + 1)))
                 .isInstanceOf(WorkItemConflictException.class);
         verify(activity, never()).recordRestUserAction(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void rejectsLifecycleMovesBeforeChangingTheCardOrRecordingCardAudit() {
+        UUID workflowId = UUID.randomUUID();
+        UUID sourceId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        WorkItem moving = item(itemId, workflowId, sourceId, "1000");
+        when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(sourceId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+                new WorkflowStage(sourceId, tenant.firmId(), workflowId, "Preparation", StageAttention.NONE, 0, now)));
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(targetId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+                new WorkflowStage(targetId, tenant.firmId(), workflowId, "Review", StageAttention.AWAITING_REVIEW, 1, now)));
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
+        org.mockito.Mockito.doThrow(new WorkItemLifecycleConflictException("Not allowed"))
+                .when(engagementLifecycle).onWorkItemMove(any());
+
+        assertThatThrownBy(() -> service.moveItem(tenant, workflowId, itemId,
+                new MoveWorkItemRequest(targetId, null, null, moving.version())))
+                .isInstanceOf(WorkItemLifecycleConflictException.class);
+
+        assertThat(moving.stageId()).isEqualTo(sourceId);
+        verify(activity, never()).recordRestUserAction(any(), any(), org.mockito.ArgumentMatchers.eq("work-item.moved"), any(), any(), any());
+    }
+
+    @Test
+    void invokesLifecycleForAnOtherwiseUnlinkedMoveBeforeRanking() {
+        UUID workflowId = UUID.randomUUID();
+        UUID sourceId = UUID.randomUUID();
+        UUID targetId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        WorkItem moving = item(itemId, workflowId, sourceId, "1000");
+        when(workflows.findByIdAndFirmId(workflowId, tenant.firmId())).thenReturn(Optional.of(
+                new WorkflowBoard(workflowId, tenant.firmId(), "Monthly", "monthly", now)));
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(sourceId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+                new WorkflowStage(sourceId, tenant.firmId(), workflowId, "Preparation", StageAttention.NONE, 0, now)));
+        when(stages.findByIdAndFirmIdAndWorkflowIdForUpdate(targetId, tenant.firmId(), workflowId)).thenReturn(Optional.of(
+                new WorkflowStage(targetId, tenant.firmId(), workflowId, "Queue", StageAttention.NONE, 1, now)));
+        when(items.findByIdAndFirmIdAndWorkflowId(itemId, tenant.firmId(), workflowId)).thenReturn(Optional.of(moving));
+        when(items.maximumRank(tenant.firmId(), workflowId, targetId)).thenReturn(Optional.empty());
+
+        service.moveItem(tenant, workflowId, itemId, new MoveWorkItemRequest(targetId, null, null, moving.version()));
+
+        verify(engagementLifecycle).onWorkItemMove(any());
+        assertThat(moving.stageId()).isEqualTo(targetId);
     }
 
     @Test

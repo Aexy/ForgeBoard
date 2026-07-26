@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -207,6 +208,69 @@ class WorkflowControllerSecurityTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"userId\":\"" + UUID.randomUUID() + "\"}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void mapsLifecycleRoleDenialsOnBoardMovesToForbidden() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID targetStageId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, "member@example.com", MembershipRole.MEMBER);
+        doThrow(new AccessDeniedException("Only the assigned owner may submit an engagement for review"))
+                .when(workflows).moveItem(eq(tenant), eq(workflowId), eq(itemId), any());
+
+        mockMvc.perform(patch(itemPath(workflowId, itemId) + "/position")
+                        .with(user("member@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetStageId\":\"" + targetStageId + "\",\"expectedVersion\":0}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void mapsLifecycleTransitionAndStaleMoveRejectionsToConflict() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        UUID targetStageId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, MembershipRole.MEMBER);
+        doThrow(new com.forgeboard.work.WorkItemLifecycleConflictException(
+                "Returning an engagement for preparation requires a note"))
+                .when(workflows).moveItem(eq(tenant), eq(workflowId), eq(itemId), any());
+
+        mockMvc.perform(patch(itemPath(workflowId, itemId) + "/position")
+                        .with(user("owner@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetStageId\":\"" + targetStageId + "\",\"expectedVersion\":0}"))
+                .andExpect(status().isConflict());
+
+        doThrow(new com.forgeboard.work.application.WorkItemConflictException())
+                .when(workflows).moveItem(eq(tenant), eq(workflowId), eq(itemId), any());
+        mockMvc.perform(patch(itemPath(workflowId, itemId) + "/position")
+                        .with(user("owner@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetStageId\":\"" + targetStageId + "\",\"expectedVersion\":99}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void mapsCrossFirmLifecycleBoardMoveToNotFound() throws Exception {
+        UUID firmId = UUID.randomUUID();
+        UUID workflowId = UUID.randomUUID();
+        UUID itemId = UUID.randomUUID();
+        SelectedTenant tenant = authorize(firmId, MembershipRole.MEMBER);
+        doThrow(new WorkNotFoundException("Work item was not found in the selected workflow"))
+                .when(workflows).moveItem(eq(tenant), eq(workflowId), eq(itemId), any());
+
+        mockMvc.perform(patch(itemPath(workflowId, itemId) + "/position")
+                        .with(user("owner@example.com"))
+                        .header(TenantSelectionFilter.FIRM_HEADER, firmId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"targetStageId\":\"" + UUID.randomUUID() + "\",\"expectedVersion\":0}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

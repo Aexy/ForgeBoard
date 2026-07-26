@@ -1,0 +1,5 @@
+.dialog { border: 1px solid var(--forge-border); border-radius: .5rem; max-width: 32rem; padding: 1rem; width: calc(100% - 2rem); }
+.dialog::backdrop { background: rgb(0 0 0 / .45); }
+.dialog form, .dialog label { display: grid; gap: .75rem; }
+.dialog textarea { min-height: 7rem; font: inherit; }
+.dialog div { display: flex; gap: .5rem; justify-content: flex-end; }

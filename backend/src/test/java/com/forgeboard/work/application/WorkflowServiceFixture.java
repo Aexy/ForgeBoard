@@ -1,6 +1,8 @@
 package com.forgeboard.work.application;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -22,6 +24,9 @@ import com.forgeboard.work.persistence.WorkItemDocumentRequestRepository;
 import com.forgeboard.work.persistence.WorkItemRepository;
 import com.forgeboard.work.persistence.WorkflowRepository;
 import com.forgeboard.work.persistence.WorkflowStageRepository;
+import com.forgeboard.work.WorkItemEngagementDetails;
+import com.forgeboard.work.WorkItemLifecycleMove;
+import com.forgeboard.work.WorkItemLifecyclePolicy;
 
 final class WorkflowServiceFixture {
     final WorkflowRepository workflows = mock(WorkflowRepository.class);
@@ -37,6 +42,7 @@ final class WorkflowServiceFixture {
     final ActivityDirectory activityQueries = mock(ActivityDirectory.class);
     final SavedWorkflowViewRepository savedViews = mock(SavedWorkflowViewRepository.class);
     final FirmDirectory firms = mock(FirmDirectory.class);
+    final WorkItemLifecyclePolicy engagementLifecycle = mock(WorkItemLifecyclePolicy.class);
     final SelectedTenant tenant;
     private final WorkflowBoardReader reader;
     private final WorkflowService service;
@@ -44,9 +50,11 @@ final class WorkflowServiceFixture {
     WorkflowServiceFixture(Instant now) {
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
         reader = new WorkflowBoardReader(workflows, stages, items, clients, assignments, employees, documentRequests,
-                documentLinks, activityQueries);
+                documentLinks, activityQueries, mock(WorkItemEngagementDetails.class));
         service = new WorkflowService(workflows, stages, items, clients, activity, Clock.fixed(now, ZoneOffset.UTC),
-                membershipAccess, assignments, documentRequests, documentLinks, savedViews, firms, reader);
+                membershipAccess, assignments, documentRequests, documentLinks, savedViews, firms, reader, engagementLifecycle);
+        when(engagementLifecycle.onWorkItemMove(any())).thenAnswer(invocation ->
+                ((WorkItemLifecycleMove) invocation.getArgument(0)).requestedTargetStageId());
     }
 
     WorkflowService service() {

@@ -7,4 +7,9 @@ import jakarta.validation.constraints.Size;
 
 public record WorkflowStageRequest(
         @NotBlank @Size(max = 120) String name,
-        @NotNull StageAttention attention) {}
+        @NotNull StageAttention attention,
+        boolean finalStage) {
+    public WorkflowStageRequest(String name, StageAttention attention) {
+        this(name, attention, false);
+    }
+}

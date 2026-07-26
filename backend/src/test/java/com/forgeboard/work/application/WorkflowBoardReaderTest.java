@@ -3,6 +3,7 @@ package com.forgeboard.work.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyList;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -60,7 +61,8 @@ class WorkflowBoardReaderTest {
         when(fixture.assignments.findRolesByFirmIdAndWorkItemIdIn(tenant.firmId(), List.of(firstItemId, secondItemId))).thenReturn(List.of(
                 new WorkItemRoleAssignmentView(firstItemId, ownerId, AssignmentRole.OWNER),
                 new WorkItemRoleAssignmentView(firstItemId, reviewerId, AssignmentRole.REVIEWER)));
-        when(fixture.employees.displayNames(tenant.firmId(), List.of(ownerId, reviewerId))).thenReturn(Map.of(ownerId, "Mira Miller", reviewerId, "Robin Reviewer"));
+        when(fixture.employees.displayNames(org.mockito.ArgumentMatchers.eq(tenant.firmId()), anyList()))
+                .thenReturn(Map.of(ownerId, "Mira Miller", reviewerId, "Robin Reviewer"));
 
         BoardView board = reader.getBoard(tenant, "monthly-close");
 

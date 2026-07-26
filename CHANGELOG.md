@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added the approved stage-driven engagement lifecycle: assigned-owner review submission, reviewer-only return with immutable notes, and automatic completion on the workflow's single final stage. Owners and managers can steward cancel, reopen, archive, and unarchive without moving the linked board card. (`M2`, migration `V017`)
+
 - Added management-only workflow creation in the Next app, including editable accounting-stage defaults from both empty and populated workflow views. (`M2`)
 
 - Added inline workflow work-item creation and owner/administrator-only document-request linking in the full task workspace. The workflow board refreshes after confirmed optimistic-lock conflicts, and browser evidence covers tenant-negative linking. (`M2`)
