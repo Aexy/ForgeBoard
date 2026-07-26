@@ -76,6 +76,15 @@ describe('WorkflowBoard', () => {
     expect(router.push).toHaveBeenLastCalledWith('/firms/hearth/workflow/monthly-close?task=FB-1042')
     expect(router.push).toHaveBeenCalledTimes(1)
   })
+  it('reserves the drag handle for members who can move work items', () => {
+    render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
+    expect(screen.getByRole('button', { name: 'Move FB-1042: July close' })).toBeVisible()
+
+    cleanup()
+    mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' })
+    render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
+    expect(screen.queryByRole('button', { name: 'Move FB-1042: July close' })).not.toBeInTheDocument()
+  })
   it('moves a card only through the confirmed mutation', async () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
     fireEvent.click(screen.getByRole('button', { name: 'Move right July close' }))
