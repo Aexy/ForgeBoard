@@ -85,6 +85,7 @@ describe('WorkflowBoard', () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' })
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
     expect(screen.queryByRole('button', { name: 'Move FB-1042: July close' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Move right July close' })).toBeEnabled()
   })
   it('moves a card only through the confirmed mutation', async () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)

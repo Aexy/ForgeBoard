@@ -1,5 +1,5 @@
 .card { position: relative; margin: .7rem 0; padding: .78rem; border: 1px solid #d6e1da; border-radius: .62rem; background: #fff; box-shadow: 0 1px 2px #1731260a; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }
-.card:hover { box-shadow: 0 5px 15px #17312617; }
+.card:hover { transform: translateY(-1px); box-shadow: 0 5px 15px #17312617; }
 .card h3 { margin: .3rem 0 .55rem; color: #203027; font-size: .95rem; line-height: 1.3; }
 .cardActivation { display: block; width: 100%; padding: 0; border: 0; color: inherit; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .cardReference { margin: 0; color: #267047; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -12,5 +12,5 @@
 .cardActions button:nth-child(2) { padding-inline: .4rem; }.cardActions button:disabled { opacity: .44; cursor: not-allowed; }
 .dragHandle { position: absolute; top: .55rem; right: .55rem; display: grid; place-items: center; width: 1.75rem; min-height: 1.75rem; padding: 0; color: #53635b; font-size: 1rem; line-height: 1; touch-action: none; }
 .card button:focus-visible { outline: 3px solid var(--forge-green-800); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .card { transition: none; }.card:hover { transform: none; } }
 @media (max-width: 50rem) { .card { min-height: 9rem; padding: .7rem; }.cardActions button { min-height: 2.5rem; } }
