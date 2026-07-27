@@ -9,6 +9,10 @@
   --forge-surface: #ffffff;
   --forge-border: #c7d9ce;
   --forge-text-muted: #587064;
+  --forge-ease-out: cubic-bezier(.23, 1, .32, 1);
+  --forge-motion-fast: 140ms;
+  --forge-motion-standard: 180ms;
+  --forge-motion-sheet: 240ms;
 }
 
 * { box-sizing: border-box; }

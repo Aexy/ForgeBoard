@@ -23,7 +23,7 @@ export function TaskPanel({ detail, taskPath, boardPath }: Readonly<{ detail: Wo
     return () => window.removeEventListener('keydown', closeOnEscape)
   })
 
-  return <aside ref={panel} aria-label={`${detail.item.title} details`} className={styles.taskPanel} tabIndex={-1}>
+  return <aside ref={panel} aria-label={`${detail.item.title} details`} className={styles.taskPanel} data-state="open" tabIndex={-1}>
     <div className={styles.panelHeading}><div><p className={styles.eyebrow}>{t('workflow.workItem')} · {detail.item.taskReference}</p><h2>{detail.item.title}</h2></div><button type="button" className={styles.quietButton} onClick={close}>{t('common.close')}</button></div>
     <p className={styles.clientName}>{detail.clientDisplayName}</p>
     <button type="button" className={styles.primaryButton} onClick={() => router.push(taskPath)}>{t('workflow.openTaskWorkspace')}</button>

@@ -15,7 +15,7 @@ import {
   type DragStartEvent,
   type KeyboardCoordinateGetter,
 } from '@dnd-kit/core'
-import { FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useGetClientsQuery } from '@/features/clients/clients-transport'
@@ -72,6 +72,41 @@ function useMobileWorkflowLayout() {
   }, [])
 
   return isMobile
+}
+
+type StageContentState = 'closed' | 'closing' | 'open' | 'opening'
+
+function WorkflowStageContent({ children, id, isExpanded, isMobile }: Readonly<{ children: ReactNode; id: string; isExpanded: boolean; isMobile: boolean }>) {
+  const [state, setState] = useState<StageContentState>(() => isMobile && !isExpanded ? 'closed' : 'open')
+  const wasMobile = useRef(isMobile)
+
+  useEffect(() => {
+    const enteredMobileLayout = isMobile && !wasMobile.current
+    wasMobile.current = isMobile
+    if (!isMobile) {
+      setState('open')
+    } else if (enteredMobileLayout) {
+      setState(isExpanded ? 'open' : 'closed')
+    } else {
+      setState((current) => {
+        if (isExpanded) return current === 'closed' || current === 'closing' ? 'opening' : current
+        return current === 'open' || current === 'opening' ? 'closing' : current
+      })
+    }
+  }, [isExpanded, isMobile])
+
+  return <div
+    id={id}
+    hidden={isMobile && state === 'closed'}
+    className={styles.stageContent}
+    data-state={isMobile ? state : 'open'}
+    onTransitionEnd={(event) => {
+      if (event.currentTarget !== event.target) return
+      setState((current) => current === 'closing' ? 'closed' : current === 'opening' ? 'open' : current)
+    }}
+  >
+    {children}
+  </div>
 }
 
 export function WorkflowBoard({ workflowSlug, basePath }: Readonly<{ workflowSlug: string; basePath: string }>) {
@@ -140,7 +175,7 @@ export function WorkflowBoard({ workflowSlug, basePath }: Readonly<{ workflowSlu
     <div className={taskReference && task.data ? styles.boardAndPanel : undefined}><DndContext sensors={sensors} collisionDetection={closestCorners} accessibility={{ announcements }} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveItem(null)}><div className={styles.board} aria-label={`${source.name} ${t('navigation.workflow').toLowerCase()}`}><p className="srOnly">{t('workflow.dragHelp')}</p>{stages.map((stage, index) => {
       const isExpanded = !isMobile || expandedStageIds.includes(stage.id)
       const stageContentId = `workflow-stage-${stage.id}`
-      return <WorkflowStageDropTarget key={stage.id} stageId={stage.id} attention={stage.attention} label={`${stage.name} ${t('workflow.stage').toLowerCase()}`}><div className={styles.columnTitle}><span className={styles.stageMarker} aria-hidden="true">{attentionMark(stage.attention)}</span><h2>{stage.name}</h2><span className={styles.stageCount}>{stage.items.length}</span></div><button type="button" className={styles.mobileStageToggle} aria-label={`${t('workflow.toggleStage')} ${stage.name}`} aria-expanded={isExpanded} aria-controls={stageContentId} onClick={() => setExpandedStageIds((current) => current.includes(stage.id) ? current.filter((id) => id !== stage.id) : [...current, stage.id])}><span className={styles.stageMarker} aria-hidden="true">{attentionMark(stage.attention)}</span><span>{stage.name}</span><span className={styles.stageCount}>{stage.items.length}</span></button><div id={stageContentId} hidden={isMobile && !isExpanded} className={isExpanded ? styles.stageContent : `${styles.stageContent} ${styles.stageContentCollapsed}`}>{stage.items.map((item) => <WorkflowDragCard key={item.id} item={item} canMove={firm.role !== 'READ_ONLY' && !operations.isSaving} isSaving={operations.isSaving} stageIndex={index} stageCount={source.stages.length} onOpen={(selected) => openTask(selected)} onOpenWorkspace={(selected) => openTask(selected, true)} onMove={(selected, targetIndex) => void persistMove(selected, source.stages[targetIndex].id)} />)}{firm.role !== 'READ_ONLY' && (newStageId === stage.id ? <form className={styles.newItemForm} aria-label={t('workflow.newWorkItem')} onSubmit={(event) => void create(event)}><label>{t('common.client')}<select name="clientId" required defaultValue=""><option value="" disabled>{t('workflow.selectClient')}</option>{activeClients.map((client) => <option key={client.id} value={client.id}>{client.displayName}</option>)}</select></label><label>{t('workflow.title')}<input name="title" required maxLength={200} /></label><label>Description<textarea name="description" maxLength={10000} /></label><label>{t('common.dueDate')}<input name="dueDate" type="date" /></label><label>{t('common.priority')}<select name="priority" defaultValue="NORMAL"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label><div><button className={styles.primaryButton} disabled={operations.isSaving || activeClients.length === 0}>{operations.isSaving ? t('workflow.creating') : t('workflow.createWorkItem')}</button><button type="button" className={styles.quietButton} onClick={() => setNewStageId(null)}>{t('common.cancel')}</button></div></form> : <button type="button" className={styles.addItemButton} aria-label={`${t('workflow.addWorkItemTo')} ${stage.name}`} onClick={() => setNewStageId(stage.id)}>{t('workflow.addWorkItem')}</button>)}{stage.items.length === 0 && <p className={styles.emptyStage}>{t('workflow.noWorkItemsInStage')}</p>}</div></WorkflowStageDropTarget>
+      return <WorkflowStageDropTarget key={stage.id} stageId={stage.id} attention={stage.attention} label={`${stage.name} ${t('workflow.stage').toLowerCase()}`}><div className={styles.columnTitle}><span className={styles.stageMarker} aria-hidden="true">{attentionMark(stage.attention)}</span><h2>{stage.name}</h2><span className={styles.stageCount}>{stage.items.length}</span></div><button type="button" className={styles.mobileStageToggle} aria-label={`${t('workflow.toggleStage')} ${stage.name}`} aria-expanded={isExpanded} aria-controls={stageContentId} onClick={() => setExpandedStageIds((current) => current.includes(stage.id) ? current.filter((id) => id !== stage.id) : [...current, stage.id])}><span className={styles.stageMarker} aria-hidden="true">{attentionMark(stage.attention)}</span><span>{stage.name}</span><span className={styles.stageCount}>{stage.items.length}</span></button><WorkflowStageContent id={stageContentId} isExpanded={isExpanded} isMobile={isMobile}>{stage.items.map((item) => <WorkflowDragCard key={item.id} item={item} canMove={firm.role !== 'READ_ONLY' && !operations.isSaving} isSaving={operations.isSaving} stageIndex={index} stageCount={source.stages.length} onOpen={(selected) => openTask(selected)} onOpenWorkspace={(selected) => openTask(selected, true)} onMove={(selected, targetIndex) => void persistMove(selected, source.stages[targetIndex].id)} />)}{firm.role !== 'READ_ONLY' && (newStageId === stage.id ? <form className={styles.newItemForm} aria-label={t('workflow.newWorkItem')} onSubmit={(event) => void create(event)}><label>{t('common.client')}<select name="clientId" required defaultValue=""><option value="" disabled>{t('workflow.selectClient')}</option>{activeClients.map((client) => <option key={client.id} value={client.id}>{client.displayName}</option>)}</select></label><label>{t('workflow.title')}<input name="title" required maxLength={200} /></label><label>Description<textarea name="description" maxLength={10000} /></label><label>{t('common.dueDate')}<input name="dueDate" type="date" /></label><label>{t('common.priority')}<select name="priority" defaultValue="NORMAL"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label><div><button className={styles.primaryButton} disabled={operations.isSaving || activeClients.length === 0}>{operations.isSaving ? t('workflow.creating') : t('workflow.createWorkItem')}</button><button type="button" className={styles.quietButton} onClick={() => setNewStageId(null)}>{t('common.cancel')}</button></div></form> : <button type="button" className={styles.addItemButton} aria-label={`${t('workflow.addWorkItemTo')} ${stage.name}`} onClick={() => setNewStageId(stage.id)}>{t('workflow.addWorkItem')}</button>)}{stage.items.length === 0 && <p className={styles.emptyStage}>{t('workflow.noWorkItemsInStage')}</p>}</WorkflowStageContent></WorkflowStageDropTarget>
     })}</div><DragOverlay className={styles.dragOverlay}>{activeItem ? <WorkflowDragOverlayCard item={activeItem} /> : null}</DragOverlay></DndContext>{taskReference && task.data && <TaskPanel detail={task.data} boardPath={boardPathWithoutTask(basePath, search)} taskPath={taskWorkspacePath(basePath, taskReference)} />}</div>
     {taskReference && task.isError && <p role="alert">{t('workflow.taskUnavailable')}</p>}
   </section>

@@ -6,6 +6,8 @@
 .heading button, .form button, .row button { border: 1px solid var(--forge-green-800); border-radius: .35rem; font: inherit; padding: .55rem .8rem; }
 .heading > button, .form button { background: var(--forge-green-800); color: white; }
 .form { background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: .9rem; max-width: 40rem; padding: 1rem; }
+.formEntering { opacity: 1; transform: translateY(0); transition: opacity var(--forge-motion-standard) var(--forge-ease-out), transform var(--forge-motion-standard) var(--forge-ease-out); }
+@starting-style { .formEntering { opacity: 0; transform: translateY(-.35rem); } }
 .form label { display: grid; gap: .35rem; font-weight: 600; }
 .form input { border: 1px solid var(--forge-border); border-radius: .3rem; font: inherit; padding: .55rem; }
 .list { display: grid; gap: .7rem; }
@@ -17,3 +19,8 @@
 .row button { background: transparent; color: var(--forge-green-800); }
 .empty { border: 1px dashed var(--forge-border); border-radius: .5rem; padding: 1rem; }
 .error { color: #a11e26; }
+
+@media (prefers-reduced-motion: reduce) {
+  .formEntering { transform: none; transition: opacity 120ms linear; }
+  @starting-style { .formEntering { opacity: 0; transform: none; } }
+}
