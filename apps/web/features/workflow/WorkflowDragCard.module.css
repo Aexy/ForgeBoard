@@ -10,7 +10,7 @@
 .cardActions { display: grid; grid-template-columns: 1.75rem 1fr 1.75rem; gap: .35rem; }
 .cardActions button, .dragHandle { min-height: 2rem; border: 1px solid #b7cabd; border-radius: .42rem; color: #254535; background: #fff; font: inherit; font-size: .72rem; font-weight: 700; cursor: pointer; }
 .cardActions button:nth-child(2) { padding-inline: .4rem; }.cardActions button:disabled { opacity: .44; cursor: not-allowed; }
-.dragHandle { position: absolute; top: .55rem; right: .55rem; display: grid; place-items: center; width: 1.75rem; min-height: 1.75rem; padding: 0; color: #53635b; font-size: 1rem; line-height: 1; touch-action: none; }
+.dragHandle { position: absolute; top: .55rem; right: .55rem; display: grid; place-items: center; width: 1.75rem; min-height: 1.75rem; padding: 0; color: #53635b; font-size: 1rem; line-height: 1; touch-action: pan-y; }
 .card button:focus-visible { outline: 3px solid var(--forge-green-800); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; }.card:hover { transform: none; } }
 @media (max-width: 50rem) { .card { min-height: 9rem; padding: .7rem; }.cardActions button { min-height: 2.5rem; } }

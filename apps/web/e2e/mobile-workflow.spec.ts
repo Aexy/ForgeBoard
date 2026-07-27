@@ -138,12 +138,16 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
   const prepareCard = page.getByLabel('Prepare stage').locator('article').filter({ hasText: title })
   const dragHandle = prepareCard.getByRole('button', { name: `Move ${createdItem!.taskReference}: ${title}` })
   const touchSession = await page.context().newCDPSession(page)
+  await page.evaluate(() => window.scrollTo(0, 0))
+  const scrollBeforeTouch = await page.evaluate(() => window.scrollY)
   await shortTouchScroll(touchSession, dragHandle, async () => {
     expect(await prepareCard.getAttribute('data-dragging')).toBeNull()
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBeforeTouch)
   })
   await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveCount(0)
   await expect(page.getByLabel('Prepare stage').getByRole('heading', { name: title })).toBeVisible()
   await expect(page.getByLabel('Review stage').getByRole('heading', { name: title })).toHaveCount(0)
+  await page.evaluate(() => window.scrollTo(0, 0))
 
   await deliberateTouchDrag(touchSession, dragHandle, page.getByLabel('Review stage'))
   await expect(page.getByRole('alert').filter({ hasText: `${title} moved.` })).toHaveText(`${title} moved.`)

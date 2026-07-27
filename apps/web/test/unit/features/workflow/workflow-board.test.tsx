@@ -12,7 +12,9 @@ const dnd = vi.hoisted(() => ({
   droppableIds: [] as string[],
   overStageId: null as string | null,
   draggingId: null as string | null,
+  overlayProps: null as (Record<string, unknown> & { children?: ReactNode }) | null,
   PointerSensor: class PointerSensor {},
+  MouseSensor: class MouseSensor {},
   TouchSensor: class TouchSensor {},
   KeyboardSensor: class KeyboardSensor {},
   closestCorners: vi.fn(),
@@ -21,8 +23,9 @@ vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: mo
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
 vi.mock('@dnd-kit/core', () => ({
   DndContext: (props: Record<string, unknown> & { children?: ReactNode }) => { dnd.contextProps = props; return props.children },
-  DragOverlay: ({ children }: Readonly<{ children?: ReactNode }>) => <div data-testid="drag-overlay">{children}</div>,
+  DragOverlay: (props: Record<string, unknown> & { children?: ReactNode }) => { dnd.overlayProps = props; return <div data-testid="drag-overlay">{props.children}</div> },
   PointerSensor: dnd.PointerSensor,
+  MouseSensor: dnd.MouseSensor,
   TouchSensor: dnd.TouchSensor,
   KeyboardSensor: dnd.KeyboardSensor,
   closestCorners: dnd.closestCorners,
@@ -78,7 +81,7 @@ function dndHarness() {
 
 describe('WorkflowBoard', () => {
   afterEach(cleanup)
-  beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }); router.push.mockReset(); mocks.isSaving = false; dnd.contextProps = null; dnd.droppableIds.length = 0; dnd.overStageId = null; dnd.draggingId = null; dnd.closestCorners.mockReset(); mocks.refetch.mockReset(); mocks.refetch.mockResolvedValue(undefined); mocks.searchParams.mockReturnValue(new URLSearchParams()); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.board.mockReturnValue({ data: board, isLoading: false, isError: false, refetch: mocks.refetch }); mocks.detail.mockReturnValue({}); mocks.views.mockReturnValue({ data: [] }); mocks.workflows.mockReturnValue({ data: [{ id: 'flow-1', name: 'Monthly close', workflowSlug: 'monthly-close' }, { id: 'flow-2', name: 'Quarterly close', workflowSlug: 'quarterly-close' }] }); mocks.move.mockReset(); mocks.move.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.createWorkflow.mockReset(); mocks.updateOwner.mockReturnValue({ unwrap: vi.fn() }); mocks.updateReviewer.mockReturnValue({ unwrap: vi.fn() }) })
+  beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }); router.push.mockReset(); mocks.isSaving = false; dnd.contextProps = null; dnd.droppableIds.length = 0; dnd.overStageId = null; dnd.draggingId = null; dnd.overlayProps = null; dnd.closestCorners.mockReset(); mocks.refetch.mockReset(); mocks.refetch.mockResolvedValue(undefined); mocks.searchParams.mockReturnValue(new URLSearchParams()); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.board.mockReturnValue({ data: board, isLoading: false, isError: false, refetch: mocks.refetch }); mocks.detail.mockReturnValue({}); mocks.views.mockReturnValue({ data: [] }); mocks.workflows.mockReturnValue({ data: [{ id: 'flow-1', name: 'Monthly close', workflowSlug: 'monthly-close' }, { id: 'flow-2', name: 'Quarterly close', workflowSlug: 'quarterly-close' }] }); mocks.move.mockReset(); mocks.move.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.createWorkflow.mockReset(); mocks.updateOwner.mockReturnValue({ unwrap: vi.fn() }); mocks.updateReviewer.mockReturnValue({ unwrap: vi.fn() }) })
   it('lets a manager create an additional workflow from a populated board', async () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'MANAGER' })
     mocks.createWorkflow.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'workflow-2', workflowSlug: 'monthly-close' }) })
@@ -183,8 +186,8 @@ describe('WorkflowBoard', () => {
   it('configures pointer, touch, and stage-aware keyboard sensors', () => {
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
     const sensors = dndHarness().sensors
-    expect(sensors[0]).toEqual({ sensor: dnd.PointerSensor, options: { activationConstraint: { distance: 6 } } })
-    expect(sensors[1]).toEqual({ sensor: dnd.TouchSensor, options: { activationConstraint: { delay: 180, tolerance: 8 } } })
+    expect(sensors[0]).toEqual({ sensor: dnd.MouseSensor, options: { activationConstraint: { distance: 6 } } })
+    expect(sensors[1]).toEqual({ sensor: dnd.TouchSensor, options: { activationConstraint: { delay: 180, tolerance: 6 } } })
     expect(sensors[2].sensor).toBe(dnd.KeyboardSensor)
 
     const coordinateGetter = sensors[2].options.coordinateGetter as KeyboardCoordinateGetter
@@ -252,6 +255,7 @@ describe('WorkflowBoard', () => {
     const overlay = within(screen.getByTestId('drag-overlay'))
     expect(overlay.getByText('FB-1042')).toBeInTheDocument()
     expect(overlay.queryByRole('button')).not.toBeInTheDocument()
+    expect(dnd.overlayProps).toMatchObject({ dropAnimation: null, transition: 'none' })
 
     const announcements = harness.accessibility.announcements
     const messages = [
