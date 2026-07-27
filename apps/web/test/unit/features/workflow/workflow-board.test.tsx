@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render as baseRender, screen, within } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
-import type { KeyboardCoordinateGetter } from '@dnd-kit/core'
+import type { CollisionDetection, KeyboardCoordinateGetter } from '@dnd-kit/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const router = { replace: vi.fn(), push: vi.fn(), back: vi.fn() }
@@ -15,6 +15,7 @@ const dnd = vi.hoisted(() => ({
   PointerSensor: class PointerSensor {},
   TouchSensor: class TouchSensor {},
   KeyboardSensor: class KeyboardSensor {},
+  closestCorners: vi.fn(),
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: mocks.searchParams }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
@@ -24,7 +25,7 @@ vi.mock('@dnd-kit/core', () => ({
   PointerSensor: dnd.PointerSensor,
   TouchSensor: dnd.TouchSensor,
   KeyboardSensor: dnd.KeyboardSensor,
-  closestCorners: vi.fn(),
+  closestCorners: dnd.closestCorners,
   useSensor: (sensor: unknown, options: unknown) => ({ sensor, options }),
   useSensors: (...sensors: unknown[]) => sensors,
   useDroppable: ({ id }: Readonly<{ id: string }>) => {
@@ -67,6 +68,7 @@ type DndHarness = {
   onDragStart: (event: unknown) => void
   onDragEnd: (event: unknown) => Promise<void>
   onDragCancel: (event: unknown) => void
+  collisionDetection: CollisionDetection
   sensors: Array<{ sensor: unknown; options: Record<string, unknown> }>
 }
 
@@ -76,7 +78,7 @@ function dndHarness() {
 
 describe('WorkflowBoard', () => {
   afterEach(cleanup)
-  beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }); router.push.mockReset(); mocks.isSaving = false; dnd.contextProps = null; dnd.droppableIds.length = 0; dnd.overStageId = null; dnd.draggingId = null; mocks.refetch.mockReset(); mocks.refetch.mockResolvedValue(undefined); mocks.searchParams.mockReturnValue(new URLSearchParams()); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.board.mockReturnValue({ data: board, isLoading: false, isError: false, refetch: mocks.refetch }); mocks.detail.mockReturnValue({}); mocks.views.mockReturnValue({ data: [] }); mocks.workflows.mockReturnValue({ data: [{ id: 'flow-1', name: 'Monthly close', workflowSlug: 'monthly-close' }, { id: 'flow-2', name: 'Quarterly close', workflowSlug: 'quarterly-close' }] }); mocks.move.mockReset(); mocks.move.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.createWorkflow.mockReset(); mocks.updateOwner.mockReturnValue({ unwrap: vi.fn() }); mocks.updateReviewer.mockReturnValue({ unwrap: vi.fn() }) })
+  beforeEach(() => { window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }); router.push.mockReset(); mocks.isSaving = false; dnd.contextProps = null; dnd.droppableIds.length = 0; dnd.overStageId = null; dnd.draggingId = null; dnd.closestCorners.mockReset(); mocks.refetch.mockReset(); mocks.refetch.mockResolvedValue(undefined); mocks.searchParams.mockReturnValue(new URLSearchParams()); mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' }); mocks.board.mockReturnValue({ data: board, isLoading: false, isError: false, refetch: mocks.refetch }); mocks.detail.mockReturnValue({}); mocks.views.mockReturnValue({ data: [] }); mocks.workflows.mockReturnValue({ data: [{ id: 'flow-1', name: 'Monthly close', workflowSlug: 'monthly-close' }, { id: 'flow-2', name: 'Quarterly close', workflowSlug: 'quarterly-close' }] }); mocks.move.mockReset(); mocks.move.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(item) }); mocks.createWorkflow.mockReset(); mocks.updateOwner.mockReturnValue({ unwrap: vi.fn() }); mocks.updateReviewer.mockReturnValue({ unwrap: vi.fn() }) })
   it('lets a manager create an additional workflow from a populated board', async () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'MANAGER' })
     mocks.createWorkflow.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'workflow-2', workflowSlug: 'monthly-close' }) })
@@ -205,6 +207,29 @@ describe('WorkflowBoard', () => {
     expect(coordinateGetter(new KeyboardEvent('keydown', { code: 'ArrowUp' }), args('review'))).toEqual({ x: 0, y: 20 })
     expect(coordinateGetter(new KeyboardEvent('keydown', { code: 'ArrowLeft' }), args('todo'))).toBeNull()
     expect(coordinateGetter(new KeyboardEvent('keydown', { code: 'Home' }), args('todo'))).toBeNull()
+  })
+  it('requires pointer containment before choosing the closest stage and preserves keyboard collisions', () => {
+    render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
+    const collisionDetection = dndHarness().collisionDetection
+    const rect = (left: number) => ({ left, right: left + 100, top: 20, bottom: 320, width: 100, height: 300 })
+    const containers = board.stages.map((stage) => ({ id: stage.id }))
+    const baseArgs = {
+      active: { id: item.id },
+      collisionRect: rect(0),
+      droppableContainers: containers,
+      droppableRects: new Map([['todo', rect(0)], ['review', rect(120)]]),
+    } as unknown as Parameters<CollisionDetection>[0]
+    dnd.closestCorners.mockImplementation(({ droppableContainers }: Parameters<CollisionDetection>[0]) => droppableContainers.map((container) => ({ id: container.id })))
+
+    expect(collisionDetection({ ...baseArgs, pointerCoordinates: { x: 170, y: 100 } })).toEqual([{ id: 'review' }])
+    expect(dnd.closestCorners).toHaveBeenLastCalledWith(expect.objectContaining({ droppableContainers: [containers[1]] }))
+
+    dnd.closestCorners.mockClear()
+    expect(collisionDetection({ ...baseArgs, pointerCoordinates: { x: 221, y: 100 } })).toEqual([])
+    expect(dnd.closestCorners).not.toHaveBeenCalled()
+
+    expect(collisionDetection({ ...baseArgs, pointerCoordinates: null })).toEqual([{ id: 'todo' }, { id: 'review' }])
+    expect(dnd.closestCorners).toHaveBeenLastCalledWith(expect.objectContaining({ droppableContainers: containers }))
   })
   it('registers stage-only drop targets and marks the active target', () => {
     dnd.overStageId = 'review'

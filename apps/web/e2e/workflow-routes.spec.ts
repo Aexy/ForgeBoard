@@ -121,20 +121,17 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
 
   const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: urgentTitle })
   const dragHandle = card.getByRole('button', { name: `Move ${createdItem!.taskReference}: ${urgentTitle}` })
-  const board = page.getByLabel('Monthly close workflow')
-  const boardBox = await board.boundingBox()
-  if (!boardBox) throw new Error('The workflow board is not visible.')
-
+  const reviewStage = page.getByLabel('Review stage')
+  const reviewBox = await reviewStage.boundingBox()
+  if (!reviewBox) throw new Error('The Review stage is not visible.')
   await pointerDrag(page, dragHandle, {
-    x: Math.max(1, boardBox.x - 24),
-    y: boardBox.y + boardBox.height / 2,
+    x: reviewBox.x + reviewBox.width + 24,
+    y: reviewBox.y + Math.min(reviewBox.height / 2, 160),
   })
   await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveCount(0)
   await expect(page.getByLabel('Prepare stage').getByRole('heading', { name: urgentTitle })).toBeVisible()
   await expect(page.getByLabel('Review stage').getByRole('heading', { name: urgentTitle })).toHaveCount(0)
 
-  const reviewBox = await page.getByLabel('Review stage').boundingBox()
-  if (!reviewBox) throw new Error('The Review stage is not visible.')
   await pointerDrag(page, dragHandle, {
     x: reviewBox.x + reviewBox.width / 2,
     y: reviewBox.y + Math.min(reviewBox.height / 2, 160),
