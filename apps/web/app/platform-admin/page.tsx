@@ -5,5 +5,5 @@ import { PlatformAdminDashboard } from '@/features/platform-admin/PlatformAdminD
  * establishes the protected server boundary before that feature is mounted.
  */
 export default function PlatformAdminPage() {
-  return <main><PlatformAdminDashboard /></main>
+  return <PlatformAdminDashboard />
 }

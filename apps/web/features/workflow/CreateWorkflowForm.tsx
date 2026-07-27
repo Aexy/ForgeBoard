@@ -49,7 +49,7 @@ export function CreateWorkflowForm({ triggerLabel }: Readonly<{ triggerLabel?: s
   return <div className={styles.creator}>
     <button type="button" className={styles.trigger} onClick={() => setShowForm((open) => !open)}>{showForm ? t('common.cancel') : triggerLabel ?? t('workflow.newWorkflow')}</button>
     {error && <p className={styles.error} role="alert">{error}</p>}
-    {showForm && <form className={`${styles.form} ${styles.formEntering} formEntering`} onSubmit={submit}>
+    {showForm && <form className={`${styles.form} ${styles.formEntering}`} onSubmit={submit}>
       <h2>{t('workflow.newWorkflow')}</h2>
       <label>{t('workflow.workflowName')}<input name="name" required maxLength={160} autoFocus /></label>
       <div className={styles.stages}>{defaultStages.map((stage, index) => <fieldset key={stage.name}><legend>{t('workflow.stage')} {index + 1}</legend><label>{t('workflow.name')}<input name={`stage-${index}-name`} required={index < 2} maxLength={120} defaultValue={stage.name} /></label><label>{t('workflow.attention')}<select name={`stage-${index}-attention`} defaultValue={stage.attention}><option value="NONE">{t('workflow.normalFlow')}</option><option value="BLOCKED">{t('workflow.blocked')}</option><option value="AWAITING_REVIEW">{t('workflow.awaitingReview')}</option></select></label></fieldset>)}</div>

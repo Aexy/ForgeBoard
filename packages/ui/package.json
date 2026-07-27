@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "scripts": {
+    "test": "pnpm --filter @forgeboard/web test ../../packages/ui/src"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

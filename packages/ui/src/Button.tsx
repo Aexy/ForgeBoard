@@ -1,15 +1,14 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ComponentPropsWithRef } from 'react'
 
 import styles from './Button.module.css'
 
-type ButtonVariant = 'primary' | 'secondary' | 'quiet'
+export type ButtonVariant = 'primary' | 'secondary' | 'quiet'
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  children: ReactNode
+export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   variant?: ButtonVariant
 }
 
-export function Button({ children, className, type = 'button', variant = 'primary', ...props }: ButtonProps) {
+export function Button({ children, className, ref, type = 'button', variant = 'primary', ...props }: ButtonProps) {
   const classes = [styles.button, styles[variant], className].filter(Boolean).join(' ')
-  return <button className={classes} type={type} {...props}>{children}</button>
+  return <button ref={ref} className={classes} type={type} {...props}>{children}</button>
 }

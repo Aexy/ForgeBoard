@@ -35,6 +35,7 @@ describe('platform administration route', () => {
     render(await PlatformAdminLayout({ children: <PlatformAdminPage /> }))
 
     expect(screen.getByRole('heading', { name: 'Platform administration' })).toBeVisible()
+    expect(screen.getAllByRole('main')).toHaveLength(1)
   })
 
   it('redirects an anonymous or refresh-failed session to sign-in', async () => {

@@ -7,10 +7,10 @@ export interface AppShellProps {
   children: ReactNode
 }
 
-export function AppShell({ navigation, children }: AppShellProps) {
+export function AppShell({ navigation, children }: Readonly<AppShellProps>) {
   return (
     <div className={styles.shell}>
-      <aside className={styles.navigation} aria-label="Firm navigation">{navigation}</aside>
+      <aside className={styles.navigation}>{navigation}</aside>
       <main className={styles.content}>{children}</main>
     </div>
   )

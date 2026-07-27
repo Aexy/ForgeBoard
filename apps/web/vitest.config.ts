@@ -11,11 +11,13 @@ export default defineConfig({
       { find: 'next-auth/jwt', replacement: fileURLToPath(new URL('./test/next-auth-jwt.ts', import.meta.url)) },
       { find: 'next-auth', replacement: fileURLToPath(new URL('./test/next-auth.ts', import.meta.url)) },
       { find: 'server-only', replacement: fileURLToPath(new URL('./test/server-only.ts', import.meta.url)) },
+      { find: '@testing-library/react', replacement: fileURLToPath(new URL('./node_modules/@testing-library/react/dist/index.js', import.meta.url)) },
+      { find: '@testing-library/jest-dom/vitest', replacement: fileURLToPath(new URL('./node_modules/@testing-library/jest-dom/dist/vitest.mjs', import.meta.url)) },
       { find: '@', replacement: fileURLToPath(new URL('./', import.meta.url)) },
     ],
   },
   test: {
     environment: 'node',
-    include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test.tsx', 'features/**/*.test.ts', 'features/**/*.test.tsx', '../packages/ui/src/**/*.test.ts', '../packages/ui/src/**/*.test.tsx'],
+    include: ['test/unit/**/*.test.ts', 'test/unit/**/*.test.tsx', 'features/**/*.test.ts', 'features/**/*.test.tsx', '../../packages/ui/src/**/*.test.ts', '../../packages/ui/src/**/*.test.tsx'],
   },
 })

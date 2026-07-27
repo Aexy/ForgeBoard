@@ -45,6 +45,7 @@ vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: () 
 
 import { WorkflowBoard } from '@/features/workflow/WorkflowBoard'
 import { TaskPanel } from '@/features/workflow/TaskPanel'
+import createWorkflowStyles from '@/features/workflow/CreateWorkflowForm.module.css'
 import type { WorkItemDetail } from '@/features/workflow/workflow-transport'
 import { LanguageProvider } from '@/app/LanguageProvider'
 
@@ -81,7 +82,7 @@ describe('WorkflowBoard', () => {
     mocks.createWorkflow.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'workflow-2', workflowSlug: 'monthly-close' }) })
     render(<WorkflowBoard workflowSlug="monthly-close" basePath="/firms/hearth/workflow/monthly-close" />)
     fireEvent.click(screen.getByRole('button', { name: 'New workflow' }))
-    expect(screen.getByRole('heading', { name: 'New workflow' }).closest('form')).toHaveClass('formEntering')
+    expect(screen.getByRole('heading', { name: 'New workflow' }).closest('form')).toHaveClass(createWorkflowStyles.formEntering)
     fireEvent.change(screen.getByLabelText('Workflow name'), { target: { value: 'Monthly close' } })
     fireEvent.submit(screen.getByRole('heading', { name: 'New workflow' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.createWorkflow).toHaveBeenCalledWith({ firm: expect.objectContaining({ firmId: 'firm-1' }), details: { name: 'Monthly close', stages: [{ name: 'Waiting on client', attention: 'NONE' }, { name: 'In preparation', attention: 'NONE' }, { name: 'Ready for review', attention: 'AWAITING_REVIEW' }, { name: 'Complete', attention: 'NONE' }] } }))

@@ -8,6 +8,7 @@ vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmCon
 vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.useGetClientsQuery, useCreateClientMutation: () => [mocks.create, { isLoading: false }], useArchiveClientMutation: () => [mocks.archive] }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { Clients } from '@/features/clients/Clients'
+import styles from '@/features/clients/Clients.module.css'
 import { LanguageProvider } from '@/app/LanguageProvider'
 
 function renderWithLanguage(language: 'en' | 'de' = 'en') {
@@ -27,7 +28,7 @@ describe('Clients route feature', () => {
     mocks.create.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(activeClient) }); mocks.archive.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ ...activeClient, status: 'ARCHIVED' }) }); mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [activeClient] })
     renderWithLanguage()
     fireEvent.click(screen.getByRole('button', { name: '+ New client' }))
-    expect(screen.getByRole('button', { name: 'Save client' }).closest('form')).toHaveClass('formEntering')
+    expect(screen.getByRole('button', { name: 'Save client' }).closest('form')).toHaveClass(styles.formEntering)
     fireEvent.change(screen.getByLabelText('Legal name'), { target: { value: activeClient.legalName } }); fireEvent.change(screen.getByLabelText('Display name'), { target: { value: activeClient.displayName } }); fireEvent.submit(screen.getByRole('button', { name: 'Save client' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ firm: expect.objectContaining({ firmId: 'firm-1' }) })))
     fireEvent.click(screen.getByRole('button', { name: 'Archive' }))
