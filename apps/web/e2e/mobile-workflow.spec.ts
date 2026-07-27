@@ -1,8 +1,62 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test } from '@playwright/test'
+import { expect, test, type CDPSession, type Locator, type Page } from '@playwright/test'
 
 const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
+
+test.use({ viewport: { width: 390, height: 844 } })
+
+type TouchPoint = { x: number; y: number }
+
+async function centerOf(locator: Locator): Promise<TouchPoint> {
+  const box = await locator.boundingBox()
+  if (!box) throw new Error('The touch target is not visible.')
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+async function dispatchTouch(session: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', point?: TouchPoint) {
+  await session.send('Input.dispatchTouchEvent', {
+    type,
+    touchPoints: point ? [{ x: point.x, y: point.y }] : [],
+  })
+}
+
+async function shortTouchScroll(session: CDPSession, handle: Locator, assertDragInactive: () => Promise<void>) {
+  const start = await centerOf(handle)
+  await dispatchTouch(session, 'touchStart', start)
+  await new Promise((resolve) => setTimeout(resolve, 60))
+  await dispatchTouch(session, 'touchMove', { x: start.x, y: start.y - 24 })
+  try {
+    await assertDragInactive()
+  } finally {
+    await dispatchTouch(session, 'touchEnd')
+  }
+}
+
+async function deliberateTouchDrag(session: CDPSession, handle: Locator, target: Locator) {
+  const start = await centerOf(handle)
+  const end = await centerOf(target)
+  await dispatchTouch(session, 'touchStart', start)
+  await new Promise((resolve) => setTimeout(resolve, 220))
+  await dispatchTouch(session, 'touchMove', end)
+  await dispatchTouch(session, 'touchEnd')
+}
+
+async function assertImmediatePanelAndDisclosureSemantics(page: Page, filteredBoardPath: string, taskReference: string, title: string) {
+  const reviewToggle = page.getByRole('button', { name: 'Toggle stage Review' })
+  await reviewToggle.click()
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'false')
+  await reviewToggle.click()
+  await expect(reviewToggle).toHaveAttribute('aria-expanded', 'true')
+
+  await page.getByRole('button', { name: `Open ${title} details` }).click()
+  await expect(page).toHaveURL(`${filteredBoardPath}&task=${taskReference}`)
+  const panel = page.getByRole('complementary', { name: `${title} details` })
+  await expect(panel).toHaveAttribute('data-state', 'open')
+  await panel.getByRole('button', { name: 'Close' }).click()
+  await expect(page).toHaveURL(filteredBoardPath)
+  await expect(panel).toHaveCount(0)
+}
 
 test('keeps the mobile workspace navigation and workflow task flow usable', async ({ page, request }) => {
   const suffix = randomUUID().replaceAll('-', '')
@@ -81,13 +135,27 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
   await expect(page.getByRole('button', { name: `Open ${reviewTitle} details` })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Add work item to Review' })).toBeVisible()
 
+  const prepareCard = page.getByLabel('Prepare stage').locator('article').filter({ hasText: title })
+  const dragHandle = prepareCard.getByRole('button', { name: `Move ${createdItem!.taskReference}: ${title}` })
+  const touchSession = await page.context().newCDPSession(page)
+  await shortTouchScroll(touchSession, dragHandle, async () => {
+    expect(await prepareCard.getAttribute('data-dragging')).toBeNull()
+  })
+  await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveCount(0)
+  await expect(page.getByLabel('Prepare stage').getByRole('heading', { name: title })).toBeVisible()
+  await expect(page.getByLabel('Review stage').getByRole('heading', { name: title })).toHaveCount(0)
+
+  await deliberateTouchDrag(touchSession, dragHandle, page.getByLabel('Review stage'))
+  await expect(page.getByRole('alert').filter({ hasText: `${title} moved.` })).toHaveText(`${title} moved.`)
+  await expect(page.getByLabel('Review stage').getByRole('heading', { name: title })).toBeVisible()
+
   await page.getByRole('button', { name: `Open ${title} task workspace` }).click()
   await expect(page).toHaveURL(`${boardPath}/tasks/${createdItem!.taskReference}`)
   await expect(page.getByRole('heading', { name: title })).toBeVisible()
-  await page.goto(boardPath)
+  const filteredBoardPath = `${boardPath}?priority=NORMAL`
+  await page.goto(filteredBoardPath)
 
-  await page.getByRole('button', { name: `Open ${title} details` }).click()
-  const panel = page.getByRole('complementary', { name: `${title} details` })
-  await expect(panel).toBeVisible()
-  await expect(panel).toHaveCSS('position', 'fixed')
+  await assertImmediatePanelAndDisclosureSemantics(page, filteredBoardPath, createdItem!.taskReference, title)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await assertImmediatePanelAndDisclosureSemantics(page, filteredBoardPath, createdItem!.taskReference, title)
 })

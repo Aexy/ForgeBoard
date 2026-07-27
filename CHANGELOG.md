@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added accessible pointer, touch, keyboard, and explicit-control workflow-card movement, plus reduced-motion-aware task-sheet, disclosure, button, and create-form transitions. (`M2`)
+
 - Added management-only workflow creation in the Next app, including editable accounting-stage defaults from both empty and populated workflow views. (`M2`)
 
 - Added inline workflow work-item creation and owner/administrator-only document-request linking in the full task workspace. The workflow board refreshes after confirmed optimistic-lock conflicts, and browser evidence covers tenant-negative linking. (`M2`)

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { expect, test, type APIRequestContext } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
 
@@ -13,6 +13,18 @@ async function canonicalWorkflowBoard(request: APIRequestContext, headers: Recor
   const response = await request.get(`${apiBaseURL}/api/workflows/${workflowId}`, { headers })
   expect(response.status()).toBe(200)
   return response.json() as Promise<WorkflowBoardResponse>
+}
+
+async function pointerDrag(page: Page, handle: Locator, target: { x: number; y: number }) {
+  const handleBox = await handle.boundingBox()
+  if (!handleBox) throw new Error('The workflow drag handle is not visible.')
+
+  const start = { x: handleBox.x + handleBox.width / 2, y: handleBox.y + handleBox.height / 2 }
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(start.x + 8, start.y, { steps: 2 })
+  await page.mouse.move(target.x, target.y, { steps: 12 })
+  await page.mouse.up()
 }
 
 test('uses shareable workflow routes, task workspace, moves, and saved views', async ({ page, request }) => {
@@ -108,7 +120,25 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
   await expect(page).toHaveURL(`${boardPath}?priority=URGENT`)
 
   const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: urgentTitle })
-  await card.dragTo(page.getByLabel('Review stage'))
+  const dragHandle = card.getByRole('button', { name: `Move ${createdItem!.taskReference}: ${urgentTitle}` })
+  const board = page.getByLabel('Monthly close workflow')
+  const boardBox = await board.boundingBox()
+  if (!boardBox) throw new Error('The workflow board is not visible.')
+
+  await pointerDrag(page, dragHandle, {
+    x: Math.max(1, boardBox.x - 24),
+    y: boardBox.y + boardBox.height / 2,
+  })
+  await expect(page.locator('p[role="alert"]:not(#__next-route-announcer__)')).toHaveCount(0)
+  await expect(page.getByLabel('Prepare stage').getByRole('heading', { name: urgentTitle })).toBeVisible()
+  await expect(page.getByLabel('Review stage').getByRole('heading', { name: urgentTitle })).toHaveCount(0)
+
+  const reviewBox = await page.getByLabel('Review stage').boundingBox()
+  if (!reviewBox) throw new Error('The Review stage is not visible.')
+  await pointerDrag(page, dragHandle, {
+    x: reviewBox.x + reviewBox.width / 2,
+    y: reviewBox.y + Math.min(reviewBox.height / 2, 160),
+  })
   await expect(page.getByRole('alert').filter({ hasText: `${urgentTitle} moved.` })).toHaveText(`${urgentTitle} moved.`)
   await expect(page.getByLabel('Review stage').getByRole('heading', { name: urgentTitle })).toBeVisible()
 
