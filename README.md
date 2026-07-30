@@ -91,8 +91,17 @@ deploy/      Local and production deployment configuration
 - Java 21 or newer
 - Maven 3.9 or newer
 - Node.js 22 or newer
-- pnpm 10 or newer
+- pnpm 11.7.0, managed through Corepack
 - Docker with Compose
+
+For the first checkout, enable and install the package manager:
+
+```powershell
+corepack enable
+corepack install
+```
+
+The root `packageManager` field selects the exact pnpm version.
 
 ### 1. Configure the environment
 
