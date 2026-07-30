@@ -16,6 +16,8 @@ apps/web/*.tsbuildinfo
 .next/
 apps/web/.env.local
 playwright-report/
+test-results/
+blob-report/
 .pnpm-store/
 .env
 .env.local
