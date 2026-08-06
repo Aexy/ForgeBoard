@@ -20,6 +20,7 @@ create table access_actions (
     consumed_at timestamptz,
     revoked_at timestamptz,
     constraint access_actions_type_check check (action_type in ('INVITATION', 'PASSWORD_RESET')),
+    constraint access_actions_token_hash_sha256_check check (token_hash ~ '^[0-9a-f]{64}$'),
     constraint access_actions_expiry_after_creation_check check (expires_at > created_at),
     constraint access_actions_invitation_scope_check check (
         action_type <> 'INVITATION' or (firm_id is not null and membership_id is not null)

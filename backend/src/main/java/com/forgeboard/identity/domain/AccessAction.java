@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -46,14 +47,14 @@ public class AccessAction {
     protected AccessAction() { }
 
     public AccessAction(UUID id, UUID firmId, UUID membershipId, UUID userId, AccessActionType type,
-            String targetEmail, String tokenHash, UUID createdByUserId, Instant now) {
+            String targetEmail, TokenHash tokenHash, UUID createdByUserId, Instant now) {
         this.id = Objects.requireNonNull(id, "id is required");
         this.firmId = firmId;
         this.membershipId = membershipId;
         this.userId = userId;
         this.type = Objects.requireNonNull(type, "type is required");
         this.targetEmail = Objects.requireNonNull(targetEmail, "targetEmail is required");
-        this.tokenHash = Objects.requireNonNull(tokenHash, "tokenHash is required");
+        this.tokenHash = Objects.requireNonNull(tokenHash, "tokenHash is required").value();
         this.createdByUserId = createdByUserId;
         this.createdAt = Objects.requireNonNull(now, "now is required");
         this.expiresAt = now.plus(TOKEN_LIFETIME);
@@ -66,7 +67,7 @@ public class AccessAction {
     public UUID userId() { return userId; }
     public AccessActionType type() { return type; }
     public String targetEmail() { return targetEmail; }
-    public String tokenHash() { return tokenHash; }
+    public TokenHash tokenHash() { return new TokenHash(tokenHash); }
     public UUID createdByUserId() { return createdByUserId; }
     public Instant createdAt() { return createdAt; }
     public Instant expiresAt() { return expiresAt; }
@@ -93,5 +94,15 @@ public class AccessAction {
     private void requireScopeForType() {
         if (type == AccessActionType.INVITATION && (firmId == null || membershipId == null))
             throw new IllegalArgumentException("Invitation actions require firm and membership IDs");
+    }
+
+    /** Canonical lowercase hexadecimal SHA-256 digest accepted at the persistence boundary. */
+    public record TokenHash(String value) {
+        private static final Pattern CANONICAL_SHA256_HEX = Pattern.compile("[0-9a-f]{64}");
+
+        public TokenHash {
+            if (value == null || !CANONICAL_SHA256_HEX.matcher(value).matches())
+                throw new IllegalArgumentException("tokenHash must be a lowercase hexadecimal SHA-256 digest");
+        }
     }
 }

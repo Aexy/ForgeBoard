@@ -54,7 +54,8 @@ class AccessActionPostgresIntegrationTest {
         FirmMembership membership = invitedMembership(firmId);
         UUID creatorId = creator();
         AccessAction action = actions.save(new AccessAction(UUID.randomUUID(), firmId, membership.id(), null,
-                AccessActionType.INVITATION, "invitee@example.com", "a".repeat(64), creatorId, CREATED_AT));
+                AccessActionType.INVITATION, "invitee@example.com", new AccessAction.TokenHash("a".repeat(64)),
+                creatorId, CREATED_AT));
 
         assertThat(memberships.findByIdAndFirmId(membership.id(), firmId)).containsSame(membership);
         assertThat(action.expiresAt()).isEqualTo(CREATED_AT.plusSeconds(7 * 24 * 60 * 60));
@@ -69,17 +70,17 @@ class AccessActionPostgresIntegrationTest {
                 .isInstanceOf(IllegalStateException.class);
 
         AccessAction revokedAction = actions.save(new AccessAction(UUID.randomUUID(), firmId, membership.id(), null,
-                AccessActionType.INVITATION, "revoked@example.com", "b".repeat(64), creatorId, CREATED_AT));
+                AccessActionType.INVITATION, "revoked@example.com", new AccessAction.TokenHash("b".repeat(64)),
+                creatorId, CREATED_AT));
         revokedAction.revoke(CREATED_AT.plusSeconds(60));
 
         assertThat(revokedAction.isRedeemable(CREATED_AT.plusSeconds(61))).isFalse();
     }
 
     @Test
-    @Transactional
     void flywayAllowsOnlyInvitedMembershipsWithoutUsersAndRequiresInvitationScope() {
         UUID firmId = UUID.randomUUID();
-        invitedMembership(firmId);
+        FirmMembership membership = invitedMembership(firmId);
 
         assertThatThrownBy(() -> jdbc.sql("""
                 insert into firm_memberships (id, firm_id, user_id, status, role, created_at, updated_at)
@@ -88,9 +89,23 @@ class AccessActionPostgresIntegrationTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
 
         assertThatThrownBy(() -> jdbc.sql("""
+                insert into firm_memberships (id, firm_id, user_id, status, role, created_at, updated_at)
+                values (:id, :firmId, null, 'SUSPENDED', 'MEMBER', :createdAt, :createdAt)
+                """).param("id", UUID.randomUUID()).param("firmId", firmId).param("createdAt", CREATED_AT).update())
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThatThrownBy(() -> jdbc.sql("""
                 insert into access_actions (id, action_type, target_email, token_hash, created_at, expires_at)
                 values (:id, 'INVITATION', 'invitee@example.com', :tokenHash, :createdAt, :expiresAt)
                 """).param("id", UUID.randomUUID()).param("tokenHash", "c".repeat(64))
+                .param("createdAt", CREATED_AT).param("expiresAt", CREATED_AT.plusSeconds(7 * 24 * 60 * 60)).update())
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThatThrownBy(() -> jdbc.sql("""
+                insert into access_actions (id, firm_id, membership_id, action_type, target_email, token_hash, created_at, expires_at)
+                values (:id, :firmId, :membershipId, 'INVITATION', 'invitee@example.com', 'raw-invitation-token',
+                        :createdAt, :expiresAt)
+                """).param("id", UUID.randomUUID()).param("firmId", firmId).param("membershipId", membership.id())
                 .param("createdAt", CREATED_AT).param("expiresAt", CREATED_AT.plusSeconds(7 * 24 * 60 * 60)).update())
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
