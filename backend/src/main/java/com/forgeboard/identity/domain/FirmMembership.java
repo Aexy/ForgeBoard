@@ -1,6 +1,7 @@
 package com.forgeboard.identity.domain;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -18,7 +19,7 @@ public class FirmMembership {
     private UUID id;
     @Column(name = "firm_id", nullable = false)
     private UUID firmId;
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id")
     private UUID userId;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
@@ -36,13 +37,24 @@ public class FirmMembership {
     protected FirmMembership() {}
 
     public FirmMembership(UUID id, UUID firmId, UUID userId, MembershipRole role, Instant now) {
-        this.id = id;
-        this.firmId = firmId;
-        this.userId = userId;
+        this.id = Objects.requireNonNull(id, "id is required");
+        this.firmId = Objects.requireNonNull(firmId, "firmId is required");
+        this.userId = Objects.requireNonNull(userId, "userId is required for an active membership");
         this.status = MembershipStatus.ACTIVE;
-        this.role = role;
-        this.createdAt = now;
+        this.role = Objects.requireNonNull(role, "role is required");
+        this.createdAt = Objects.requireNonNull(now, "now is required");
         this.updatedAt = now;
+    }
+
+    public static FirmMembership invited(UUID id, UUID firmId, MembershipRole role, Instant now) {
+        FirmMembership membership = new FirmMembership();
+        membership.id = Objects.requireNonNull(id, "id is required");
+        membership.firmId = Objects.requireNonNull(firmId, "firmId is required");
+        membership.status = MembershipStatus.INVITED;
+        membership.role = Objects.requireNonNull(role, "role is required");
+        membership.createdAt = Objects.requireNonNull(now, "now is required");
+        membership.updatedAt = now;
+        return membership;
     }
 
     public UUID firmId() { return firmId; }
@@ -52,17 +64,38 @@ public class FirmMembership {
     public MembershipStatus status() { return status; }
 
     public void changeRole(MembershipRole role, Instant now) {
-        this.role = role;
-        this.updatedAt = now;
+        this.role = Objects.requireNonNull(role, "role is required");
+        this.updatedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    public void activate(UUID userId, Instant now) {
+        if (status != MembershipStatus.INVITED)
+            throw new IllegalStateException("Only invited memberships can be activated");
+        this.userId = Objects.requireNonNull(userId, "userId is required for an active membership");
+        this.status = MembershipStatus.ACTIVE;
+        this.updatedAt = Objects.requireNonNull(now, "now is required");
     }
 
     public void suspend(Instant now) {
+        requireBoundUser();
         this.status = MembershipStatus.SUSPENDED;
-        this.updatedAt = now;
+        this.updatedAt = Objects.requireNonNull(now, "now is required");
     }
 
     public void reactivate(Instant now) {
+        requireBoundUser();
         this.status = MembershipStatus.ACTIVE;
-        this.updatedAt = now;
+        this.updatedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    public void remove(Instant now) {
+        requireBoundUser();
+        this.status = MembershipStatus.REMOVED;
+        this.updatedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    private void requireBoundUser() {
+        if (userId == null)
+            throw new IllegalStateException("Only a membership bound to a user can enter this state");
     }
 }
