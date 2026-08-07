@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 
 import com.forgeboard.identity.application.DuplicateIdentityException;
 import com.forgeboard.identity.application.InvalidIdentityException;
@@ -38,5 +40,16 @@ class IdentityExceptionHandler {
     @ExceptionHandler(PlatformAdministrationConflictException.class)
     ProblemDetail conflict(PlatformAdministrationConflictException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+    }
+}
+
+@RestControllerAdvice(assignableTypes = AccessActionController.class)
+class AccessActionExceptionHandler {
+    private static final String GENERIC_ERROR = "This access link is invalid or has expired.";
+
+    @ExceptionHandler({InvalidIdentityException.class, DuplicateIdentityException.class, AccessDeniedException.class,
+            EntityNotFoundException.class, DataIntegrityViolationException.class, HttpMessageNotReadableException.class})
+    ProblemDetail unavailable(RuntimeException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, GENERIC_ERROR);
     }
 }

@@ -158,6 +158,15 @@ public class AccessLifecycleService {
         recordInvitationAcceptance(invitation, authenticatedUser.id());
     }
 
+    /** Resolves the bearer-authenticated identity without requiring tenant context. */
+    @Transactional
+    public void acceptExistingAccountInvitation(String authenticatedEmail, AcceptInvitationRequest request) {
+        ForgeBoardUser authenticatedUser = users.findByEmail(normalizeEmail(authenticatedEmail))
+                .filter(ForgeBoardUser::enabled)
+                .orElseThrow(() -> new AccessDeniedException("Authenticated account is not active"));
+        acceptExistingAccountInvitation(authenticatedUser.id(), request);
+    }
+
     @Transactional
     public void completePasswordReset(UUID actorId, CompletePasswordResetRequest request) {
         AccessAction reset = redeem(request.token(), AccessActionType.PASSWORD_RESET);
@@ -168,7 +177,7 @@ public class AccessLifecycleService {
         user.changePassword(passwords.encode(request.password()), clock.instant());
         reset.consume(clock.instant());
         tokens.revokeAllForUser(user.id());
-        recordPasswordResetAction(reset, actorId, "password-reset.completed");
+        recordPasswordResetAction(reset, actorId == null ? user.id() : actorId, "password-reset.completed");
     }
 
     private FirmMembership reissueInvitation(UUID firmId, AccessAction previous, MembershipRole role, Instant now) {

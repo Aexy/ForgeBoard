@@ -205,6 +205,24 @@ class AccessLifecycleServiceTest {
         assertThat(summary.getValue().values()).doesNotContain("reset-completion-token", hash("reset-completion-token"));
     }
 
+    @Test
+    void publicPasswordResetRecordsTheResetAccountAsTheAuditActor() {
+        UUID userId = UUID.randomUUID();
+        AccessAction reset = passwordReset(userId, "member@example.com", "public-reset-token");
+        ForgeBoardUser user = new ForgeBoardUser(userId, "member@example.com", "Member", "old-hash", NOW);
+        FirmMembership membership = new FirmMembership(UUID.randomUUID(), UUID.randomUUID(), userId,
+                MembershipRole.MEMBER, NOW);
+        when(actions.findByTokenHashForUpdate(hash("public-reset-token"))).thenReturn(Optional.of(reset));
+        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(passwords.encode("new secure password")).thenReturn("new-hash");
+        when(memberships.findAllByUserId(userId)).thenReturn(List.of(membership));
+
+        service().completePasswordReset(null, new CompletePasswordResetRequest("public-reset-token", "new secure password"));
+
+        verify(audit).recordUserAction(eq(membership.firmId()), eq(userId), any(), eq("password-reset.completed"),
+                eq("access-action"), eq(reset.id()), any());
+    }
+
     private AccessLifecycleService service() {
         return new AccessLifecycleService(actions, memberships, users, passwords, tokens, audit, clock,
                 "https://pilot.forgeboard.example");

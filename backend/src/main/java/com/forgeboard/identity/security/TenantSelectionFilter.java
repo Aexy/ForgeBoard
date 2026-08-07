@@ -35,7 +35,15 @@ public class TenantSelectionFilter extends OncePerRequestFilter {
                 || path.startsWith("/api/platform-admin/")
                 || path.equals("/api/onboarding/firms") || path.equals("/api/auth/grant")
                 || path.equals("/api/auth/refresh") || path.equals("/api/auth/revoke")
-                || path.equals("/api/identity/firms");
+                || path.equals("/api/identity/firms") || isAccessActionRoute(request);
+    }
+
+    private static boolean isAccessActionRoute(HttpServletRequest request) {
+        if (!"POST".equals(request.getMethod())) return false;
+        String path = request.getRequestURI();
+        return path.matches("/api/access/invitations/[^/]+/accept-new")
+                || path.matches("/api/access/invitations/[^/]+/accept-existing")
+                || path.matches("/api/access/password-resets/[^/]+/complete");
     }
 
     @Override
