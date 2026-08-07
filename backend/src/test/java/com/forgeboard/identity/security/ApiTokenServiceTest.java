@@ -78,6 +78,15 @@ class ApiTokenServiceTest {
         verify(refreshTokens).revokeFamily(familyId, clock.instant());
     }
 
+    @Test
+    void revokesEveryRefreshFamilyForAUser() {
+        UUID userId = UUID.randomUUID();
+
+        service().revokeAllForUser(userId);
+
+        verify(refreshTokens).revokeAllForUser(userId, clock.instant());
+    }
+
     private ApiTokenService service() {
         return new ApiTokenService(authenticationManager, jwtEncoder, refreshTokens, users, firmAccess, platformAdmins, clock);
     }

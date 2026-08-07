@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.forgeboard.identity.domain.AccessAction;
+import com.forgeboard.identity.domain.AccessActionType;
 
 import jakarta.persistence.LockModeType;
 
@@ -16,4 +17,12 @@ public interface AccessActionRepository extends JpaRepository<AccessAction, UUID
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select action from AccessAction action where action.tokenHash = :tokenHash")
     Optional<AccessAction> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<AccessAction> findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+            AccessActionType type, UUID firmId, String targetEmail);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<AccessAction> findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+            AccessActionType type, UUID userId);
 }

@@ -92,6 +92,11 @@ public class ApiTokenService {
         return refreshTokens.hasActiveAccessToken(jti, clock.instant());
     }
 
+    @Transactional
+    public void revokeAllForUser(UUID userId) {
+        refreshTokens.revokeAllForUser(userId, clock.instant());
+    }
+
     private ApiGrant issue(ForgeBoardUser user, UUID familyId) {
         Instant now = clock.instant();
         Instant accessExpiry = now.plus(ACCESS_TOKEN_MINUTES, ChronoUnit.MINUTES);

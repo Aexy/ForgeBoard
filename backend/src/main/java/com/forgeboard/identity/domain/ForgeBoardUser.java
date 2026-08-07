@@ -46,5 +46,11 @@ public class ForgeBoardUser {
     public String displayName() { return displayName; }
     public String passwordHash() { return passwordHash; }
     public boolean enabled() { return enabled; }
-}
 
+    public void changePassword(String passwordHash, Instant now) {
+        if (passwordHash == null || passwordHash.isBlank()) throw new IllegalArgumentException("passwordHash is required");
+        if (now == null) throw new IllegalArgumentException("now is required");
+        this.passwordHash = passwordHash;
+        this.updatedAt = now;
+    }
+}
