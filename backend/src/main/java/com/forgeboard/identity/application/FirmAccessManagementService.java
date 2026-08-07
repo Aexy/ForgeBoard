@@ -59,6 +59,7 @@ public class FirmAccessManagementService {
     public GeneratedAccessLink invite(SelectedTenant actor, InviteMemberRequest request) {
         policy.requireMembershipManagement(actor);
         requireRoleManagement(actor, request.role());
+        lockFirm(actor.firmId());
         return lifecycle.createInvitation(actor.firmId(), actor.userId(), request);
     }
 
@@ -103,6 +104,7 @@ public class FirmAccessManagementService {
         FirmMembership membership = membershipForMutation(actor, membershipId);
         requireRoleManagement(actor, membership.role());
         requireBoundMembership(membership);
+        requireReactivatable(membership);
         membership.reactivate(clock.instant());
         record(actor, "membership.reactivated", membership, Map.of("status", membership.status().name()));
         return view(membership, invitationEmails(actor.firmId()));
@@ -120,9 +122,13 @@ public class FirmAccessManagementService {
 
     private FirmMembership membershipForMutation(SelectedTenant actor, UUID membershipId) {
         policy.requireMembershipManagement(actor);
-        firms.findByIdForUpdate(actor.firmId()).orElseThrow(() -> new EntityNotFoundException("Firm was not found"));
+        lockFirm(actor.firmId());
         return memberships.findByIdAndFirmId(membershipId, actor.firmId())
                 .orElseThrow(() -> new EntityNotFoundException("Employee membership was not found"));
+    }
+
+    private void lockFirm(UUID firmId) {
+        firms.findByIdForUpdate(firmId).orElseThrow(() -> new EntityNotFoundException("Firm was not found"));
     }
 
     private void requireRoleManagement(SelectedTenant actor, MembershipRole role) {
@@ -133,6 +139,11 @@ public class FirmAccessManagementService {
     private void requireBoundMembership(FirmMembership membership) {
         if (membership.userId() == null)
             throw new InvalidIdentityException("An invited membership must be managed through its invitation");
+    }
+
+    private void requireReactivatable(FirmMembership membership) {
+        if (membership.status() == MembershipStatus.REMOVED)
+            throw new InvalidIdentityException("A removed membership requires a new invitation");
     }
 
     private void preventRemovingLastActiveOwner(FirmMembership current, MembershipRole requestedRole,

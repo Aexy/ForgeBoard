@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -82,6 +83,42 @@ class PlatformAccessManagementServiceTest {
 
         assertThatThrownBy(() -> service().remove(actor(), firmId, owner.id()))
                 .isInstanceOf(PlatformAdministrationConflictException.class);
+    }
+
+    @Test
+    void platformInvitationIssuanceLocksTheFirmBeforeTheLifecycleCanChangeAnExistingInviteRole() {
+        UUID firmId = UUID.randomUUID();
+        ForgeBoardUser administrator = user("admin@example.com");
+        GeneratedAccessLink link = new GeneratedAccessLink(UUID.randomUUID(), "https://app.example/invite/token",
+                Instant.parse("2026-08-14T10:00:00Z"));
+        when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(administrator));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(lifecycle.createInvitation(firmId, administrator.id(),
+                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER))).thenReturn(link);
+
+        assertThat(service().invite(actor(), firmId, new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER)))
+                .isSameAs(link);
+
+        var order = inOrder(firms, lifecycle);
+        order.verify(firms).findByIdForUpdate(firmId);
+        order.verify(lifecycle).createInvitation(firmId, administrator.id(),
+                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER));
+    }
+
+    @Test
+    void removedMembershipCannotBeReactivatedByPlatformAdministration() {
+        UUID firmId = UUID.randomUUID();
+        FirmMembership removed = new FirmMembership(UUID.randomUUID(), firmId, UUID.randomUUID(), MembershipRole.MEMBER,
+                Instant.parse("2026-08-07T10:00:00Z"));
+        removed.remove(Instant.parse("2026-08-07T10:00:01Z"));
+        when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(user("admin@example.com")));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(removed.id(), firmId)).thenReturn(Optional.of(removed));
+
+        assertThatThrownBy(() -> service().reactivate(actor(), firmId, removed.id()))
+                .isInstanceOf(InvalidIdentityException.class);
+        assertThat(removed.status()).isEqualTo(MembershipStatus.REMOVED);
+        verify(audit, never()).recordUserAction(any(), any(), any(), any(), any(), any(), any());
     }
 
     private PlatformAccessManagementService service() {

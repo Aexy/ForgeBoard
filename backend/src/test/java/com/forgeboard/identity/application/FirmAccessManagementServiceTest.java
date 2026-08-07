@@ -1,8 +1,10 @@
 package com.forgeboard.identity.application;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -89,6 +91,38 @@ class FirmAccessManagementServiceTest {
                 .isInstanceOf(jakarta.persistence.EntityNotFoundException.class);
         verify(memberships, never()).countByFirmIdAndRoleAndStatus(otherFirmId, MembershipRole.OWNER,
                 MembershipStatus.ACTIVE);
+    }
+
+    @Test
+    void invitationIssuanceLocksTheFirmBeforeTheLifecycleCanChangeAnExistingInviteRole() {
+        SelectedTenant owner = tenant(MembershipRole.OWNER);
+        GeneratedAccessLink link = new GeneratedAccessLink(UUID.randomUUID(), "https://app.example/invite/token",
+                Instant.parse("2026-08-14T10:00:00Z"));
+        when(firms.findByIdForUpdate(owner.firmId())).thenReturn(Optional.of(firm(owner.firmId())));
+        when(lifecycle.createInvitation(owner.firmId(), owner.userId(),
+                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER))).thenReturn(link);
+
+        assertThat(service().invite(owner, new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER)))
+                .isSameAs(link);
+
+        var order = inOrder(firms, lifecycle);
+        order.verify(firms).findByIdForUpdate(owner.firmId());
+        order.verify(lifecycle).createInvitation(owner.firmId(), owner.userId(),
+                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER));
+    }
+
+    @Test
+    void removedMembershipCannotBeReactivated() {
+        SelectedTenant owner = tenant(MembershipRole.OWNER);
+        FirmMembership removed = membership(owner.firmId(), MembershipRole.MEMBER, MembershipStatus.ACTIVE);
+        removed.remove(Instant.parse("2026-08-07T10:00:01Z"));
+        when(firms.findByIdForUpdate(owner.firmId())).thenReturn(Optional.of(firm(owner.firmId())));
+        when(memberships.findByIdAndFirmId(removed.id(), owner.firmId())).thenReturn(Optional.of(removed));
+
+        assertThatThrownBy(() -> service().reactivate(owner, removed.id()))
+                .isInstanceOf(InvalidIdentityException.class);
+        assertThat(removed.status()).isEqualTo(MembershipStatus.REMOVED);
+        verify(audit, never()).recordUserAction(any(), any(), any(), any(), any(), any(), any());
     }
 
     private FirmAccessManagementService service() {

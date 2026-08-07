@@ -58,7 +58,7 @@ public class PlatformAccessManagementService {
     @Transactional
     public GeneratedAccessLink invite(Authentication actor, UUID firmId, InviteMemberRequest request) {
         UUID actorId = actorUserId(actor);
-        requireFirm(firmId);
+        lockFirm(firmId);
         return lifecycle.createInvitation(firmId, actorId, request);
     }
 
@@ -103,6 +103,7 @@ public class PlatformAccessManagementService {
         UUID actorId = actorUserId(actor);
         FirmMembership membership = membershipForMutation(firmId, membershipId);
         requireBoundMembership(membership);
+        requireReactivatable(membership);
         membership.reactivate(clock.instant());
         record(firmId, actorId, "platform.membership.reactivated", membership,
                 Map.of("status", membership.status().name()));
@@ -131,9 +132,13 @@ public class PlatformAccessManagementService {
     }
 
     private FirmMembership membershipForMutation(UUID firmId, UUID membershipId) {
-        firms.findByIdForUpdate(firmId).orElseThrow(() -> new EntityNotFoundException("Firm was not found"));
+        lockFirm(firmId);
         return memberships.findByIdAndFirmId(membershipId, firmId)
                 .orElseThrow(() -> new EntityNotFoundException("Employee membership was not found"));
+    }
+
+    private void lockFirm(UUID firmId) {
+        firms.findByIdForUpdate(firmId).orElseThrow(() -> new EntityNotFoundException("Firm was not found"));
     }
 
     private void requireFirm(UUID firmId) {
@@ -143,6 +148,11 @@ public class PlatformAccessManagementService {
     private void requireBoundMembership(FirmMembership membership) {
         if (membership.userId() == null)
             throw new InvalidIdentityException("An invited membership must be managed through its invitation");
+    }
+
+    private void requireReactivatable(FirmMembership membership) {
+        if (membership.status() == MembershipStatus.REMOVED)
+            throw new InvalidIdentityException("A removed membership requires a new invitation");
     }
 
     private void preventRemovingLastActiveOwner(FirmMembership current, MembershipRole requestedRole,
