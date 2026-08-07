@@ -121,6 +121,26 @@ class PlatformAccessManagementServiceTest {
         verify(audit, never()).recordUserAction(any(), any(), any(), any(), any(), any(), any());
     }
 
+    @Test
+    void removedMembershipCannotBeSuspendedOrHaveItsRoleChangedByPlatformAdministration() {
+        UUID firmId = UUID.randomUUID();
+        FirmMembership removed = new FirmMembership(UUID.randomUUID(), firmId, UUID.randomUUID(), MembershipRole.MEMBER,
+                Instant.parse("2026-08-07T10:00:00Z"));
+        removed.remove(Instant.parse("2026-08-07T10:00:01Z"));
+        when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(user("admin@example.com")));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(removed.id(), firmId)).thenReturn(Optional.of(removed));
+
+        assertThatThrownBy(() -> service().suspend(actor(), firmId, removed.id()))
+                .isInstanceOf(InvalidIdentityException.class);
+        assertThatThrownBy(() -> service().updateRole(actor(), firmId, removed.id(),
+                new UpdateMembershipRoleRequest(MembershipRole.ADMINISTRATOR))).isInstanceOf(InvalidIdentityException.class);
+
+        assertThat(removed.status()).isEqualTo(MembershipStatus.REMOVED);
+        assertThat(removed.role()).isEqualTo(MembershipRole.MEMBER);
+        verify(audit, never()).recordUserAction(any(), any(), any(), any(), any(), any(), any());
+    }
+
     private PlatformAccessManagementService service() {
         return new PlatformAccessManagementService(policy, firms, memberships, users, actions, lifecycle, audit,
                 Clock.fixed(Instant.parse("2026-08-07T10:00:00Z"), ZoneOffset.UTC));

@@ -1,6 +1,7 @@
 package com.forgeboard.identity.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -36,5 +37,19 @@ class FirmMembershipTest {
 
         assertThat(membership.status()).isEqualTo(MembershipStatus.REMOVED);
         assertThat(membership.userId()).isEqualTo(userId);
+    }
+
+    @Test
+    void removedMembershipIsTerminalForRoleAndStatusTransitions() {
+        FirmMembership membership = new FirmMembership(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                MembershipRole.MEMBER, CREATED_AT);
+        membership.remove(CREATED_AT.plusSeconds(60));
+
+        assertThatThrownBy(() -> membership.changeRole(MembershipRole.ADMINISTRATOR, CREATED_AT.plusSeconds(61)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> membership.suspend(CREATED_AT.plusSeconds(61))).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> membership.reactivate(CREATED_AT.plusSeconds(61))).isInstanceOf(IllegalStateException.class);
+        assertThat(membership.status()).isEqualTo(MembershipStatus.REMOVED);
+        assertThat(membership.role()).isEqualTo(MembershipRole.MEMBER);
     }
 }

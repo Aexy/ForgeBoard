@@ -82,6 +82,7 @@ public class FirmAccessManagementService {
         FirmMembership membership = membershipForMutation(actor, membershipId);
         requireRoleManagement(actor, membership.role());
         requireRoleManagement(actor, request.role());
+        requireMutable(membership);
         preventRemovingLastActiveOwner(membership, request.role(), membership.status());
         membership.changeRole(request.role(), clock.instant());
         record(actor, "membership.role-changed", membership, Map.of("role", membership.role().name()));
@@ -93,6 +94,7 @@ public class FirmAccessManagementService {
         FirmMembership membership = membershipForMutation(actor, membershipId);
         requireRoleManagement(actor, membership.role());
         requireBoundMembership(membership);
+        requireMutable(membership);
         preventRemovingLastActiveOwner(membership, membership.role(), MembershipStatus.SUSPENDED);
         membership.suspend(clock.instant());
         record(actor, "membership.suspended", membership, Map.of("status", membership.status().name()));
@@ -104,7 +106,7 @@ public class FirmAccessManagementService {
         FirmMembership membership = membershipForMutation(actor, membershipId);
         requireRoleManagement(actor, membership.role());
         requireBoundMembership(membership);
-        requireReactivatable(membership);
+        requireMutable(membership);
         membership.reactivate(clock.instant());
         record(actor, "membership.reactivated", membership, Map.of("status", membership.status().name()));
         return view(membership, invitationEmails(actor.firmId()));
@@ -141,7 +143,7 @@ public class FirmAccessManagementService {
             throw new InvalidIdentityException("An invited membership must be managed through its invitation");
     }
 
-    private void requireReactivatable(FirmMembership membership) {
+    private void requireMutable(FirmMembership membership) {
         if (membership.status() == MembershipStatus.REMOVED)
             throw new InvalidIdentityException("A removed membership requires a new invitation");
     }

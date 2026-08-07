@@ -64,6 +64,7 @@ public class FirmMembership {
     public MembershipStatus status() { return status; }
 
     public void changeRole(MembershipRole role, Instant now) {
+        requireNotRemoved();
         this.role = Objects.requireNonNull(role, "role is required");
         this.updatedAt = Objects.requireNonNull(now, "now is required");
     }
@@ -78,12 +79,14 @@ public class FirmMembership {
 
     public void suspend(Instant now) {
         requireBoundUser();
+        requireNotRemoved();
         this.status = MembershipStatus.SUSPENDED;
         this.updatedAt = Objects.requireNonNull(now, "now is required");
     }
 
     public void reactivate(Instant now) {
         requireBoundUser();
+        requireNotRemoved();
         this.status = MembershipStatus.ACTIVE;
         this.updatedAt = Objects.requireNonNull(now, "now is required");
     }
@@ -97,5 +100,10 @@ public class FirmMembership {
     private void requireBoundUser() {
         if (userId == null)
             throw new IllegalStateException("Only a membership bound to a user can enter this state");
+    }
+
+    private void requireNotRemoved() {
+        if (status == MembershipStatus.REMOVED)
+            throw new IllegalStateException("Removed memberships are terminal");
     }
 }

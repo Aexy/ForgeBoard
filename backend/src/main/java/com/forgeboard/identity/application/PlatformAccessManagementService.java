@@ -81,6 +81,7 @@ public class PlatformAccessManagementService {
             UpdateMembershipRoleRequest request) {
         UUID actorId = actorUserId(actor);
         FirmMembership membership = membershipForMutation(firmId, membershipId);
+        requireMutable(membership);
         preventRemovingLastActiveOwner(membership, request.role(), membership.status());
         membership.changeRole(request.role(), clock.instant());
         record(firmId, actorId, "platform.membership.role-changed", membership, Map.of("role", membership.role().name()));
@@ -92,6 +93,7 @@ public class PlatformAccessManagementService {
         UUID actorId = actorUserId(actor);
         FirmMembership membership = membershipForMutation(firmId, membershipId);
         requireBoundMembership(membership);
+        requireMutable(membership);
         preventRemovingLastActiveOwner(membership, membership.role(), MembershipStatus.SUSPENDED);
         membership.suspend(clock.instant());
         record(firmId, actorId, "platform.membership.suspended", membership, Map.of("status", membership.status().name()));
@@ -103,7 +105,7 @@ public class PlatformAccessManagementService {
         UUID actorId = actorUserId(actor);
         FirmMembership membership = membershipForMutation(firmId, membershipId);
         requireBoundMembership(membership);
-        requireReactivatable(membership);
+        requireMutable(membership);
         membership.reactivate(clock.instant());
         record(firmId, actorId, "platform.membership.reactivated", membership,
                 Map.of("status", membership.status().name()));
@@ -150,7 +152,7 @@ public class PlatformAccessManagementService {
             throw new InvalidIdentityException("An invited membership must be managed through its invitation");
     }
 
-    private void requireReactivatable(FirmMembership membership) {
+    private void requireMutable(FirmMembership membership) {
         if (membership.status() == MembershipStatus.REMOVED)
             throw new InvalidIdentityException("A removed membership requires a new invitation");
     }

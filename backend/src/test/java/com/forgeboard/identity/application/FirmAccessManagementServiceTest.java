@@ -125,6 +125,23 @@ class FirmAccessManagementServiceTest {
         verify(audit, never()).recordUserAction(any(), any(), any(), any(), any(), any(), any());
     }
 
+    @Test
+    void removedMembershipCannotBeSuspendedOrHaveItsRoleChanged() {
+        SelectedTenant owner = tenant(MembershipRole.OWNER);
+        FirmMembership removed = membership(owner.firmId(), MembershipRole.MEMBER, MembershipStatus.ACTIVE);
+        removed.remove(Instant.parse("2026-08-07T10:00:01Z"));
+        when(firms.findByIdForUpdate(owner.firmId())).thenReturn(Optional.of(firm(owner.firmId())));
+        when(memberships.findByIdAndFirmId(removed.id(), owner.firmId())).thenReturn(Optional.of(removed));
+
+        assertThatThrownBy(() -> service().suspend(owner, removed.id())).isInstanceOf(InvalidIdentityException.class);
+        assertThatThrownBy(() -> service().updateRole(owner, removed.id(),
+                new UpdateMembershipRoleRequest(MembershipRole.ADMINISTRATOR))).isInstanceOf(InvalidIdentityException.class);
+
+        assertThat(removed.status()).isEqualTo(MembershipStatus.REMOVED);
+        assertThat(removed.role()).isEqualTo(MembershipRole.MEMBER);
+        verify(audit, never()).recordUserAction(any(), any(), any(), any(), any(), any(), any());
+    }
+
     private FirmAccessManagementService service() {
         return new FirmAccessManagementService(policy, firms, memberships, users, actions, lifecycle, audit,
                 Clock.fixed(Instant.parse("2026-08-07T10:00:00Z"), ZoneOffset.UTC));
