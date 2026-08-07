@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.forgeboard.identity.application.CreatePlatformEmployeeRequest;
 import com.forgeboard.identity.application.CreatePlatformFirmRequest;
+import com.forgeboard.identity.application.GeneratedAccessLink;
+import com.forgeboard.identity.application.InviteMemberRequest;
+import com.forgeboard.identity.application.PlatformAccessManagementService;
 import com.forgeboard.identity.application.PlatformAdministrationService;
 import com.forgeboard.identity.application.PlatformEmployeeView;
 import com.forgeboard.identity.application.PlatformFirmPage;
@@ -28,65 +30,90 @@ import jakarta.validation.Valid;
 
 /** Thin adapter for the narrowly scoped platform-administration boundary. */
 @RestController
-@RequestMapping("/api/platform-admin/firms")
+@RequestMapping("/api/platform-admin")
 public class PlatformAdministrationController {
     private final PlatformAdministrationService administration;
+    private final PlatformAccessManagementService access;
 
-    public PlatformAdministrationController(PlatformAdministrationService administration) {
+    public PlatformAdministrationController(PlatformAdministrationService administration,
+            PlatformAccessManagementService access) {
         this.administration = administration;
+        this.access = access;
     }
 
-    @GetMapping
+    @GetMapping("/firms")
     PlatformFirmPage firms(Authentication actor, @RequestParam(required = false) String query,
             @RequestParam(required = false) String cursor) {
         return administration.listFirms(actor, query, cursor);
     }
 
-    @PostMapping
+    @PostMapping("/firms")
     ResponseEntity<PlatformFirmView> createFirm(Authentication actor,
             @Valid @RequestBody CreatePlatformFirmRequest request) {
         PlatformFirmView firm = administration.createFirm(actor, request);
         return ResponseEntity.created(URI.create("/api/platform-admin/firms/" + firm.id())).body(firm);
     }
 
-    @PostMapping("/{firmId}/suspension")
+    @PostMapping("/firms/{firmId}/suspension")
     PlatformFirmView suspendFirm(Authentication actor, @PathVariable UUID firmId) {
         return administration.suspendFirm(actor, firmId);
     }
 
-    @DeleteMapping("/{firmId}/suspension")
+    @DeleteMapping("/firms/{firmId}/suspension")
     PlatformFirmView reactivateFirm(Authentication actor, @PathVariable UUID firmId) {
         return administration.reactivateFirm(actor, firmId);
     }
 
-    @GetMapping("/{firmId}/employees")
+    @GetMapping("/firms/{firmId}/employees")
     List<PlatformEmployeeView> employees(Authentication actor, @PathVariable UUID firmId) {
-        return administration.listEmployees(actor, firmId);
+        return access.list(actor, firmId);
     }
 
-    @PostMapping("/{firmId}/employees")
-    ResponseEntity<PlatformEmployeeView> createEmployee(Authentication actor, @PathVariable UUID firmId,
-            @Valid @RequestBody CreatePlatformEmployeeRequest request) {
-        PlatformEmployeeView employee = administration.createEmployee(actor, firmId, request);
-        return ResponseEntity.created(URI.create("/api/platform-admin/firms/" + firmId + "/employees/" + employee.membershipId()))
-                .body(employee);
+    @PostMapping("/firms/{firmId}/employees")
+    ResponseEntity<GeneratedAccessLink> inviteEmployee(Authentication actor, @PathVariable UUID firmId,
+            @Valid @RequestBody InviteMemberRequest request) {
+        GeneratedAccessLink invitation = access.invite(actor, firmId, request);
+        return ResponseEntity.created(URI.create("/api/platform-admin/firms/" + firmId + "/employees/" + invitation.actionId()))
+                .body(invitation);
     }
 
-    @PutMapping("/{firmId}/employees/{membershipId}/role")
+    @PostMapping("/firms/{firmId}/employees/{membershipId}/invitation")
+    GeneratedAccessLink reissueInvitation(Authentication actor, @PathVariable UUID firmId, @PathVariable UUID membershipId) {
+        return access.reissueInvitation(actor, firmId, membershipId);
+    }
+
+    @DeleteMapping("/firms/{firmId}/employees/{membershipId}/invitation")
+    ResponseEntity<Void> revokeInvitation(Authentication actor, @PathVariable UUID firmId, @PathVariable UUID membershipId) {
+        access.revokeInvitation(actor, firmId, membershipId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/firms/{firmId}/employees/{membershipId}/role")
     PlatformEmployeeView updateRole(Authentication actor, @PathVariable UUID firmId, @PathVariable UUID membershipId,
             @Valid @RequestBody UpdateMembershipRoleRequest request) {
-        return administration.updateRole(actor, firmId, membershipId, request);
+        return access.updateRole(actor, firmId, membershipId, request);
     }
 
-    @PostMapping("/{firmId}/employees/{membershipId}/suspension")
+    @PostMapping("/firms/{firmId}/employees/{membershipId}/suspension")
     PlatformEmployeeView suspendMembership(Authentication actor, @PathVariable UUID firmId,
             @PathVariable UUID membershipId) {
-        return administration.suspendMembership(actor, firmId, membershipId);
+        return access.suspend(actor, firmId, membershipId);
     }
 
-    @DeleteMapping("/{firmId}/employees/{membershipId}/suspension")
+    @DeleteMapping("/firms/{firmId}/employees/{membershipId}/suspension")
     PlatformEmployeeView reactivateMembership(Authentication actor, @PathVariable UUID firmId,
             @PathVariable UUID membershipId) {
-        return administration.reactivateMembership(actor, firmId, membershipId);
+        return access.reactivate(actor, firmId, membershipId);
+    }
+
+    @DeleteMapping("/firms/{firmId}/employees/{membershipId}")
+    ResponseEntity<Void> removeMembership(Authentication actor, @PathVariable UUID firmId, @PathVariable UUID membershipId) {
+        access.remove(actor, firmId, membershipId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/users/{userId}/password-reset")
+    GeneratedAccessLink createPasswordReset(Authentication actor, @PathVariable UUID userId) {
+        return access.createPasswordReset(actor, userId);
     }
 }

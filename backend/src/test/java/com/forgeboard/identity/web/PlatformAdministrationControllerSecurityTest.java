@@ -22,6 +22,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.forgeboard.identity.application.PlatformAdministrationService;
+import com.forgeboard.identity.application.PlatformAccessManagementService;
+import com.forgeboard.identity.application.GeneratedAccessLink;
 import com.forgeboard.identity.application.PlatformFirmPage;
 import com.forgeboard.identity.application.PlatformFirmView;
 import com.forgeboard.identity.application.TenantAuthorizationService;
@@ -34,6 +36,7 @@ import com.forgeboard.identity.security.TenantSelectionFilter;
 class PlatformAdministrationControllerSecurityTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean PlatformAdministrationService administration;
+    @MockitoBean PlatformAccessManagementService access;
     @MockitoBean TenantAuthorizationService tenantAuthorization;
 
     @Test
@@ -69,6 +72,19 @@ class PlatformAdministrationControllerSecurityTest {
                         .with(user("admin@example.com")))
                 .andExpect(status().isOk());
         verify(administration).suspendFirm(any(), eq(firmId));
+    }
+
+    @Test
+    void platformAdministratorCanRequestAPasswordResetLink() throws Exception {
+        UUID userId = UUID.randomUUID();
+        GeneratedAccessLink link = new GeneratedAccessLink(UUID.randomUUID(), "https://app.example/reset/token",
+                Instant.parse("2026-08-14T12:00:00Z"));
+        org.mockito.Mockito.when(access.createPasswordReset(any(), eq(userId))).thenReturn(link);
+
+        mockMvc.perform(post("/api/platform-admin/users/" + userId + "/password-reset").with(user("admin@example.com")))
+                .andExpect(status().isOk());
+
+        verify(access).createPasswordReset(any(), eq(userId));
     }
 
     @Test

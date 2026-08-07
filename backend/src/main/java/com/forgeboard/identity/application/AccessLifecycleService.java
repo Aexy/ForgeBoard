@@ -95,6 +95,41 @@ public class AccessLifecycleService {
     }
 
     @Transactional
+    public GeneratedAccessLink reissueInvitation(UUID firmId, UUID actorId, UUID membershipId) {
+        AccessAction previous = actions.findFirstByTypeAndFirmIdAndMembershipIdOrderByCreatedAtDesc(
+                AccessActionType.INVITATION, firmId, membershipId)
+                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
+        FirmMembership membership = memberships.findByIdAndFirmId(membershipId, firmId)
+                .filter(candidate -> candidate.status() == MembershipStatus.INVITED)
+                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
+        String email = normalizeEmail(previous.targetEmail());
+        serializeIssuance("invitation:" + firmId + ":" + email);
+        Instant now = clock.instant();
+        actions.findFirstByTypeAndFirmIdAndMembershipIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.INVITATION, firmId, membershipId).ifPresent(action -> action.revoke(now));
+        String rawToken = newToken();
+        AccessAction replacement = new AccessAction(UUID.randomUUID(), firmId, membership.id(), null,
+                AccessActionType.INVITATION, email, new AccessAction.TokenHash(hash(rawToken)), actorId, now);
+        actions.save(replacement);
+        audit.recordUserAction(firmId, actorId, ActivitySource.REST, "membership.invitation-reissued", "access-action",
+                replacement.id(), Map.of("role", membership.role().name(), "status", membership.status().name()));
+        return generatedLink(replacement, "/invite/", rawToken);
+    }
+
+    @Transactional
+    public void revokeInvitation(UUID firmId, UUID actorId, UUID membershipId) {
+        FirmMembership membership = memberships.findByIdAndFirmId(membershipId, firmId)
+                .filter(candidate -> candidate.status() == MembershipStatus.INVITED)
+                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
+        AccessAction invitation = actions.findFirstByTypeAndFirmIdAndMembershipIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.INVITATION, firmId, membershipId)
+                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
+        invitation.revoke(clock.instant());
+        audit.recordUserAction(firmId, actorId, ActivitySource.REST, "membership.invitation-revoked", "access-action",
+                invitation.id(), Map.of("role", membership.role().name(), "status", membership.status().name()));
+    }
+
+    @Transactional
     public void acceptNewAccountInvitation(AcceptInvitationRequest request) {
         AccessAction invitation = redeem(request.token(), AccessActionType.INVITATION);
         if (request.displayName() == null || request.displayName().isBlank() || request.password() == null || request.password().isBlank())

@@ -1,65 +1,25 @@
 package com.forgeboard.identity.application;
 
-import java.time.Clock;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.UUID;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.forgeboard.identity.ActivityRecorder;
-import com.forgeboard.identity.EmployeeDirectory;
-import com.forgeboard.identity.SelectedTenant;
-import com.forgeboard.identity.domain.FirmMembership;
-import com.forgeboard.identity.domain.ForgeBoardUser;
-import com.forgeboard.identity.persistence.FirmMembershipRepository;
-import com.forgeboard.identity.persistence.UserRepository;
 
+import org.springframework.stereotype.Service;
+
+import com.forgeboard.identity.SelectedTenant;
+
+/** Compatibility facade for callers that still use the employee-provisioning application contract. */
 @Service
 public class EmployeeProvisioningService {
-    private final TenantAuthorizationService policy;
-    private final UserRepository users;
-    private final FirmMembershipRepository memberships;
-    private final EmployeeDirectory employees;
-    private final PasswordEncoder passwordEncoder;
-    private final ActivityRecorder activity;
-    private final Clock clock;
+    private final FirmAccessManagementService access;
 
-    public EmployeeProvisioningService(TenantAuthorizationService policy, UserRepository users,
-            FirmMembershipRepository memberships, EmployeeDirectory employees, PasswordEncoder passwordEncoder,
-            ActivityRecorder activity, Clock clock) {
-        this.policy = policy; this.users = users; this.memberships = memberships;
-        this.employees = employees;
-        this.passwordEncoder = passwordEncoder; this.activity = activity; this.clock = clock;
+    public EmployeeProvisioningService(FirmAccessManagementService access) {
+        this.access = access;
     }
 
-    @Transactional
-    public EmployeeView create(SelectedTenant actor, CreateEmployeeRequest request) {
-        policy.requireMembershipManagement(actor);
-        if (request.role() == com.forgeboard.identity.domain.MembershipRole.OWNER)
-            throw new IllegalArgumentException("Employee provisioning cannot create an owner membership");
-        String email = request.email().strip().toLowerCase(Locale.ROOT);
-        if (users.findByEmail(email).isPresent())
-            throw new DuplicateIdentityException("An account with this email already exists");
-        ForgeBoardUser user = users.save(new ForgeBoardUser(UUID.randomUUID(), email,
-                request.displayName().strip(), passwordEncoder.encode(request.temporaryPassword()), clock.instant()));
-        if (memberships.existsByFirmIdAndUserId(actor.firmId(), user.id()))
-            throw new DuplicateIdentityException("Employee already belongs to this firm");
-        FirmMembership membership = memberships.save(new FirmMembership(UUID.randomUUID(), actor.firmId(), user.id(),
-                request.role(), clock.instant()));
-        activity.recordRestUserAction(actor.firmId(), actor.userId(), "employee.created", "membership", membership.id(),
-                Map.of("employeeUserId", user.id().toString(), "role", request.role().name()));
-        return view(membership, user);
+    public GeneratedAccessLink create(SelectedTenant actor, InviteMemberRequest request) {
+        return access.invite(actor, request);
     }
 
-    @Transactional(readOnly = true)
     public List<EmployeeView> list(SelectedTenant actor) {
-        policy.requireMembershipManagement(actor);
-        return employees.list(actor.firmId());
-    }
-
-    private EmployeeView view(FirmMembership membership, ForgeBoardUser user) {
-        return new EmployeeView(membership.id(), user.id(), user.displayName(), user.email(), membership.role());
+        return access.list(actor);
     }
 }

@@ -1,6 +1,8 @@
 package com.forgeboard.identity.persistence;
 
 import java.util.Optional;
+import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,6 +28,15 @@ public interface AccessActionRepository extends JpaRepository<AccessAction, UUID
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AccessAction> findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
             AccessActionType type, UUID userId);
+
+    Optional<AccessAction> findFirstByTypeAndFirmIdAndMembershipIdOrderByCreatedAtDesc(
+            AccessActionType type, UUID firmId, UUID membershipId);
+
+    Optional<AccessAction> findFirstByTypeAndFirmIdAndMembershipIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+            AccessActionType type, UUID firmId, UUID membershipId);
+
+    List<AccessAction> findAllByTypeAndFirmIdAndMembershipIdInOrderByCreatedAtAsc(AccessActionType type, UUID firmId,
+            Collection<UUID> membershipIds);
 
     @Modifying(flushAutomatically = true)
     @Query(value = "insert into access_action_serialization_locks (lock_key, created_at) "

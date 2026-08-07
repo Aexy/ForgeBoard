@@ -30,9 +30,11 @@ import org.testcontainers.utility.DockerImageName;
 import com.forgeboard.identity.application.OnboardingRequest;
 import com.forgeboard.identity.application.OnboardingResult;
 import com.forgeboard.identity.application.OnboardingService;
-import com.forgeboard.identity.application.CreateEmployeeRequest;
 import com.forgeboard.identity.application.EmployeeProvisioningService;
-import com.forgeboard.identity.application.EmployeeView;
+import com.forgeboard.identity.application.AcceptInvitationRequest;
+import com.forgeboard.identity.application.AccessLifecycleService;
+import com.forgeboard.identity.application.GeneratedAccessLink;
+import com.forgeboard.identity.application.InviteMemberRequest;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.security.TenantSelectionFilter;
 import com.forgeboard.client.application.ClientRequest;
@@ -46,6 +48,7 @@ import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.persistence.ActivityEventRepository;
+import com.forgeboard.identity.persistence.UserRepository;
 import com.forgeboard.work.application.AssignWorkItemRequest;
 import com.forgeboard.work.application.AssignWorkItemRoleRequest;
 import com.forgeboard.work.application.BoardView;
@@ -79,6 +82,8 @@ class BearerApiMutationIntegrationTest {
     @Autowired WorkflowService workflows;
     @Autowired EngagementService engagements;
     @Autowired EmployeeProvisioningService employees;
+    @Autowired AccessLifecycleService accessLifecycle;
+    @Autowired UserRepository users;
     @Autowired WorkItemRepository workItems;
     @Autowired EngagementRepository engagementRepository;
     @Autowired EngagementReviewDecisionRepository reviewDecisions;
@@ -172,19 +177,27 @@ class BearerApiMutationIntegrationTest {
                 new WorkflowStageRequest("Prepare", StageAttention.NONE, false),
                 new WorkflowStageRequest("Review", StageAttention.AWAITING_REVIEW, false),
                 new WorkflowStageRequest("Complete", StageAttention.NONE, true))));
-        EmployeeView preparer = employees.create(owner, new CreateEmployeeRequest("Preparer", "preparer-" + suffix + "@example.com",
-                "correct horse battery", MembershipRole.MEMBER));
-        EmployeeView reviewer = employees.create(owner, new CreateEmployeeRequest("Reviewer", "reviewer-" + suffix + "@example.com",
-                "correct horse battery", MembershipRole.MEMBER));
+        String preparerEmail = "preparer-" + suffix + "@example.com";
+        String reviewerEmail = "reviewer-" + suffix + "@example.com";
+        UUID preparerId = acceptInvitation(owner, "Preparer", preparerEmail);
+        UUID reviewerId = acceptInvitation(owner, "Reviewer", reviewerEmail);
         var template = engagements.createTemplate(owner, new EngagementTemplateRequest("Lifecycle template", workflow.id(),
                 Recurrence.MONTHLY, "Prepare lifecycle", 20));
         EngagementView engagement = engagements.createEngagement(owner, template.id(),
                 new CreateEngagementRequest(client.id(), LocalDate.of(2026, 7, 1)));
-        workflows.assign(owner, workflow.id(), engagement.workItemId(), new AssignWorkItemRequest(preparer.userId()));
-        workflows.assignReviewer(owner, workflow.id(), engagement.workItemId(), new AssignWorkItemRoleRequest(reviewer.userId()));
+        workflows.assign(owner, workflow.id(), engagement.workItemId(), new AssignWorkItemRequest(preparerId));
+        workflows.assignReviewer(owner, workflow.id(), engagement.workItemId(), new AssignWorkItemRoleRequest(reviewerId));
         WorkItem item = workItems.findByIdAndFirmIdAndWorkflowId(engagement.workItemId(), onboarded.firmId(), workflow.id()).orElseThrow();
         return new LifecycleFixture(onboarded.firmId(), workflow.id(), workflow.stages().get(0).id(), workflow.stages().get(1).id(),
-                item, engagement, grant(ownerEmail), grant(preparer.email()), grant(reviewer.email()));
+                item, engagement, grant(ownerEmail), grant(preparerEmail), grant(reviewerEmail));
+    }
+
+    private UUID acceptInvitation(SelectedTenant owner, String displayName, String email) {
+        GeneratedAccessLink invitation = employees.create(owner,
+                new InviteMemberRequest(displayName, email, MembershipRole.MEMBER));
+        String token = invitation.link().substring(invitation.link().lastIndexOf('/') + 1);
+        accessLifecycle.acceptNewAccountInvitation(new AcceptInvitationRequest(token, displayName, "correct horse battery"));
+        return users.findByEmail(email).orElseThrow().id();
     }
 
     private void assertUnchanged(LifecycleFixture fixture, UUID expectedStageId, int expectedHistoryCount, long expectedAuditCount) {
