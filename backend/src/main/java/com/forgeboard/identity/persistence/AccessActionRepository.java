@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -25,4 +26,13 @@ public interface AccessActionRepository extends JpaRepository<AccessAction, UUID
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<AccessAction> findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
             AccessActionType type, UUID userId);
+
+    @Modifying(flushAutomatically = true)
+    @Query(value = "insert into access_action_serialization_locks (lock_key, created_at) "
+            + "values (:lockKey, current_timestamp) on conflict (lock_key) do nothing", nativeQuery = true)
+    int createSerializationLock(@Param("lockKey") String lockKey);
+
+    @Query(value = "select lock_key from access_action_serialization_locks where lock_key = :lockKey for update",
+            nativeQuery = true)
+    String lockSerializationKey(@Param("lockKey") String lockKey);
 }

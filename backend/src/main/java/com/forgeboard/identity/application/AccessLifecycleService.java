@@ -62,6 +62,7 @@ public class AccessLifecycleService {
     @Transactional
     public GeneratedAccessLink createInvitation(UUID firmId, UUID actorId, InviteMemberRequest request) {
         String email = normalizeEmail(request.email());
+        serializeIssuance("invitation:" + firmId + ":" + email);
         Instant now = clock.instant();
         FirmMembership membership = actions.findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
                 AccessActionType.INVITATION, firmId, email)
@@ -80,6 +81,7 @@ public class AccessLifecycleService {
     public GeneratedAccessLink createPasswordReset(UUID actorId, UUID userId) {
         ForgeBoardUser user = users.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User was not found"));
+        serializeIssuance("password-reset:" + user.id());
         Instant now = clock.instant();
         actions.findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
                 AccessActionType.PASSWORD_RESET, userId).ifPresent(action -> action.revoke(now));
@@ -158,6 +160,12 @@ public class AccessLifecycleService {
         if (action.type() != expectedType || !action.isRedeemable(clock.instant()))
             throw new InvalidIdentityException("Access action is invalid or expired");
         return action;
+    }
+
+    private void serializeIssuance(String scope) {
+        String lockKey = hash(scope);
+        actions.createSerializationLock(lockKey);
+        actions.lockSerializationKey(lockKey);
     }
 
     private void activateInvitation(AccessAction invitation, UUID userId, Instant now) {

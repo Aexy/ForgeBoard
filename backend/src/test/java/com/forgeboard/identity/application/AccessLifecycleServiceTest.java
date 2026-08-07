@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -134,6 +136,35 @@ class AccessLifecycleServiceTest {
         assertThat(generated.link()).startsWith("https://pilot.forgeboard.example/invite/");
         assertThat(generated.link()).doesNotContain(replacement.getValue().tokenHash().value());
         assertThat(generated.expiresAt()).isEqualTo(NOW.plus(AccessAction.TOKEN_LIFETIME));
+        String lockKey = hash("invitation:" + firmId + ":invitee@example.com");
+        InOrder serialization = inOrder(actions);
+        serialization.verify(actions).createSerializationLock(lockKey);
+        serialization.verify(actions).lockSerializationKey(lockKey);
+        serialization.verify(actions).findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.INVITATION, firmId, "invitee@example.com");
+    }
+
+    @Test
+    void serializesPasswordResetReissueBeforeItLooksForThePriorAction() {
+        UUID actorId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        ForgeBoardUser user = new ForgeBoardUser(userId, "member@example.com", "Member", "hash", NOW);
+        AccessAction prior = passwordReset(userId, "member@example.com", "prior-reset-token");
+        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(actions.findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.PASSWORD_RESET, userId)).thenReturn(Optional.of(prior));
+        when(memberships.findAllByUserId(userId)).thenReturn(List.of());
+
+        GeneratedAccessLink generated = service().createPasswordReset(actorId, userId);
+
+        assertThat(prior.revokedAt()).isEqualTo(NOW);
+        assertThat(generated.link()).startsWith("https://pilot.forgeboard.example/reset/");
+        String lockKey = hash("password-reset:" + userId);
+        InOrder serialization = inOrder(actions);
+        serialization.verify(actions).createSerializationLock(lockKey);
+        serialization.verify(actions).lockSerializationKey(lockKey);
+        serialization.verify(actions).findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.PASSWORD_RESET, userId);
     }
 
     @Test

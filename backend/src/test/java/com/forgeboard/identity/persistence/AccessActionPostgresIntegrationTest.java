@@ -4,6 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -11,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +53,7 @@ class AccessActionPostgresIntegrationTest {
     @Autowired FirmMembershipRepository memberships;
     @Autowired UserRepository users;
     @Autowired JdbcClient jdbc;
+    @Autowired PlatformTransactionManager transactions;
 
     @Test
     @Transactional
@@ -108,6 +116,67 @@ class AccessActionPostgresIntegrationTest {
                 """).param("id", UUID.randomUUID()).param("firmId", firmId).param("membershipId", membership.id())
                 .param("createdAt", CREATED_AT).param("expiresAt", CREATED_AT.plusSeconds(7 * 24 * 60 * 60)).update())
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @Transactional
+    void serializationLockTableAcceptsOnlyCanonicalKeysAndLocksTheInsertedRow() {
+        String lockKey = "d".repeat(64);
+
+        actions.createSerializationLock(lockKey);
+
+        assertThat(actions.lockSerializationKey(lockKey)).isEqualTo(lockKey);
+        assertThatThrownBy(() -> jdbc.sql("""
+                insert into access_action_serialization_locks (lock_key, created_at)
+                values ('not-a-sha256-digest', :createdAt)
+                """).param("createdAt", CREATED_AT).update())
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void serializationLockBlocksASecondTransactionUntilTheFirstTransactionCompletes() throws Exception {
+        String lockKey = "e".repeat(64);
+        CountDownLatch firstLocked = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        CountDownLatch secondCompleted = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        TransactionTemplate transaction = new TransactionTemplate(transactions);
+        try {
+            Future<?> first = executor.submit(() -> transaction.executeWithoutResult(status -> {
+                actions.createSerializationLock(lockKey);
+                actions.lockSerializationKey(lockKey);
+                firstLocked.countDown();
+                await(releaseFirst);
+            }));
+            assertThat(firstLocked.await(5, TimeUnit.SECONDS)).isTrue();
+
+            Future<?> second = executor.submit(() -> transaction.executeWithoutResult(status -> {
+                secondStarted.countDown();
+                actions.createSerializationLock(lockKey);
+                actions.lockSerializationKey(lockKey);
+                secondCompleted.countDown();
+            }));
+            assertThat(secondStarted.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThat(secondCompleted.await(250, TimeUnit.MILLISECONDS)).isFalse();
+
+            releaseFirst.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+            assertThat(secondCompleted.getCount()).isZero();
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) throw new AssertionError("Timed out waiting for lock release");
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for lock release", exception);
+        }
     }
 
     private FirmMembership invitedMembership(UUID firmId) {
