@@ -21,6 +21,7 @@ const session = {
 }
 const apiSession = { ...session, accessToken: 'private-access-token', refreshToken: 'private-refresh-token', accessTokenExpiresAt: Date.now() + 60_000 }
 const routeContext = { params: Promise.resolve({ path: ['firms'] }) }
+const resetContext = { params: Promise.resolve({ path: ['users', 'user-1', 'password-reset'] }) }
 
 function request(method = 'GET', options: RequestInit = {}) {
   return new Request('http://localhost:3000/api/platform-admin/firms?query=hearth', { method, ...options })
@@ -100,5 +101,15 @@ describe('platform administration BFF proxy', () => {
     expect(response.status).toBe(200)
     const forwarded = mocks.upstreamResponse.mock.calls[0][0]
     expect(new TextDecoder().decode(forwarded.body)).toBe('{"name":"Hearth Accounting"}')
+  })
+
+  it('proxies a platform password-reset generation without a tenant context', async () => {
+    const response = await POST(request('POST', { headers: { Origin: 'http://localhost:3000' } }), resetContext)
+
+    expect(response.status).toBe(200)
+    expect(mocks.upstreamResponse).toHaveBeenCalledWith(expect.objectContaining({
+      path: '/api/platform-admin/users/user-1/password-reset?query=hearth', method: 'POST',
+    }))
+    expect(mocks.upstreamResponse.mock.calls[0][0].firmId).toBeUndefined()
   })
 })

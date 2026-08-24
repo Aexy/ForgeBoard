@@ -5,20 +5,27 @@
 .heading p:last-child { color: var(--forge-text-muted); margin: 0; }
 .eyebrow { color: var(--forge-green-800); font-size: .8rem; font-weight: 700; letter-spacing: .08em; margin: 0; text-transform: uppercase; }
 .heading > button, .form button { background: var(--forge-green-800); color: white; }
-.heading button, .form button, .row button { border: 1px solid var(--forge-green-800); border-radius: .35rem; font: inherit; padding: .55rem .8rem; }
+.heading button, .form button, .row button, .accessLink button { border: 1px solid var(--forge-green-800); border-radius: .35rem; font: inherit; padding: .55rem .8rem; }
 .form { background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: .8rem; max-width: 42rem; padding: 1rem; }
 .form h2 { font-size: 1.1rem; margin: 0; }
 .form label { display: grid; font-weight: 600; gap: .35rem; }
 .form input, .form select, .roleLabel select { border: 1px solid var(--forge-border); border-radius: .3rem; font: inherit; padding: .55rem; }
 .list { display: grid; gap: .7rem; }
-.row { align-items: center; background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: .8rem; grid-template-columns: minmax(12rem, 1fr) minmax(10rem, auto) auto auto; padding: .9rem 1rem; }
+.row { align-items: center; background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .5rem; display: grid; gap: .8rem; grid-template-columns: minmax(12rem, 1fr) minmax(10rem, auto) auto minmax(16rem, auto); padding: .9rem 1rem; }
 .row h2 { font-size: 1rem; margin: 0; }
 .row p { color: var(--forge-text-muted); margin: .2rem 0 0; }
 .row > span { font-weight: 600; text-transform: capitalize; }
 .roleLabel { display: grid; font-size: .85rem; gap: .2rem; }
-.row button { background: transparent; color: var(--forge-green-800); }
+.row button, .accessLink button { background: transparent; color: var(--forge-green-800); }
 .row .danger { border-color: #a11e26; color: #a11e26; }
-.row[data-status='SUSPENDED'] { opacity: .7; }
+.row[data-status='SUSPENDED'], .row[data-status='REMOVED'] { opacity: .7; }
 .empty { border: 1px dashed var(--forge-border); border-radius: .5rem; padding: 1rem; }
 .error { color: #a11e26; }
-@media (max-width: 42rem) { .heading { flex-direction: column; } .row { align-items: stretch; grid-template-columns: 1fr; } }
+.controls { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+.accessLink { background: #f4faf5; border: 1px solid #9dc8aa; border-radius: .5rem; display: grid; gap: .65rem; padding: .9rem; }
+.accessLink p { color: #254535; font-weight: 700; margin: 0; }
+.accessLink label { display: grid; font-size: .85rem; font-weight: 600; gap: .35rem; }
+.accessLink input { border: 1px solid var(--forge-border); border-radius: .3rem; font: inherit; min-height: 2.5rem; padding: .55rem; width: 100%; }
+.accessLink div { display: flex; flex-wrap: wrap; gap: .5rem; }
+.back:focus-visible, .heading button:focus-visible, .form input:focus-visible, .form select:focus-visible, .form button:focus-visible, .roleLabel select:focus-visible, .row button:focus-visible, .accessLink input:focus-visible, .accessLink button:focus-visible { outline: 3px solid var(--forge-green-800); outline-offset: 2px; }
+@media (max-width: 42rem) { .heading { flex-direction: column; } .row { align-items: stretch; grid-template-columns: 1fr; } .controls { justify-content: start; } }

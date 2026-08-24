@@ -3,6 +3,7 @@
 import { forgeboardApi, platformTag } from '@/store/api'
 
 export type PlatformStatus = 'ACTIVE' | 'SUSPENDED'
+export type PlatformMembershipStatus = 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'REMOVED'
 export type MembershipRole = 'OWNER' | 'ADMINISTRATOR' | 'MANAGER' | 'MEMBER' | 'READ_ONLY'
 
 export type PlatformFirm = {
@@ -18,11 +19,11 @@ export type PlatformFirmPage = { firms: PlatformFirm[]; nextCursor: string | nul
 
 export type PlatformEmployee = {
   membershipId: string
-  userId: string
-  displayName: string
+  userId: string | null
+  displayName: string | null
   email: string
   role: MembershipRole
-  status: PlatformStatus
+  status: PlatformMembershipStatus
 }
 
 export type CreatePlatformFirm = {
@@ -33,12 +34,13 @@ export type CreatePlatformFirm = {
   initialPassword: string
 }
 
-export type CreatePlatformEmployee = {
+export type PlatformInvitationRequest = {
   displayName: string
   email: string
-  initialPassword: string
   role: MembershipRole
 }
+
+export type GeneratedAccessLink = { actionId: string; link: string; expiresAt: string }
 
 const platformUrl = (path: string) => new URL(`/api/platform-admin/${path}`, window.location.origin).toString()
 
@@ -65,37 +67,54 @@ export const platformAdminApi = forgeboardApi.injectEndpoints({
     }),
     getPlatformEmployees: build.query<PlatformEmployee[], string>({
       query: (firmId) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees`) }),
-      providesTags: (result, _error, firmId) => [
-        { type: 'PlatformEmployee', id: platformTag(firmId) },
-        ...(result ?? []).map((employee) => ({ type: 'PlatformEmployee' as const, id: platformTag(employee.membershipId) })),
-      ],
+      providesTags: (_result, _error, firmId) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
-    createPlatformEmployee: build.mutation<PlatformEmployee, { firmId: string; employee: CreatePlatformEmployee }>({
-      query: ({ firmId, employee }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees`), method: 'POST', body: employee }),
+    generatePlatformInvitation: build.mutation<GeneratedAccessLink, { firmId: string; request: PlatformInvitationRequest }>({
+      query: ({ firmId, request }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees`), method: 'POST', body: request }),
       invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
     updatePlatformEmployeeRole: build.mutation<PlatformEmployee, { firmId: string; membershipId: string; role: MembershipRole }>({
       query: ({ firmId, membershipId, role }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}/role`), method: 'PUT', body: { role } }),
-      invalidatesTags: (_result, _error, { firmId, membershipId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }, { type: 'PlatformEmployee', id: platformTag(membershipId) }],
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
     suspendPlatformMembership: build.mutation<PlatformEmployee, { firmId: string; membershipId: string }>({
       query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}/suspension`), method: 'POST' }),
-      invalidatesTags: (_result, _error, { firmId, membershipId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }, { type: 'PlatformEmployee', id: platformTag(membershipId) }],
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
     reactivatePlatformMembership: build.mutation<PlatformEmployee, { firmId: string; membershipId: string }>({
       query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}/suspension`), method: 'DELETE' }),
-      invalidatesTags: (_result, _error, { firmId, membershipId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }, { type: 'PlatformEmployee', id: platformTag(membershipId) }],
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
+    }),
+    reissuePlatformInvitation: build.mutation<GeneratedAccessLink, { firmId: string; membershipId: string }>({
+      query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}/invitation`), method: 'POST' }),
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
+    }),
+    revokePlatformInvitation: build.mutation<void, { firmId: string; membershipId: string }>({
+      query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}/invitation`), method: 'DELETE' }),
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
+    }),
+    removePlatformMembership: build.mutation<void, { firmId: string; membershipId: string }>({
+      query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}`), method: 'DELETE' }),
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
+    }),
+    generatePasswordReset: build.mutation<GeneratedAccessLink, { firmId: string; userId: string }>({
+      query: ({ userId }) => ({ url: platformUrl(`users/${encodeURIComponent(userId)}/password-reset`), method: 'POST' }),
+      invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
   }),
 })
 
 export const {
-  useCreatePlatformEmployeeMutation,
   useCreatePlatformFirmMutation,
+  useGeneratePasswordResetMutation,
+  useGeneratePlatformInvitationMutation,
   useGetPlatformEmployeesQuery,
   useGetPlatformFirmsQuery,
   useReactivatePlatformFirmMutation,
   useReactivatePlatformMembershipMutation,
+  useReissuePlatformInvitationMutation,
+  useRemovePlatformMembershipMutation,
+  useRevokePlatformInvitationMutation,
   useSuspendPlatformFirmMutation,
   useSuspendPlatformMembershipMutation,
   useUpdatePlatformEmployeeRoleMutation,

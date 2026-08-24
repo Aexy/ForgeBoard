@@ -1,14 +1,19 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 
 import { useLanguage } from '@/app/LanguageProvider'
 import {
   type MembershipRole,
+  type PlatformEmployee,
   type PlatformFirm,
-  useCreatePlatformEmployeeMutation,
+  useGeneratePasswordResetMutation,
+  useGeneratePlatformInvitationMutation,
   useGetPlatformEmployeesQuery,
   useReactivatePlatformMembershipMutation,
+  useReissuePlatformInvitationMutation,
+  useRemovePlatformMembershipMutation,
+  useRevokePlatformInvitationMutation,
   useSuspendPlatformMembershipMutation,
   useUpdatePlatformEmployeeRoleMutation,
 } from './platform-admin-transport'
@@ -18,6 +23,9 @@ const assignableRoles: MembershipRole[] = ['OWNER', 'ADMINISTRATOR', 'MANAGER', 
 const roleKey: Record<MembershipRole, 'platformAdmin.roleOwner' | 'platformAdmin.roleAdministrator' | 'platformAdmin.roleManager' | 'platformAdmin.roleMember' | 'platformAdmin.roleReadOnly'> = {
   OWNER: 'platformAdmin.roleOwner', ADMINISTRATOR: 'platformAdmin.roleAdministrator', MANAGER: 'platformAdmin.roleManager', MEMBER: 'platformAdmin.roleMember', READ_ONLY: 'platformAdmin.roleReadOnly',
 }
+const statusKey = {
+  INVITED: 'platformAdmin.invited', ACTIVE: 'platformAdmin.active', SUSPENDED: 'platformAdmin.suspended', REMOVED: 'platformAdmin.removed',
+} as const
 
 function errorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'object' && error && 'data' in error) {
@@ -31,12 +39,19 @@ function errorMessage(error: unknown, fallback: string): string {
 export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: PlatformFirm; onBack: () => void }>) {
   const { t } = useLanguage()
   const employees = useGetPlatformEmployeesQuery(firm.id)
-  const [createEmployee, createResult] = useCreatePlatformEmployeeMutation()
+  const [generateInvitation, invitationResult] = useGeneratePlatformInvitationMutation()
+  const [reissueInvitation] = useReissuePlatformInvitationMutation()
+  const [revokeInvitation] = useRevokePlatformInvitationMutation()
   const [updateRole] = useUpdatePlatformEmployeeRoleMutation()
   const [suspendMembership] = useSuspendPlatformMembershipMutation()
   const [reactivateMembership] = useReactivatePlatformMembershipMutation()
+  const [removeMembership] = useRemovePlatformMembershipMutation()
+  const [generatePasswordReset] = useGeneratePasswordResetMutation()
   const [creating, setCreating] = useState(false)
+  const [accessLink, setAccessLink] = useState<{ firmId: string; link: string; type: 'invitation' | 'reset' } | null>(null)
   const [error, setError] = useState('')
+
+  useEffect(() => { setAccessLink(null) }, [firm.id])
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -44,45 +59,84 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
     const data = new FormData(form)
     setError('')
     try {
-      await createEmployee({ firmId: firm.id, employee: { displayName: String(data.get('displayName')), email: String(data.get('email')), initialPassword: String(data.get('initialPassword')), role: String(data.get('role')) as MembershipRole } }).unwrap()
+      const invitation = await generateInvitation({ firmId: firm.id, request: { displayName: String(data.get('displayName')), email: String(data.get('email')), role: String(data.get('role')) as MembershipRole } }).unwrap()
+      setAccessLink({ firmId: firm.id, link: invitation.link, type: 'invitation' })
       form.reset()
       setCreating(false)
-    } catch (failure) { setError(errorMessage(failure, t('platformAdmin.provisionError'))) }
+    } catch (failure) { setError(errorMessage(failure, t('platformAdmin.invitationError'))) }
   }
 
-  async function setRole(membershipId: string, role: MembershipRole) {
+  async function reissue(employee: PlatformEmployee) {
     setError('')
-    try { await updateRole({ firmId: firm.id, membershipId, role }).unwrap() } catch (failure) { setError(errorMessage(failure, t('platformAdmin.roleError'))) }
+    try { setAccessLink({ firmId: firm.id, link: (await reissueInvitation({ firmId: firm.id, membershipId: employee.membershipId }).unwrap()).link, type: 'invitation' }) } catch (failure) { setError(errorMessage(failure, t('platformAdmin.invitationError'))) }
   }
 
-  async function setStatus(membershipId: string, displayName: string, active: boolean) {
-    if (!window.confirm(t(active ? 'platformAdmin.confirmSuspendEmployee' : 'platformAdmin.confirmReactivateEmployee').replace('{employee}', displayName))) return
+  async function revoke(employee: PlatformEmployee) {
+    setError('')
+    try { await revokeInvitation({ firmId: firm.id, membershipId: employee.membershipId }).unwrap() } catch (failure) { setError(errorMessage(failure, t('platformAdmin.membershipStatusError'))) }
+  }
+
+  async function setRole(employee: PlatformEmployee, role: MembershipRole) {
+    setError('')
+    try { await updateRole({ firmId: firm.id, membershipId: employee.membershipId, role }).unwrap() } catch (failure) { setError(errorMessage(failure, t('platformAdmin.roleError'))) }
+  }
+
+  async function setStatus(employee: PlatformEmployee) {
+    const active = employee.status === 'ACTIVE'
+    if (!window.confirm(t(active ? 'platformAdmin.confirmSuspendEmployee' : 'platformAdmin.confirmReactivateEmployee').replace('{employee}', employee.displayName ?? employee.email))) return
     setError('')
     try {
-      if (active) await suspendMembership({ firmId: firm.id, membershipId }).unwrap()
-      else await reactivateMembership({ firmId: firm.id, membershipId }).unwrap()
+      if (active) await suspendMembership({ firmId: firm.id, membershipId: employee.membershipId }).unwrap()
+      else await reactivateMembership({ firmId: firm.id, membershipId: employee.membershipId }).unwrap()
     } catch (failure) { setError(errorMessage(failure, t('platformAdmin.membershipStatusError'))) }
   }
 
+  async function remove(employee: PlatformEmployee) {
+    if (!window.confirm(t('platformAdmin.confirmRemoveEmployee').replace('{employee}', employee.displayName ?? employee.email))) return
+    setError('')
+    try { await removeMembership({ firmId: firm.id, membershipId: employee.membershipId }).unwrap() } catch (failure) { setError(errorMessage(failure, t('platformAdmin.membershipStatusError'))) }
+  }
+
+  async function resetPassword(employee: PlatformEmployee) {
+    if (!employee.userId) return
+    setError('')
+    try { setAccessLink({ firmId: firm.id, link: (await generatePasswordReset({ firmId: firm.id, userId: employee.userId }).unwrap()).link, type: 'reset' }) } catch (failure) { setError(errorMessage(failure, t('platformAdmin.resetError'))) }
+  }
+
+  async function copyAccessLink() {
+    const link = accessLink?.firmId === firm.id ? accessLink.link : null
+    if (!link || !navigator.clipboard) return
+    try { await navigator.clipboard.writeText(link) } catch { /* The read-only field remains selectable. */ }
+  }
+
+  const visibleAccessLink = accessLink?.firmId === firm.id ? accessLink : null
+  const accessLabel = visibleAccessLink?.type === 'reset' ? t('platformAdmin.passwordResetLink') : t('platformAdmin.invitationLink')
+
   return <section className={styles.workspace}>
     <button type="button" className={styles.back} onClick={onBack}>{t('platformAdmin.backToFirms')}</button>
-    <header className={styles.heading}><div><p className={styles.eyebrow}>{t('platformAdmin.firmWorkspace')}</p><h1>{firm.name}</h1><p>{firm.slug} · {t(firm.status === 'ACTIVE' ? 'platformAdmin.active' : 'platformAdmin.suspended')}</p></div><button type="button" onClick={() => setCreating((current) => !current)}>{creating ? t('common.cancel') : t('platformAdmin.provisionEmployee')}</button></header>
+    <header className={styles.heading}><div><p className={styles.eyebrow}>{t('platformAdmin.firmWorkspace')}</p><h1>{firm.name}</h1><p>{firm.slug} · {t(firm.status === 'ACTIVE' ? 'platformAdmin.active' : 'platformAdmin.suspended')}</p></div><button type="button" onClick={() => setCreating((current) => !current)}>{creating ? t('common.cancel') : t('platformAdmin.inviteEmployee')}</button></header>
+    {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite"><p>{t('platformAdmin.oneTimeLink')}</p><label>{accessLabel}<input aria-label={accessLabel} readOnly value={visibleAccessLink.link} onFocus={(event) => event.currentTarget.select()} /></label><div><button type="button" onClick={() => void copyAccessLink()}>{t('platformAdmin.copyAccessLink')}</button><button type="button" onClick={() => setAccessLink(null)}>{t('platformAdmin.dismissAccessLink')}</button></div></section> : null}
     {creating ? <form className={styles.form} onSubmit={create}>
-      <h2>{t('platformAdmin.provisionEmployee')}</h2>
+      <h2>{t('platformAdmin.inviteEmployee')}</h2>
       <label>{t('platformAdmin.employeeName')}<input name="displayName" required maxLength={160} autoComplete="name" /></label>
       <label>{t('platformAdmin.employeeEmail')}<input name="email" type="email" required maxLength={320} autoComplete="email" /></label>
-      <label>{t('platformAdmin.initialPassword')}<input name="initialPassword" type="password" required minLength={12} maxLength={200} autoComplete="new-password" /></label>
       <label>{t('platformAdmin.role')}<select name="role" defaultValue="MEMBER">{assignableRoles.map((role) => <option key={role} value={role}>{t(roleKey[role])}</option>)}</select></label>
-      <button disabled={createResult.isLoading}>{createResult.isLoading ? t('platformAdmin.provisioningEmployee') : t('platformAdmin.provisionEmployee')}</button>
+      <button disabled={invitationResult.isLoading}>{invitationResult.isLoading ? t('platformAdmin.sendingInvitation') : t('platformAdmin.sendInvitation')}</button>
     </form> : null}
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {employees.isError ? <p className={styles.error} role="alert">{t('platformAdmin.employeesLoadError')}</p> : employees.isLoading ? <p aria-live="polite">{t('platformAdmin.loadingEmployees')}</p> : employees.data?.length === 0 ? <div className={styles.empty}><h2>{t('platformAdmin.emptyEmployeesTitle')}</h2><p>{t('platformAdmin.emptyEmployeesDescription')}</p></div> : <div className={styles.list} aria-label={t('platformAdmin.employeeList')}>
-      {employees.data?.map((employee) => <article className={styles.row} key={employee.membershipId} data-status={employee.status}>
-        <div><h2>{employee.displayName}</h2><p>{employee.email}</p></div>
-        <label className={styles.roleLabel}><span>{t('platformAdmin.role')}</span><select aria-label={`${t('platformAdmin.role')} ${employee.displayName}`} value={employee.role} onChange={(event) => void setRole(employee.membershipId, event.target.value as MembershipRole)}>{assignableRoles.map((role) => <option key={role} value={role}>{t(roleKey[role])}</option>)}</select></label>
-        <span>{t(employee.status === 'ACTIVE' ? 'platformAdmin.active' : 'platformAdmin.suspended')}</span>
-        <button type="button" className={employee.status === 'ACTIVE' ? styles.danger : undefined} onClick={() => void setStatus(employee.membershipId, employee.displayName, employee.status === 'ACTIVE')}>{t(employee.status === 'ACTIVE' ? 'platformAdmin.suspendEmployee' : 'platformAdmin.reactivateEmployee')}</button>
-      </article>)}
+      {employees.data?.map((employee) => {
+        const label = employee.displayName ?? employee.email
+        return <article className={styles.row} key={employee.membershipId} data-status={employee.status}>
+          <div><h2>{label}</h2><p>{employee.email}</p></div>
+          <label className={styles.roleLabel}><span>{t('platformAdmin.role')}</span><select aria-label={`${t('platformAdmin.role')} ${label}`} value={employee.role} disabled={employee.status === 'REMOVED'} onChange={(event) => void setRole(employee, event.target.value as MembershipRole)}>{assignableRoles.map((role) => <option key={role} value={role}>{t(roleKey[role])}</option>)}</select></label>
+          <span>{t(statusKey[employee.status])}</span>
+          <div className={styles.controls}>
+            {employee.status === 'INVITED' ? <><button type="button" onClick={() => void reissue(employee)}>{t('platformAdmin.reissueInvitation')}</button><button type="button" className={styles.danger} onClick={() => void revoke(employee)}>{t('platformAdmin.revokeInvitation')}</button></> : null}
+            {employee.status === 'ACTIVE' || employee.status === 'SUSPENDED' ? <><button type="button" className={employee.status === 'ACTIVE' ? styles.danger : undefined} onClick={() => void setStatus(employee)}>{t(employee.status === 'ACTIVE' ? 'platformAdmin.suspendEmployee' : 'platformAdmin.reactivateEmployee')}</button><button type="button" onClick={() => void resetPassword(employee)}>{t('platformAdmin.generatePasswordReset')}</button><button type="button" className={styles.danger} onClick={() => void remove(employee)}>{t('platformAdmin.removeEmployee')}</button></> : null}
+          </div>
+        </article>
+      })}
     </div>}
   </section>
 }
