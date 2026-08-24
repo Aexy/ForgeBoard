@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,18 +44,57 @@ class PlatformAccessManagementServiceTest {
     @Mock ActivityAuditService audit;
 
     @Test
-    void platformAdministratorCanGenerateAPasswordResetLinkForAnyUser() {
+    void platformAdministratorCanGenerateAPasswordResetOnlyForTheSelectedActiveMembership() {
         ForgeBoardUser administrator = user("admin@example.com");
-        UUID userId = UUID.randomUUID();
+        UUID firmId = UUID.randomUUID();
+        FirmMembership target = new FirmMembership(UUID.randomUUID(), firmId, UUID.randomUUID(), MembershipRole.MEMBER,
+                Instant.parse("2026-08-07T10:00:00Z"));
         GeneratedAccessLink reset = new GeneratedAccessLink(UUID.randomUUID(), "https://app.example/reset/token",
                 Instant.parse("2026-08-14T10:00:00Z"));
         when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(administrator));
-        when(lifecycle.createPasswordReset(administrator.id(), userId)).thenReturn(reset);
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(target.id(), firmId)).thenReturn(Optional.of(target));
+        when(users.findById(target.userId())).thenReturn(Optional.of(user("member@example.com")));
+        when(lifecycle.createPasswordReset(administrator.id(), firmId, target.id())).thenReturn(reset);
 
-        GeneratedAccessLink result = service().createPasswordReset(actor(), userId);
+        GeneratedAccessLink result = service().createPasswordReset(actor(), firmId, target.id());
 
         assertThat(result).isSameAs(reset);
-        verify(lifecycle).createPasswordReset(administrator.id(), userId);
+        verify(lifecycle).createPasswordReset(administrator.id(), firmId, target.id());
+    }
+
+    @Test
+    void platformAdministratorCannotGenerateAResetForASuspendedMembership() {
+        UUID firmId = UUID.randomUUID();
+        FirmMembership target = new FirmMembership(UUID.randomUUID(), firmId, UUID.randomUUID(), MembershipRole.MEMBER,
+                Instant.parse("2026-08-07T10:00:00Z"));
+        target.suspend(Instant.parse("2026-08-07T10:00:01Z"));
+        when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(user("admin@example.com")));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(target.id(), firmId)).thenReturn(Optional.of(target));
+
+        assertThatThrownBy(() -> service().createPasswordReset(actor(), firmId, target.id()))
+                .isInstanceOf(InvalidIdentityException.class);
+
+        verify(lifecycle, never()).createPasswordReset(any(), any(), any());
+    }
+
+    @Test
+    void platformAdministratorCannotGenerateAResetForADisabledUser() {
+        UUID firmId = UUID.randomUUID();
+        FirmMembership target = new FirmMembership(UUID.randomUUID(), firmId, UUID.randomUUID(), MembershipRole.MEMBER,
+                Instant.parse("2026-08-07T10:00:00Z"));
+        ForgeBoardUser disabled = mock(ForgeBoardUser.class);
+        when(disabled.enabled()).thenReturn(false);
+        when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(user("admin@example.com")));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(target.id(), firmId)).thenReturn(Optional.of(target));
+        when(users.findById(target.userId())).thenReturn(Optional.of(disabled));
+
+        assertThatThrownBy(() -> service().createPasswordReset(actor(), firmId, target.id()))
+                .isInstanceOf(InvalidIdentityException.class);
+
+        verify(lifecycle, never()).createPasswordReset(any(), any(), any());
     }
 
     @Test
@@ -94,7 +134,8 @@ class PlatformAccessManagementServiceTest {
         when(users.findByEmail("admin@example.com")).thenReturn(Optional.of(administrator));
         when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
         when(lifecycle.createInvitation(firmId, administrator.id(),
-                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER))).thenReturn(link);
+                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER),
+                AccessManagementOrigin.PLATFORM)).thenReturn(link);
 
         assertThat(service().invite(actor(), firmId, new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER)))
                 .isSameAs(link);
@@ -102,7 +143,8 @@ class PlatformAccessManagementServiceTest {
         var order = inOrder(firms, lifecycle);
         order.verify(firms).findByIdForUpdate(firmId);
         order.verify(lifecycle).createInvitation(firmId, administrator.id(),
-                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER));
+                new InviteMemberRequest("Mira", "mira@example.com", MembershipRole.OWNER),
+                AccessManagementOrigin.PLATFORM);
     }
 
     @Test

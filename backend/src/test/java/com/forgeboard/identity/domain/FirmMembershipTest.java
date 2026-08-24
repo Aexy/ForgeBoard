@@ -14,9 +14,11 @@ class FirmMembershipTest {
     @Test
     void invitedMembershipCannotAuthorizeUntilActivationBindsAUser() {
         FirmMembership membership = FirmMembership.invited(UUID.randomUUID(), UUID.randomUUID(),
-                MembershipRole.MEMBER, CREATED_AT);
+                "invitee@example.com", "Invited Member", MembershipRole.MEMBER, CREATED_AT);
 
         assertThat(membership.userId()).isNull();
+        assertThat(membership.invitationEmail()).isEqualTo("invitee@example.com");
+        assertThat(membership.invitationDisplayName()).isEqualTo("Invited Member");
         assertThat(membership.status()).isEqualTo(MembershipStatus.INVITED);
         assertThat(membership.status()).isNotEqualTo(MembershipStatus.ACTIVE);
 
@@ -51,5 +53,22 @@ class FirmMembershipTest {
         assertThatThrownBy(() -> membership.reactivate(CREATED_AT.plusSeconds(61))).isInstanceOf(IllegalStateException.class);
         assertThat(membership.status()).isEqualTo(MembershipStatus.REMOVED);
         assertThat(membership.role()).isEqualTo(MembershipRole.MEMBER);
+    }
+
+    @Test
+    void removedMembershipCanOnlyReenterThroughAnExplicitInvitation() {
+        UUID userId = UUID.randomUUID();
+        FirmMembership membership = new FirmMembership(UUID.randomUUID(), UUID.randomUUID(), userId,
+                MembershipRole.MEMBER, CREATED_AT);
+        membership.remove(CREATED_AT.plusSeconds(60));
+
+        membership.reinvite("member@example.com", "Member Again", MembershipRole.MANAGER,
+                CREATED_AT.plusSeconds(120));
+
+        assertThat(membership.userId()).isEqualTo(userId);
+        assertThat(membership.status()).isEqualTo(MembershipStatus.INVITED);
+        assertThat(membership.role()).isEqualTo(MembershipRole.MANAGER);
+        assertThat(membership.invitationEmail()).isEqualTo("member@example.com");
+        assertThat(membership.invitationDisplayName()).isEqualTo("Member Again");
     }
 }

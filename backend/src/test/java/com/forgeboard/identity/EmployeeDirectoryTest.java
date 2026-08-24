@@ -33,17 +33,15 @@ class EmployeeDirectoryTest {
         UUID memberId = UUID.randomUUID();
         UUID otherFirmUserId = UUID.randomUUID();
         Instant now = Instant.parse("2026-07-16T00:00:00Z");
-        when(memberships.findAllByFirmIdAndUserIdIn(firmId, List.of(memberId, otherFirmUserId))).thenReturn(List.of(
-                new FirmMembership(UUID.randomUUID(), firmId, memberId, MembershipRole.MEMBER, now)));
-        when(users.findAllById(List.of(memberId))).thenReturn(List.of(
-                new ForgeBoardUser(memberId, "mira@example.com", "Mira Miller", "hash", now)));
+        when(memberships.findActiveStaffByFirmIdAndUserIdIn(firmId, List.of(memberId, otherFirmUserId))).thenReturn(List.of(
+                new FirmStaffRow(UUID.randomUUID(), memberId, "Mira Miller", "mira@example.com",
+                        MembershipRole.MEMBER)));
 
         Map<UUID, String> displayNames = new EmployeeDirectory(memberships, users)
                 .displayNames(firmId, List.of(memberId, otherFirmUserId));
 
         assertThat(displayNames).containsExactly(Map.entry(memberId, "Mira Miller"));
-        verify(memberships).findAllByFirmIdAndUserIdIn(firmId, List.of(memberId, otherFirmUserId));
-        verify(users).findAllById(List.of(memberId));
+        verify(memberships).findActiveStaffByFirmIdAndUserIdIn(firmId, List.of(memberId, otherFirmUserId));
     }
 
     @Test

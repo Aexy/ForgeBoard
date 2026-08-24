@@ -104,4 +104,16 @@ class TenantAuthorizationServiceTest {
 
         assertThat(authorization.authorize(user.email(), firmId).firmId()).isEqualTo(firmId);
     }
+
+    @Test
+    void rechecksActiveEnabledMembershipBeforeEveryCapabilityDecision() {
+        UUID firmId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        SelectedTenant staleTenant = new SelectedTenant(firmId, userId, "owner@example.com", MembershipRole.OWNER);
+        when(memberships.existsActiveEnabledByFirmIdAndUserId(firmId, userId)).thenReturn(false);
+
+        assertThatThrownBy(() -> new TenantAuthorizationService(users, memberships, firms)
+                .requireMembershipManagement(staleTenant))
+                .isInstanceOf(AccessDeniedException.class);
+    }
 }

@@ -91,9 +91,18 @@ public class AccessAction {
             revokedAt = now;
     }
 
+    public void bindUser(UUID userId) {
+        UUID requiredUserId = Objects.requireNonNull(userId, "userId is required");
+        if (this.userId != null && !this.userId.equals(requiredUserId))
+            throw new IllegalStateException("Access action is already bound to another user");
+        this.userId = requiredUserId;
+    }
+
     private void requireScopeForType() {
         if (type == AccessActionType.INVITATION && (firmId == null || membershipId == null))
             throw new IllegalArgumentException("Invitation actions require firm and membership IDs");
+        if (type == AccessActionType.PASSWORD_RESET && (firmId == null || membershipId == null || userId == null))
+            throw new IllegalArgumentException("Password reset actions require firm, membership, and user IDs");
     }
 
     /** Canonical lowercase hexadecimal SHA-256 digest accepted at the persistence boundary. */

@@ -41,17 +41,26 @@ public class TenantAuthorizationService {
     }
 
     public void requireMembershipManagement(SelectedTenant tenant) {
+        requireActiveTenant(tenant);
         if (!tenant.role().canManageMemberships())
             throw new AccessDeniedException("Only owners and administrators can manage employees");
     }
 
     public void requireAssignmentManagement(SelectedTenant tenant) {
+        requireActiveTenant(tenant);
         if (!tenant.role().canManageAssignments())
             throw new AccessDeniedException("Only owners and administrators can assign work items");
     }
 
     public void requireAuditTrailAccess(SelectedTenant tenant) {
+        requireActiveTenant(tenant);
         if (!tenant.role().canViewAuditTrail())
             throw new AccessDeniedException("Only owners and managers can view the audit trail");
+    }
+
+    public void requireActiveTenant(SelectedTenant tenant) {
+        if (!memberships.existsActiveEnabledByFirmIdAndUserId(tenant.firmId(), tenant.userId())
+                || firms.findById(tenant.firmId()).filter(firm -> firm.status() == FirmStatus.ACTIVE).isEmpty())
+            throw new AccessDeniedException("User is not an active member of this firm");
     }
 }

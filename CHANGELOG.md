@@ -70,6 +70,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Focus and select newly generated invitation and password-reset links for firm and platform operators, and hide reset actions unless both the selected firm and target membership are active. (`M3`)
+
 - Show each workflow card's assigned employee name, or an explicit unassigned state, to all workflow users in English and German. (`M2`)
 
 - Fixed PostgreSQL type inference when audit-trail filter values are omitted. (`M2`)
@@ -140,6 +142,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Enabled Spring Boot 4 Flyway auto-configuration with `spring-boot-starter-flyway`, fixing PostgreSQL integration-test startup before Hibernate schema validation. (`M1`)
 
 ### Security
+
+- Hardened invitation and password-reset targeting around active firms, active memberships, and enabled users; added durable invitation identity, concurrency-safe single-live-link constraints, returning-user reinvitation, active-only tenant discovery and assignment checks, generic redemption failures, and scoped platform audit origin. (`M3`, migration `V021`)
 
 - Established tenant isolation, scoped MCP tokens, auditable mutations, EU deployment, and GDPR-aware data handling as baseline requirements. (`M0`)
 - Added BCrypt password hashing with work factor 12 and membership verification before tenant context is exposed. (`M0`)

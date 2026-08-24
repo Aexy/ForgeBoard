@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.forgeboard.identity.domain.AccessActionType;
 import com.forgeboard.identity.domain.ActivitySource;
 import com.forgeboard.identity.domain.FirmMembership;
+import com.forgeboard.identity.domain.FirmStatus;
 import com.forgeboard.identity.domain.ForgeBoardUser;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.domain.MembershipStatus;
@@ -59,21 +60,21 @@ public class PlatformAccessManagementService {
     public GeneratedAccessLink invite(Authentication actor, UUID firmId, InviteMemberRequest request) {
         UUID actorId = actorUserId(actor);
         lockFirm(firmId);
-        return lifecycle.createInvitation(firmId, actorId, request);
+        return lifecycle.createInvitation(firmId, actorId, request, AccessManagementOrigin.PLATFORM);
     }
 
     @Transactional
     public GeneratedAccessLink reissueInvitation(Authentication actor, UUID firmId, UUID membershipId) {
         UUID actorId = actorUserId(actor);
         FirmMembership membership = membershipForMutation(firmId, membershipId);
-        return lifecycle.reissueInvitation(firmId, actorId, membership.id());
+        return lifecycle.reissueInvitation(firmId, actorId, membership.id(), AccessManagementOrigin.PLATFORM);
     }
 
     @Transactional
     public void revokeInvitation(Authentication actor, UUID firmId, UUID membershipId) {
         UUID actorId = actorUserId(actor);
         FirmMembership membership = membershipForMutation(firmId, membershipId);
-        lifecycle.revokeInvitation(firmId, actorId, membership.id());
+        lifecycle.revokeInvitation(firmId, actorId, membership.id(), AccessManagementOrigin.PLATFORM);
     }
 
     @Transactional
@@ -123,8 +124,16 @@ public class PlatformAccessManagementService {
     }
 
     @Transactional
-    public GeneratedAccessLink createPasswordReset(Authentication actor, UUID userId) {
-        return lifecycle.createPasswordReset(actorUserId(actor), userId);
+    public GeneratedAccessLink createPasswordReset(Authentication actor, UUID firmId, UUID membershipId) {
+        UUID actorId = actorUserId(actor);
+        if (firms.findByIdForUpdate(firmId).filter(firm -> firm.status() == FirmStatus.ACTIVE).isEmpty())
+            throw new InvalidIdentityException("Password reset target is not active");
+        FirmMembership membership = memberships.findByIdAndFirmId(membershipId, firmId)
+                .filter(candidate -> candidate.status() == MembershipStatus.ACTIVE && candidate.userId() != null)
+                .orElseThrow(() -> new InvalidIdentityException("Password reset target is not active"));
+        if (users.findById(membership.userId()).filter(ForgeBoardUser::enabled).isEmpty())
+            throw new InvalidIdentityException("Password reset target is not active");
+        return lifecycle.createPasswordReset(actorId, firmId, membershipId);
     }
 
     private UUID actorUserId(Authentication actor) {
@@ -197,8 +206,9 @@ public class PlatformAccessManagementService {
 
     private PlatformEmployeeView view(FirmMembership membership, Map<UUID, String> invitationEmails,
             Map<UUID, ForgeBoardUser> usersById) {
-        if (membership.userId() == null)
-            return new PlatformEmployeeView(membership.id(), null, null, invitationEmails.get(membership.id()), membership.role(),
+        if (membership.status() == MembershipStatus.INVITED)
+            return new PlatformEmployeeView(membership.id(), membership.userId(), membership.invitationDisplayName(),
+                    membership.invitationEmail() == null ? invitationEmails.get(membership.id()) : membership.invitationEmail(), membership.role(),
                     membership.status());
         ForgeBoardUser user = usersById == null ? users.findById(membership.userId())
                 .orElseThrow(() -> new EntityNotFoundException("Employee account was not found"))

@@ -54,6 +54,7 @@ export function Employees() {
   const [accessLink, setAccessLink] = useState<{ firmId: string; link: string } | null>(null)
   const [error, setError] = useState('')
   const previousFirmId = useRef(firm.firmId)
+  const accessLinkInput = useRef<HTMLInputElement>(null)
   const accessMutationResets = useRef<() => void>(() => {})
   accessMutationResets.current = () => { invitationResult.reset(); reissueResult.reset() }
 
@@ -66,6 +67,12 @@ export function Employees() {
     dismissAccessLink()
   }, [firm.firmId])
   useEffect(() => () => resetAccessMutationResults(), [])
+  const visibleAccessLink = accessLink?.firmId === firm.firmId ? accessLink.link : null
+  useEffect(() => {
+    if (!visibleAccessLink || !accessLinkInput.current) return
+    accessLinkInput.current.focus()
+    accessLinkInput.current.select()
+  }, [visibleAccessLink])
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -131,13 +138,11 @@ export function Employees() {
     return <section className={styles.workspace}><div className={styles.denied} role="alert"><h1>{t('employees.title')}</h1><p>{t('employees.denied')}</p></div></section>
   }
 
-  const visibleAccessLink = accessLink?.firmId === firm.firmId ? accessLink.link : null
-
   return <section className={styles.workspace}>
     <header className={styles.heading}><div><p className={styles.eyebrow}>{t('employees.eyebrow')}</p><h1>{t('employees.title')}</h1><p>{t('employees.description')}</p></div></header>
     {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite">
       <p>{t('employees.oneTimeLink')}</p>
-      <label>{t('employees.invitationLink')}<input aria-label={t('employees.invitationLink')} readOnly value={visibleAccessLink} onFocus={(event) => event.currentTarget.select()} /></label>
+      <label>{t('employees.invitationLink')}<input ref={accessLinkInput} aria-label={t('employees.invitationLink')} readOnly value={visibleAccessLink} onFocus={(event) => event.currentTarget.select()} /></label>
       <div><button type="button" onClick={() => void copyAccessLink()}>{t('employees.copyInvitationLink')}</button><button type="button" onClick={dismissAccessLink}>{t('employees.dismissInvitationLink')}</button></div>
     </section> : null}
     <details className={styles.createPanel} open={creating} onToggle={(event) => setCreating(event.currentTarget.open)}>

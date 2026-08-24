@@ -50,9 +50,11 @@ class EngagementLifecyclePostgresIntegrationTest {
             insert(connection, "insert into workflow_stages (id, firm_id, workflow_id, name, position, attention_status, is_final, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     stageId, firmId, workflowId, "Preparation", 0, "NONE", true, now, now);
             insert(connection, "insert into work_items (id, firm_id, client_id, workflow_id, stage_id, title, description, priority, rank, task_reference, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    workItemId, firmId, clientId, workflowId, stageId, "Task", "", "NORMAL", BigDecimal.ONE, "FB-" + workItemId, now, now);
+                    workItemId, firmId, clientId, workflowId, stageId, "Task", "", "NORMAL", BigDecimal.ONE,
+                    "FB-" + workItemId.toString().substring(0, 8), now, now);
             insert(connection, "insert into work_items (id, firm_id, client_id, workflow_id, stage_id, title, description, priority, rank, task_reference, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    unrelatedWorkItemId, firmId, clientId, workflowId, stageId, "Unrelated task", "", "NORMAL", BigDecimal.TEN, "FB-" + unrelatedWorkItemId, now, now);
+                    unrelatedWorkItemId, firmId, clientId, workflowId, stageId, "Unrelated task", "", "NORMAL", BigDecimal.TEN,
+                    "FB-" + unrelatedWorkItemId.toString().substring(0, 8), now, now);
             insert(connection, "insert into engagement_templates (id, firm_id, workflow_id, name, recurrence, default_work_item_title, due_day, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     templateId, firmId, workflowId, "Template", "MONTHLY", "Task", 20, now, now);
             insertEngagement(connection, engagementId, firmId, workItemId, "ACTIVE", null);

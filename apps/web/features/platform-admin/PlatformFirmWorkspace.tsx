@@ -51,6 +51,7 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
   const [accessLink, setAccessLink] = useState<{ firmId: string; link: string; type: 'invitation' | 'reset' } | null>(null)
   const [error, setError] = useState('')
   const previousFirmId = useRef(firm.id)
+  const accessLinkInput = useRef<HTMLInputElement>(null)
   const accessMutationResets = useRef<() => void>(() => {})
   accessMutationResets.current = () => { invitationResult.reset(); reissueResult.reset(); passwordResetResult.reset() }
 
@@ -114,10 +115,10 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
   }
 
   async function resetPassword(employee: PlatformEmployee) {
-    if (!employee.userId) return
+    if (firm.status !== 'ACTIVE' || !employee.userId || employee.status !== 'ACTIVE') return
     setError('')
     try {
-      const reset = await generatePasswordReset({ firmId: firm.id, userId: employee.userId }).unwrap()
+      const reset = await generatePasswordReset({ firmId: firm.id, membershipId: employee.membershipId }).unwrap()
       setAccessLink({ firmId: firm.id, link: reset.link, type: 'reset' })
       resetAccessMutationResults()
     } catch (failure) { setError(errorMessage(failure, t('platformAdmin.resetError'))) }
@@ -132,11 +133,16 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
   const visibleAccessLink = accessLink?.firmId === firm.id ? accessLink : null
   const accessLabel = visibleAccessLink?.type === 'reset' ? t('platformAdmin.passwordResetLink') : t('platformAdmin.invitationLink')
   const dismissLabel = visibleAccessLink?.type === 'reset' ? t('platformAdmin.dismissPasswordResetLink') : t('platformAdmin.dismissInvitationLink')
+  useEffect(() => {
+    if (!visibleAccessLink || !accessLinkInput.current) return
+    accessLinkInput.current.focus()
+    accessLinkInput.current.select()
+  }, [visibleAccessLink])
 
   return <section className={styles.workspace}>
     <button type="button" className={styles.back} onClick={onBack}>{t('platformAdmin.backToFirms')}</button>
     <header className={styles.heading}><div><p className={styles.eyebrow}>{t('platformAdmin.firmWorkspace')}</p><h1>{firm.name}</h1><p>{firm.slug} · {t(firm.status === 'ACTIVE' ? 'platformAdmin.active' : 'platformAdmin.suspended')}</p></div><button type="button" onClick={() => setCreating((current) => !current)}>{creating ? t('common.cancel') : t('platformAdmin.inviteEmployee')}</button></header>
-    {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite"><p>{t('platformAdmin.oneTimeLink')}</p><label>{accessLabel}<input aria-label={accessLabel} readOnly value={visibleAccessLink.link} onFocus={(event) => event.currentTarget.select()} /></label><div><button type="button" onClick={() => void copyAccessLink()}>{t('platformAdmin.copyAccessLink')}</button><button type="button" onClick={dismissAccessLink}>{dismissLabel}</button></div></section> : null}
+    {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite"><p>{t('platformAdmin.oneTimeLink')}</p><label>{accessLabel}<input ref={accessLinkInput} aria-label={accessLabel} readOnly value={visibleAccessLink.link} onFocus={(event) => event.currentTarget.select()} /></label><div><button type="button" onClick={() => void copyAccessLink()}>{t('platformAdmin.copyAccessLink')}</button><button type="button" onClick={dismissAccessLink}>{dismissLabel}</button></div></section> : null}
     {creating ? <form className={styles.form} onSubmit={create}>
       <h2>{t('platformAdmin.inviteEmployee')}</h2>
       <label>{t('platformAdmin.employeeName')}<input name="displayName" required maxLength={160} autoComplete="name" /></label>
@@ -154,7 +160,7 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
           <span>{t(statusKey[employee.status])}</span>
           <div className={styles.controls}>
             {employee.status === 'INVITED' ? <><button type="button" onClick={() => void reissue(employee)}>{t('platformAdmin.reissueInvitation')}</button><button type="button" className={styles.danger} onClick={() => void revoke(employee)}>{t('platformAdmin.revokeInvitation')}</button></> : null}
-            {employee.status === 'ACTIVE' || employee.status === 'SUSPENDED' ? <><button type="button" className={employee.status === 'ACTIVE' ? styles.danger : undefined} onClick={() => void setStatus(employee)}>{t(employee.status === 'ACTIVE' ? 'platformAdmin.suspendEmployee' : 'platformAdmin.reactivateEmployee')}</button><button type="button" onClick={() => void resetPassword(employee)}>{t('platformAdmin.generatePasswordReset')}</button><button type="button" className={styles.danger} onClick={() => void remove(employee)}>{t('platformAdmin.removeEmployee')}</button></> : null}
+            {employee.status === 'ACTIVE' || employee.status === 'SUSPENDED' ? <><button type="button" className={employee.status === 'ACTIVE' ? styles.danger : undefined} onClick={() => void setStatus(employee)}>{t(employee.status === 'ACTIVE' ? 'platformAdmin.suspendEmployee' : 'platformAdmin.reactivateEmployee')}</button>{firm.status === 'ACTIVE' && employee.status === 'ACTIVE' ? <button type="button" onClick={() => void resetPassword(employee)}>{t('platformAdmin.generatePasswordReset')}</button> : null}<button type="button" className={styles.danger} onClick={() => void remove(employee)}>{t('platformAdmin.removeEmployee')}</button></> : null}
           </div>
         </article>
       })}

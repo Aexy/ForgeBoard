@@ -1,6 +1,7 @@
 package com.forgeboard.identity.domain;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -21,6 +22,10 @@ public class FirmMembership {
     private UUID firmId;
     @Column(name = "user_id")
     private UUID userId;
+    @Column(name = "invitation_email", length = 320)
+    private String invitationEmail;
+    @Column(name = "invitation_display_name", length = 160)
+    private String invitationDisplayName;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private MembershipStatus status;
@@ -46,10 +51,13 @@ public class FirmMembership {
         this.updatedAt = now;
     }
 
-    public static FirmMembership invited(UUID id, UUID firmId, MembershipRole role, Instant now) {
+    public static FirmMembership invited(UUID id, UUID firmId, String invitationEmail, String invitationDisplayName,
+            MembershipRole role, Instant now) {
         FirmMembership membership = new FirmMembership();
         membership.id = Objects.requireNonNull(id, "id is required");
         membership.firmId = Objects.requireNonNull(firmId, "firmId is required");
+        membership.invitationEmail = normalizeInvitationEmail(invitationEmail);
+        membership.invitationDisplayName = normalizeInvitationDisplayName(invitationDisplayName);
         membership.status = MembershipStatus.INVITED;
         membership.role = Objects.requireNonNull(role, "role is required");
         membership.createdAt = Objects.requireNonNull(now, "now is required");
@@ -60,6 +68,8 @@ public class FirmMembership {
     public UUID firmId() { return firmId; }
     public UUID id() { return id; }
     public UUID userId() { return userId; }
+    public String invitationEmail() { return invitationEmail; }
+    public String invitationDisplayName() { return invitationDisplayName; }
     public MembershipRole role() { return role; }
     public MembershipStatus status() { return status; }
 
@@ -72,9 +82,29 @@ public class FirmMembership {
     public void activate(UUID userId, Instant now) {
         if (status != MembershipStatus.INVITED)
             throw new IllegalStateException("Only invited memberships can be activated");
-        this.userId = Objects.requireNonNull(userId, "userId is required for an active membership");
+        UUID requiredUserId = Objects.requireNonNull(userId, "userId is required for an active membership");
+        if (this.userId != null && !this.userId.equals(requiredUserId))
+            throw new IllegalStateException("Invitation is bound to another user");
+        this.userId = requiredUserId;
         this.status = MembershipStatus.ACTIVE;
         this.updatedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    public void updateInvitation(String invitationEmail, String invitationDisplayName, MembershipRole role, Instant now) {
+        if (status != MembershipStatus.INVITED)
+            throw new IllegalStateException("Only invited memberships can update invitation details");
+        this.invitationEmail = normalizeInvitationEmail(invitationEmail);
+        this.invitationDisplayName = normalizeInvitationDisplayName(invitationDisplayName);
+        this.role = Objects.requireNonNull(role, "role is required");
+        this.updatedAt = Objects.requireNonNull(now, "now is required");
+    }
+
+    public void reinvite(String invitationEmail, String invitationDisplayName, MembershipRole role, Instant now) {
+        if (status != MembershipStatus.REMOVED)
+            throw new IllegalStateException("Only removed memberships can be reinvited");
+        requireBoundUser();
+        this.status = MembershipStatus.INVITED;
+        updateInvitation(invitationEmail, invitationDisplayName, role, now);
     }
 
     public void suspend(Instant now) {
@@ -105,5 +135,20 @@ public class FirmMembership {
     private void requireNotRemoved() {
         if (status == MembershipStatus.REMOVED)
             throw new IllegalStateException("Removed memberships are terminal");
+    }
+
+    private static String normalizeInvitationEmail(String email) {
+        if (email == null || email.isBlank()) throw new IllegalArgumentException("invitationEmail is required");
+        String normalized = email.strip().toLowerCase(Locale.ROOT);
+        if (normalized.length() > 320) throw new IllegalArgumentException("invitationEmail is too long");
+        return normalized;
+    }
+
+    private static String normalizeInvitationDisplayName(String displayName) {
+        if (displayName == null || displayName.isBlank())
+            throw new IllegalArgumentException("invitationDisplayName is required");
+        String normalized = displayName.strip();
+        if (normalized.length() > 160) throw new IllegalArgumentException("invitationDisplayName is too long");
+        return normalized;
     }
 }

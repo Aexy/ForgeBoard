@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -57,6 +58,15 @@ class AccessActionControllerSecurityTest {
                 .andExpect(status().isNoContent());
 
         verify(lifecycle).completePasswordReset(eq(null), any());
+    }
+
+    @Test
+    void whitespaceOnlyResetPasswordFailsAtThePublicBoundary() throws Exception {
+        assertGeneric(post("/api/access/password-resets/token-value/complete")
+                .contentType("application/json")
+                .content("{\"password\":\"            \"}"));
+
+        verify(lifecycle, never()).completePasswordReset(any(), any());
     }
 
     @Test

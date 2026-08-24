@@ -21,7 +21,7 @@ const session = {
 }
 const apiSession = { ...session, accessToken: 'private-access-token', refreshToken: 'private-refresh-token', accessTokenExpiresAt: Date.now() + 60_000 }
 const routeContext = { params: Promise.resolve({ path: ['firms'] }) }
-const resetContext = { params: Promise.resolve({ path: ['users', 'user-1', 'password-reset'] }) }
+const resetContext = { params: Promise.resolve({ path: ['firms', 'firm-1', 'employees', 'membership-1', 'password-reset'] }) }
 
 function request(method = 'GET', options: RequestInit = {}) {
   return new Request('http://localhost:3000/api/platform-admin/firms?query=hearth', { method, ...options })
@@ -108,7 +108,7 @@ describe('platform administration BFF proxy', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.upstreamResponse).toHaveBeenCalledWith(expect.objectContaining({
-      path: '/api/platform-admin/users/user-1/password-reset?query=hearth', method: 'POST',
+      path: '/api/platform-admin/firms/firm-1/employees/membership-1/password-reset?query=hearth', method: 'POST',
     }))
     expect(mocks.upstreamResponse.mock.calls[0][0].firmId).toBeUndefined()
   })

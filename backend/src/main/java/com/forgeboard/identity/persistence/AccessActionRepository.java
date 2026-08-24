@@ -17,6 +17,10 @@ import com.forgeboard.identity.domain.AccessActionType;
 import jakarta.persistence.LockModeType;
 
 public interface AccessActionRepository extends JpaRepository<AccessAction, UUID> {
+    @Query("select new com.forgeboard.identity.persistence.AccessActionRepository$ActionScope(" +
+            "action.firmId, action.type) from AccessAction action where action.tokenHash = :tokenHash")
+    Optional<ActionScope> findScopeByTokenHash(@Param("tokenHash") String tokenHash);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select action from AccessAction action where action.tokenHash = :tokenHash")
     Optional<AccessAction> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
@@ -46,4 +50,6 @@ public interface AccessActionRepository extends JpaRepository<AccessAction, UUID
     @Query(value = "select lock_key from access_action_serialization_locks where lock_key = :lockKey for update",
             nativeQuery = true)
     String lockSerializationKey(@Param("lockKey") String lockKey);
+
+    record ActionScope(UUID firmId, AccessActionType type) { }
 }

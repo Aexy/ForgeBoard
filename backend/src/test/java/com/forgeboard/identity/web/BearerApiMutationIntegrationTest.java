@@ -236,8 +236,9 @@ class BearerApiMutationIntegrationTest {
         OnboardingResult platformFirm = onboarding.createFirm(new OnboardingRequest("Platform Firm", "platform-" + suffix,
                 "platform-admin@forgeboard.test", "Platform Administrator", "correct horse battery"));
         String targetToken = ownerToken;
-        UUID targetUserId = firm.ownerId();
-        MvcResult reset = mockMvc.perform(post("/api/platform-admin/users/" + targetUserId + "/password-reset")
+        UUID targetMembershipId = membershipId(employeesInFirm, firm.ownerEmail());
+        MvcResult reset = mockMvc.perform(post("/api/platform-admin/firms/" + firm.firmId() + "/employees/"
+                        + targetMembershipId + "/password-reset")
                         .header("Authorization", "Bearer " + grant(platformFirm.ownerEmail())))
                 .andExpect(status().isOk()).andReturn();
         String resetToken = accessLinkToken(reset);

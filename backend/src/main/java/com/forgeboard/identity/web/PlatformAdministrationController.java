@@ -112,8 +112,9 @@ public class PlatformAdministrationController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/users/{userId}/password-reset")
-    GeneratedAccessLink createPasswordReset(Authentication actor, @PathVariable UUID userId) {
-        return access.createPasswordReset(actor, userId);
+    @PostMapping("/firms/{firmId}/employees/{membershipId}/password-reset")
+    GeneratedAccessLink createPasswordReset(Authentication actor, @PathVariable UUID firmId,
+            @PathVariable UUID membershipId) {
+        return access.createPasswordReset(actor, firmId, membershipId);
     }
 }

@@ -10,7 +10,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.forgeboard.identity.domain.Firm;
+import com.forgeboard.identity.domain.FirmStatus;
 import com.forgeboard.identity.domain.ForgeBoardUser;
+import com.forgeboard.identity.domain.MembershipStatus;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
 import com.forgeboard.identity.persistence.FirmRepository;
 import com.forgeboard.identity.persistence.UserRepository;
@@ -28,9 +30,12 @@ public class FirmAccessService {
     @Transactional(readOnly = true)
     public List<FirmAccessView> list(String email) {
         ForgeBoardUser user = users.findByEmail(email.toLowerCase(Locale.ROOT))
+                .filter(ForgeBoardUser::enabled)
                 .orElseThrow(() -> new AccessDeniedException("Unknown account"));
-        var access = memberships.findAllByUserId(user.id());
-        Map<java.util.UUID, Firm> byId = firms.findAllById(access.stream().map(m -> m.firmId()).toList()).stream()
+        var access = memberships.findAllByUserId(user.id()).stream()
+                .filter(membership -> membership.status() == MembershipStatus.ACTIVE).toList();
+        Map<java.util.UUID, Firm> byId = firms.findAllById(access.stream().map(m -> m.firmId()).distinct().toList()).stream()
+                .filter(firm -> firm.status() == FirmStatus.ACTIVE)
                 .collect(Collectors.toMap(Firm::id, Function.identity()));
         return access.stream().filter(m -> byId.containsKey(m.firmId())).map(m -> {
             Firm firm = byId.get(m.firmId());

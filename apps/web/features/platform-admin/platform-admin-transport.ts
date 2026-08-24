@@ -97,8 +97,8 @@ export const platformAdminApi = forgeboardApi.injectEndpoints({
       query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}`), method: 'DELETE' }),
       invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
-    generatePasswordReset: build.mutation<GeneratedAccessLink, { firmId: string; userId: string }>({
-      query: ({ userId }) => ({ url: platformUrl(`users/${encodeURIComponent(userId)}/password-reset`), method: 'POST' }),
+    generatePasswordReset: build.mutation<GeneratedAccessLink, { firmId: string; membershipId: string }>({
+      query: ({ firmId, membershipId }) => ({ url: platformUrl(`firms/${encodeURIComponent(firmId)}/employees/${encodeURIComponent(membershipId)}/password-reset`), method: 'POST' }),
       invalidatesTags: (_result, _error, { firmId }) => [{ type: 'PlatformEmployee', id: platformTag(firmId) }],
     }),
   }),

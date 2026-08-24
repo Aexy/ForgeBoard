@@ -50,7 +50,8 @@ public class AccessActionController {
     }
 
     private static boolean validPassword(String value) {
-        return value != null && value.length() >= PASSWORD_MIN_LENGTH && value.length() <= PASSWORD_MAX_LENGTH;
+        return value != null && !value.isBlank()
+                && value.length() >= PASSWORD_MIN_LENGTH && value.length() <= PASSWORD_MAX_LENGTH;
     }
 
     private static void invalid() { throw new InvalidIdentityException("Access action is invalid or expired"); }

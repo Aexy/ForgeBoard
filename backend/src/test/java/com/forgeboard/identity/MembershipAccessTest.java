@@ -2,6 +2,9 @@ package com.forgeboard.identity;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import java.util.UUID;
 
@@ -24,7 +27,10 @@ class MembershipAccessTest {
     void permitsOnlyOwnersAndAdministratorsToManageSharedWorkflowViews() {
         MembershipAccess access = new MembershipAccess(authorization, memberships);
 
-        assertThatCode(() -> access.requireWorkflowViewManagement(tenant(MembershipRole.OWNER))).doesNotThrowAnyException();
+        SelectedTenant owner = tenant(MembershipRole.OWNER);
+
+        assertThatCode(() -> access.requireWorkflowViewManagement(owner)).doesNotThrowAnyException();
+        verify(authorization).requireActiveTenant(owner);
         assertThatCode(() -> access.requireWorkflowViewManagement(tenant(MembershipRole.ADMINISTRATOR))).doesNotThrowAnyException();
         assertThatThrownBy(() -> access.requireWorkflowViewManagement(tenant(MembershipRole.MANAGER)))
                 .isInstanceOf(AccessDeniedException.class);
@@ -43,6 +49,17 @@ class MembershipAccessTest {
                 .isInstanceOf(AccessDeniedException.class);
         assertThatThrownBy(() -> access.requireWorkflowManagement(tenant(MembershipRole.READ_ONLY)))
                 .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void membershipLookupRequiresAnEnabledActiveMembership() {
+        UUID firmId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        when(memberships.existsActiveEnabledByFirmIdAndUserId(firmId, userId)).thenReturn(true, false);
+        MembershipAccess access = new MembershipAccess(authorization, memberships);
+
+        assertThat(access.belongsToFirm(firmId, userId)).isTrue();
+        assertThat(access.belongsToFirm(firmId, userId)).isFalse();
     }
 
     private SelectedTenant tenant(MembershipRole role) {

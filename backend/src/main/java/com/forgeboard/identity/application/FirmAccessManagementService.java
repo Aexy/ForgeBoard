@@ -188,8 +188,9 @@ public class FirmAccessManagementService {
 
     private EmployeeView view(FirmMembership membership, Map<UUID, String> invitationEmails,
             Map<UUID, ForgeBoardUser> usersById) {
-        if (membership.userId() == null)
-            return new EmployeeView(membership.id(), null, null, invitationEmails.get(membership.id()), membership.role(),
+        if (membership.status() == MembershipStatus.INVITED)
+            return new EmployeeView(membership.id(), membership.userId(), membership.invitationDisplayName(),
+                    membership.invitationEmail() == null ? invitationEmails.get(membership.id()) : membership.invitationEmail(), membership.role(),
                     membership.status());
         ForgeBoardUser user = usersById == null ? users.findById(membership.userId())
                 .orElseThrow(() -> new EntityNotFoundException("Employee account was not found"))

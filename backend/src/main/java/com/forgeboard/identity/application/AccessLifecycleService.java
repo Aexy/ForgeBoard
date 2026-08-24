@@ -21,24 +21,29 @@ import org.springframework.transaction.annotation.Transactional;
 import com.forgeboard.identity.domain.AccessAction;
 import com.forgeboard.identity.domain.AccessActionType;
 import com.forgeboard.identity.domain.ActivitySource;
+import com.forgeboard.identity.domain.Firm;
 import com.forgeboard.identity.domain.FirmMembership;
+import com.forgeboard.identity.domain.FirmStatus;
 import com.forgeboard.identity.domain.ForgeBoardUser;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.domain.MembershipStatus;
 import com.forgeboard.identity.persistence.AccessActionRepository;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
+import com.forgeboard.identity.persistence.FirmRepository;
 import com.forgeboard.identity.persistence.UserRepository;
 import com.forgeboard.identity.security.ApiTokenService;
-
-import jakarta.persistence.EntityNotFoundException;
 
 /** Shared, one-time lifecycle for firm invitations and password-reset credentials. */
 @Service
 public class AccessLifecycleService {
+    private static final int DISPLAY_NAME_MAX_LENGTH = 160;
+    private static final int PASSWORD_MIN_LENGTH = 12;
+    private static final int PASSWORD_MAX_LENGTH = 200;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final AccessActionRepository actions;
     private final FirmMembershipRepository memberships;
+    private final FirmRepository firms;
     private final UserRepository users;
     private final PasswordEncoder passwords;
     private final ApiTokenService tokens;
@@ -47,10 +52,12 @@ public class AccessLifecycleService {
     private final URI publicAppUrl;
 
     public AccessLifecycleService(AccessActionRepository actions, FirmMembershipRepository memberships,
-            UserRepository users, PasswordEncoder passwords, ApiTokenService tokens, ActivityAuditService audit,
-            Clock clock, @Value("${FORGEBOARD_PUBLIC_APP_URL:http://localhost:3000}") String publicAppUrl) {
+            FirmRepository firms, UserRepository users, PasswordEncoder passwords, ApiTokenService tokens,
+            ActivityAuditService audit, Clock clock,
+            @Value("${FORGEBOARD_PUBLIC_APP_URL:http://localhost:3000}") String publicAppUrl) {
         this.actions = actions;
         this.memberships = memberships;
+        this.firms = firms;
         this.users = users;
         this.passwords = passwords;
         this.tokens = tokens;
@@ -61,101 +68,123 @@ public class AccessLifecycleService {
 
     @Transactional
     public GeneratedAccessLink createInvitation(UUID firmId, UUID actorId, InviteMemberRequest request) {
+        return createInvitation(firmId, actorId, request, AccessManagementOrigin.FIRM);
+    }
+
+    @Transactional
+    public GeneratedAccessLink createInvitation(UUID firmId, UUID actorId, InviteMemberRequest request,
+            AccessManagementOrigin origin) {
         String email = normalizeEmail(request.email());
+        String displayName = normalizeDisplayName(request.displayName());
+        requireActiveFirmForManagement(firmId);
         serializeIssuance("invitation:" + firmId + ":" + email);
         Instant now = clock.instant();
-        FirmMembership membership = actions.findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
-                AccessActionType.INVITATION, firmId, email)
-                .map(previous -> reissueInvitation(firmId, previous, request.role(), now))
-                .orElseGet(() -> createInvitedMembership(firmId, email, request.role(), now));
+        FirmMembership membership = invitationMembership(firmId, email, displayName, request.role(), now);
+        actions.findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.INVITATION, firmId, email).ifPresent(action -> action.revoke(now));
+        actions.flush();
         String rawToken = newToken();
-        AccessAction action = new AccessAction(UUID.randomUUID(), firmId, membership.id(), null,
+        AccessAction action = new AccessAction(UUID.randomUUID(), firmId, membership.id(), membership.userId(),
                 AccessActionType.INVITATION, email, new AccessAction.TokenHash(hash(rawToken)), actorId, now);
         actions.save(action);
-        audit.recordUserAction(firmId, actorId, ActivitySource.REST, "membership.invited", "access-action", action.id(),
-                Map.of("role", membership.role().name(), "status", membership.status().name()));
+        recordInvitationAction(action, actorId, membership, "membership.invited", origin);
         return generatedLink(action, "/invite/", rawToken);
     }
 
     @Transactional
-    public GeneratedAccessLink createPasswordReset(UUID actorId, UUID userId) {
-        ForgeBoardUser user = users.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User was not found"));
-        serializeIssuance("password-reset:" + user.id());
+    public GeneratedAccessLink createPasswordReset(UUID actorId, UUID firmId, UUID membershipId) {
+        ActiveTarget target = requireActiveTargetForManagement(firmId, membershipId);
+        serializeIssuance("password-reset:" + target.user().id());
         Instant now = clock.instant();
         actions.findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
-                AccessActionType.PASSWORD_RESET, userId).ifPresent(action -> action.revoke(now));
+                AccessActionType.PASSWORD_RESET, target.user().id()).ifPresent(action -> action.revoke(now));
+        actions.flush();
         String rawToken = newToken();
-        AccessAction action = new AccessAction(UUID.randomUUID(), null, null, user.id(),
-                AccessActionType.PASSWORD_RESET, normalizeEmail(user.email()), new AccessAction.TokenHash(hash(rawToken)),
-                actorId, now);
+        AccessAction action = new AccessAction(UUID.randomUUID(), firmId, membershipId, target.user().id(),
+                AccessActionType.PASSWORD_RESET, normalizeEmail(target.user().email()),
+                new AccessAction.TokenHash(hash(rawToken)), actorId, now);
         actions.save(action);
-        recordPasswordResetAction(action, actorId, "password-reset.generated");
+        recordPasswordResetAction(action, actorId, target.membership(), "platform.password-reset.generated");
         return generatedLink(action, "/reset/", rawToken);
     }
 
     @Transactional
     public GeneratedAccessLink reissueInvitation(UUID firmId, UUID actorId, UUID membershipId) {
-        AccessAction previous = actions.findFirstByTypeAndFirmIdAndMembershipIdOrderByCreatedAtDesc(
-                AccessActionType.INVITATION, firmId, membershipId)
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
+        return reissueInvitation(firmId, actorId, membershipId, AccessManagementOrigin.FIRM);
+    }
+
+    @Transactional
+    public GeneratedAccessLink reissueInvitation(UUID firmId, UUID actorId, UUID membershipId,
+            AccessManagementOrigin origin) {
+        requireActiveFirmForManagement(firmId);
         FirmMembership membership = memberships.findByIdAndFirmId(membershipId, firmId)
                 .filter(candidate -> candidate.status() == MembershipStatus.INVITED)
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
-        String email = normalizeEmail(previous.targetEmail());
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        String email = normalizeEmail(membership.invitationEmail());
         serializeIssuance("invitation:" + firmId + ":" + email);
         Instant now = clock.instant();
-        actions.findFirstByTypeAndFirmIdAndMembershipIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
-                AccessActionType.INVITATION, firmId, membershipId).ifPresent(action -> action.revoke(now));
+        actions.findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                AccessActionType.INVITATION, firmId, email).ifPresent(action -> action.revoke(now));
+        actions.flush();
         String rawToken = newToken();
-        AccessAction replacement = new AccessAction(UUID.randomUUID(), firmId, membership.id(), null,
+        AccessAction replacement = new AccessAction(UUID.randomUUID(), firmId, membership.id(), membership.userId(),
                 AccessActionType.INVITATION, email, new AccessAction.TokenHash(hash(rawToken)), actorId, now);
         actions.save(replacement);
-        audit.recordUserAction(firmId, actorId, ActivitySource.REST, "membership.invitation-reissued", "access-action",
-                replacement.id(), Map.of("role", membership.role().name(), "status", membership.status().name()));
+        recordInvitationAction(replacement, actorId, membership, "membership.invitation-reissued", origin);
         return generatedLink(replacement, "/invite/", rawToken);
     }
 
     @Transactional
     public void revokeInvitation(UUID firmId, UUID actorId, UUID membershipId) {
+        revokeInvitation(firmId, actorId, membershipId, AccessManagementOrigin.FIRM);
+    }
+
+    @Transactional
+    public void revokeInvitation(UUID firmId, UUID actorId, UUID membershipId, AccessManagementOrigin origin) {
+        requireFirm(firmId);
         FirmMembership membership = memberships.findByIdAndFirmId(membershipId, firmId)
                 .filter(candidate -> candidate.status() == MembershipStatus.INVITED)
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
-        AccessAction invitation = actions.findFirstByTypeAndFirmIdAndMembershipIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
-                AccessActionType.INVITATION, firmId, membershipId)
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        AccessAction invitation = actions
+                .findFirstByTypeAndFirmIdAndMembershipIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                        AccessActionType.INVITATION, firmId, membershipId)
+                .orElseThrow(AccessLifecycleService::invalidAction);
         invitation.revoke(clock.instant());
-        audit.recordUserAction(firmId, actorId, ActivitySource.REST, "membership.invitation-revoked", "access-action",
-                invitation.id(), Map.of("role", membership.role().name(), "status", membership.status().name()));
+        recordInvitationAction(invitation, actorId, membership, "membership.invitation-revoked", origin);
     }
 
     @Transactional
     public void acceptNewAccountInvitation(AcceptInvitationRequest request) {
+        requireValidPassword(request.password());
+        normalizeDisplayName(request.displayName());
         AccessAction invitation = redeem(request.token(), AccessActionType.INVITATION);
-        if (request.displayName() == null || request.displayName().isBlank() || request.password() == null || request.password().isBlank())
-            throw new InvalidIdentityException("New account invitation acceptance requires a name and password");
+        FirmMembership membership = requireInvitedTarget(invitation);
         String email = normalizeEmail(invitation.targetEmail());
         if (users.existsByEmail(email))
             throw new DuplicateIdentityException("An account with this email already exists");
         Instant now = clock.instant();
-        ForgeBoardUser user = new ForgeBoardUser(UUID.randomUUID(), email, request.displayName().strip(),
+        String displayName = membership.invitationDisplayName() == null
+                ? normalizeDisplayName(request.displayName()) : membership.invitationDisplayName();
+        ForgeBoardUser user = new ForgeBoardUser(UUID.randomUUID(), email, displayName,
                 passwords.encode(request.password()), now);
         users.save(user);
-        activateInvitation(invitation, user.id(), now);
-        recordInvitationAcceptance(invitation, user.id());
+        activateInvitation(invitation, membership, user.id(), now);
+        recordInvitationAcceptance(invitation, membership, user.id());
     }
 
     @Transactional
     public void acceptExistingAccountInvitation(UUID authenticatedUserId, AcceptInvitationRequest request) {
         AccessAction invitation = redeem(request.token(), AccessActionType.INVITATION);
+        FirmMembership membership = requireInvitedTarget(invitation);
         ForgeBoardUser authenticatedUser = users.findById(authenticatedUserId)
                 .filter(ForgeBoardUser::enabled)
                 .orElseThrow(() -> new AccessDeniedException("Authenticated account is not active"));
-        if (!normalizeEmail(authenticatedUser.email()).equals(normalizeEmail(invitation.targetEmail())))
+        if (!normalizeEmail(authenticatedUser.email()).equals(normalizeEmail(invitation.targetEmail()))
+                || (membership.userId() != null && !membership.userId().equals(authenticatedUser.id())))
             throw new AccessDeniedException("Invitation is not for the authenticated account");
         Instant now = clock.instant();
-        activateInvitation(invitation, authenticatedUser.id(), now);
-        recordInvitationAcceptance(invitation, authenticatedUser.id());
+        activateInvitation(invitation, membership, authenticatedUser.id(), now);
+        recordInvitationAcceptance(invitation, membership, authenticatedUser.id());
     }
 
     /** Resolves the bearer-authenticated identity without requiring tenant context. */
@@ -169,40 +198,49 @@ public class AccessLifecycleService {
 
     @Transactional
     public void completePasswordReset(UUID actorId, CompletePasswordResetRequest request) {
+        requireValidPassword(request.password());
         AccessAction reset = redeem(request.token(), AccessActionType.PASSWORD_RESET);
-        if (reset.userId() == null)
-            throw new InvalidIdentityException("Password reset is invalid or expired");
-        ForgeBoardUser user = users.findById(reset.userId())
-                .orElseThrow(() -> new InvalidIdentityException("Password reset is invalid or expired"));
-        user.changePassword(passwords.encode(request.password()), clock.instant());
-        reset.consume(clock.instant());
-        tokens.revokeAllForUser(user.id());
-        recordPasswordResetAction(reset, actorId == null ? user.id() : actorId, "password-reset.completed");
+        ActiveTarget target = requireActiveTarget(reset);
+        Instant now = clock.instant();
+        target.user().changePassword(passwords.encode(request.password()), now);
+        reset.consume(now);
+        tokens.revokeAllForUser(target.user().id());
+        recordPasswordResetAction(reset, actorId == null ? target.user().id() : actorId, target.membership(),
+                "password-reset.completed");
     }
 
-    private FirmMembership reissueInvitation(UUID firmId, AccessAction previous, MembershipRole role, Instant now) {
-        previous.revoke(now);
-        FirmMembership membership = memberships.findByIdAndFirmId(previous.membershipId(), firmId)
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid"));
-        if (membership.status() != MembershipStatus.INVITED)
-            throw new InvalidIdentityException("Invitation is invalid");
-        membership.changeRole(role, now);
-        return membership;
-    }
-
-    private FirmMembership createInvitedMembership(UUID firmId, String email, MembershipRole role, Instant now) {
-        users.findByEmail(email).ifPresent(user -> {
-            if (memberships.existsByFirmIdAndUserId(firmId, user.id()))
-                throw new DuplicateIdentityException("Account already belongs to this firm");
-        });
-        return memberships.save(FirmMembership.invited(UUID.randomUUID(), firmId, role, now));
+    private FirmMembership invitationMembership(UUID firmId, String email, String displayName, MembershipRole role,
+            Instant now) {
+        var existingUser = users.findByEmail(email);
+        if (existingUser.isPresent()) {
+            var existingMembership = memberships.findByFirmIdAndUserId(firmId, existingUser.get().id());
+            if (existingMembership.isPresent()) {
+                FirmMembership membership = existingMembership.get();
+                if (membership.status() != MembershipStatus.REMOVED)
+                    throw new DuplicateIdentityException("Account already belongs to this firm");
+                membership.reinvite(email, displayName, role, now);
+                return membership;
+            }
+        }
+        var pending = memberships.findByFirmIdAndInvitationEmailAndStatus(firmId, email, MembershipStatus.INVITED);
+        if (pending.isPresent()) {
+            pending.get().updateInvitation(email, displayName, role, now);
+            return pending.get();
+        }
+        return memberships.save(FirmMembership.invited(UUID.randomUUID(), firmId, email, displayName, role, now));
     }
 
     private AccessAction redeem(String token, AccessActionType expectedType) {
-        AccessAction action = actions.findByTokenHashForUpdate(hash(token))
-                .orElseThrow(() -> new InvalidIdentityException("Access action is invalid or expired"));
-        if (action.type() != expectedType || !action.isRedeemable(clock.instant()))
-            throw new InvalidIdentityException("Access action is invalid or expired");
+        String tokenHash = hash(token);
+        var scope = actions.findScopeByTokenHash(tokenHash)
+                .filter(candidate -> candidate.type() == expectedType && candidate.firmId() != null)
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        requireActiveFirmForRedemption(scope.firmId());
+        AccessAction action = actions.findByTokenHashForUpdate(tokenHash)
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        if (action.type() != expectedType || !action.isRedeemable(clock.instant())
+                || !scope.firmId().equals(action.firmId()))
+            throw invalidAction();
         return action;
     }
 
@@ -212,25 +250,76 @@ public class AccessLifecycleService {
         actions.lockSerializationKey(lockKey);
     }
 
-    private void activateInvitation(AccessAction invitation, UUID userId, Instant now) {
+    private FirmMembership requireInvitedTarget(AccessAction invitation) {
         FirmMembership membership = memberships.findByIdAndFirmId(invitation.membershipId(), invitation.firmId())
                 .filter(candidate -> candidate.status() == MembershipStatus.INVITED)
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid or expired"));
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        if (!normalizeEmail(invitation.targetEmail()).equals(normalizeEmail(membership.invitationEmail())))
+            throw invalidAction();
+        return membership;
+    }
+
+    private ActiveTarget requireActiveTargetForManagement(UUID firmId, UUID membershipId) {
+        requireActiveFirmForManagement(firmId);
+        FirmMembership membership = memberships.findByIdAndFirmId(membershipId, firmId)
+                .filter(candidate -> candidate.status() == MembershipStatus.ACTIVE && candidate.userId() != null)
+                .orElseThrow(() -> new InvalidIdentityException("Password reset target is not active"));
+        ForgeBoardUser user = users.findById(membership.userId()).filter(ForgeBoardUser::enabled)
+                .orElseThrow(() -> new InvalidIdentityException("Password reset target is not active"));
+        return new ActiveTarget(membership, user);
+    }
+
+    private ActiveTarget requireActiveTarget(AccessAction reset) {
+        if (reset.firmId() == null || reset.membershipId() == null || reset.userId() == null)
+            throw invalidAction();
+        FirmMembership membership = memberships.findByIdAndFirmId(reset.membershipId(), reset.firmId())
+                .filter(candidate -> candidate.status() == MembershipStatus.ACTIVE)
+                .filter(candidate -> reset.userId().equals(candidate.userId()))
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        ForgeBoardUser user = users.findById(reset.userId()).filter(ForgeBoardUser::enabled)
+                .orElseThrow(AccessLifecycleService::invalidAction);
+        if (!normalizeEmail(user.email()).equals(normalizeEmail(reset.targetEmail())))
+            throw invalidAction();
+        return new ActiveTarget(membership, user);
+    }
+
+    private void activateInvitation(AccessAction invitation, FirmMembership membership, UUID userId, Instant now) {
         membership.activate(userId, now);
+        invitation.bindUser(userId);
         invitation.consume(now);
     }
 
-    private void recordInvitationAcceptance(AccessAction invitation, UUID actorId) {
-        FirmMembership membership = memberships.findByIdAndFirmId(invitation.membershipId(), invitation.firmId())
-                .orElseThrow(() -> new InvalidIdentityException("Invitation is invalid or expired"));
+    private void recordInvitationAcceptance(AccessAction invitation, FirmMembership membership, UUID actorId) {
         audit.recordUserAction(invitation.firmId(), actorId, ActivitySource.REST, "membership.invitation-accepted",
-                "access-action", invitation.id(), Map.of("role", membership.role().name(), "status", membership.status().name()));
+                "access-action", invitation.id(),
+                Map.of("role", membership.role().name(), "status", membership.status().name()));
     }
 
-    private void recordPasswordResetAction(AccessAction reset, UUID actorId, String action) {
-        memberships.findAllByUserId(reset.userId()).forEach(membership -> audit.recordUserAction(membership.firmId(), actorId,
-                ActivitySource.REST, action, "access-action", reset.id(),
-                Map.of("role", membership.role().name(), "status", membership.status().name())));
+    private void recordPasswordResetAction(AccessAction reset, UUID actorId, FirmMembership membership, String action) {
+        audit.recordUserAction(reset.firmId(), actorId, ActivitySource.REST, action, "access-action", reset.id(),
+                Map.of("role", membership.role().name(), "status", membership.status().name(),
+                        "origin", action.startsWith("platform.") ? "PLATFORM" : "RECIPIENT"));
+    }
+
+    private void recordInvitationAction(AccessAction invitation, UUID actorId, FirmMembership membership, String action,
+            AccessManagementOrigin origin) {
+        String visibleAction = origin == AccessManagementOrigin.PLATFORM ? "platform." + action : action;
+        audit.recordUserAction(invitation.firmId(), actorId, ActivitySource.REST, visibleAction, "access-action",
+                invitation.id(), Map.of("role", membership.role().name(), "status", membership.status().name(),
+                        "origin", origin.name()));
+    }
+
+    private Firm requireFirm(UUID firmId) {
+        return firms.findByIdForUpdate(firmId).orElseThrow(AccessLifecycleService::invalidAction);
+    }
+
+    private void requireActiveFirmForManagement(UUID firmId) {
+        if (requireFirm(firmId).status() != FirmStatus.ACTIVE)
+            throw new InvalidIdentityException("Firm is not active");
+    }
+
+    private void requireActiveFirmForRedemption(UUID firmId) {
+        if (requireFirm(firmId).status() != FirmStatus.ACTIVE) throw invalidAction();
     }
 
     private GeneratedAccessLink generatedLink(AccessAction action, String path, String rawToken) {
@@ -245,7 +334,7 @@ public class AccessLifecycleService {
     }
 
     private static String hash(String token) {
-        if (token == null || token.isBlank()) throw new InvalidIdentityException("Access action is invalid or expired");
+        if (token == null || token.isBlank()) throw invalidAction();
         try {
             return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(token.getBytes(StandardCharsets.UTF_8)));
@@ -257,6 +346,25 @@ public class AccessLifecycleService {
     private static String normalizeEmail(String email) {
         if (email == null || email.isBlank()) throw new InvalidIdentityException("Email is invalid");
         return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizeDisplayName(String displayName) {
+        if (displayName == null || displayName.isBlank())
+            throw new InvalidIdentityException("Display name is invalid");
+        String normalized = displayName.strip();
+        if (normalized.length() > DISPLAY_NAME_MAX_LENGTH)
+            throw new InvalidIdentityException("Display name is invalid");
+        return normalized;
+    }
+
+    private static void requireValidPassword(String password) {
+        if (password == null || password.isBlank() || password.length() < PASSWORD_MIN_LENGTH
+                || password.length() > PASSWORD_MAX_LENGTH)
+            throw invalidAction();
+    }
+
+    private static InvalidIdentityException invalidAction() {
+        return new InvalidIdentityException("Access action is invalid or expired");
     }
 
     private static URI validatePublicAppUrl(String configured) {
@@ -272,7 +380,10 @@ public class AccessLifecycleService {
                 || url.getRawFragment() != null || !("https".equalsIgnoreCase(url.getScheme())
                         || (local && "http".equalsIgnoreCase(url.getScheme()))))
             throw new IllegalStateException("FORGEBOARD_PUBLIC_APP_URL must use HTTPS outside local development");
-        String path = url.getPath() == null || url.getPath().isEmpty() ? "/" : url.getPath() + (url.getPath().endsWith("/") ? "" : "/");
+        String path = url.getPath() == null || url.getPath().isEmpty() ? "/"
+                : url.getPath() + (url.getPath().endsWith("/") ? "" : "/");
         return URI.create(url.getScheme() + "://" + url.getAuthority() + path);
     }
+
+    private record ActiveTarget(FirmMembership membership, ForgeBoardUser user) { }
 }

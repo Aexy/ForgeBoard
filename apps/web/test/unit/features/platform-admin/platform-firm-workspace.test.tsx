@@ -19,13 +19,14 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
 import { LanguageProvider } from '@/app/LanguageProvider'
 import { PlatformFirmWorkspace } from '@/features/platform-admin/PlatformFirmWorkspace'
+import type { PlatformFirm } from '@/features/platform-admin/platform-admin-transport'
 
 const firm = { id: 'firm-1', name: 'Northstar Accounting', slug: 'northstar', status: 'ACTIVE' as const, createdAt: '2026-07-23T10:00:00Z', employeeCount: 1 }
 const otherFirm = { ...firm, id: 'firm-2', slug: 'hearth' }
 const employee = { membershipId: 'membership-1', userId: 'user-1', displayName: 'Mira Miller', email: 'mira@example.com', role: 'MEMBER' as const, status: 'ACTIVE' as const }
 const invitation = { actionId: 'action-1', link: 'https://forgeboard.example/invite/one-time', expiresAt: '2026-08-25T12:00:00Z' }
 const reset = { actionId: 'action-2', link: 'https://forgeboard.example/reset/one-time', expiresAt: '2026-08-25T12:00:00Z' }
-function renderWorkspace(currentFirm = firm) { return render(<LanguageProvider initialLanguage="en"><PlatformFirmWorkspace firm={currentFirm} onBack={vi.fn()} /></LanguageProvider>) }
+function renderWorkspace(currentFirm: PlatformFirm = firm) { return render(<LanguageProvider initialLanguage="en"><PlatformFirmWorkspace firm={currentFirm} onBack={vi.fn()} /></LanguageProvider>) }
 
 describe('Platform firm workspace', () => {
   afterEach(cleanup)
@@ -51,6 +52,9 @@ describe('Platform firm workspace', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Send invitation' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.invite).toHaveBeenCalledWith(expect.objectContaining({ firmId: 'firm-1', request: expect.objectContaining({ email: 'avery@example.com' }) })))
     expect(await screen.findByLabelText('Invitation link')).toHaveValue(invitation.link)
+    expect(screen.getByLabelText('Invitation link')).toHaveFocus()
+    expect(screen.getByLabelText('Invitation link')).toHaveProperty('selectionStart', 0)
+    expect(screen.getByLabelText('Invitation link')).toHaveProperty('selectionEnd', invitation.link.length)
     expect(mocks.inviteReset).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss invitation link' }))
     expect(screen.queryByLabelText('Invitation link')).not.toBeInTheDocument()
@@ -80,10 +84,32 @@ describe('Platform firm workspace', () => {
     await vi.waitFor(() => expect(mocks.suspend).toHaveBeenCalledWith({ firmId: 'firm-1', membershipId: 'membership-1' }))
     expect(screen.getByRole('button', { name: 'Reissue invitation' })).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Generate password reset' }))
-    await vi.waitFor(() => expect(mocks.reset).toHaveBeenCalledWith({ firmId: 'firm-1', userId: 'user-1' }))
+    await vi.waitFor(() => expect(mocks.reset).toHaveBeenCalledWith({ firmId: 'firm-1', membershipId: 'membership-1' }))
     expect(await screen.findByLabelText('Password reset link')).toHaveValue(reset.link)
+    expect(screen.getByLabelText('Password reset link')).toHaveFocus()
+    expect(screen.getByLabelText('Password reset link')).toHaveProperty('selectionStart', 0)
+    expect(screen.getByLabelText('Password reset link')).toHaveProperty('selectionEnd', reset.link.length)
     expect(mocks.resetResultReset).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss password reset link' }))
     expect(mocks.resetResultReset).toHaveBeenCalledTimes(2)
+  })
+
+  it('offers password reset only for an active membership', () => {
+    mocks.employees.mockReturnValue({ isLoading: false, data: [
+      { ...employee, membershipId: 'active-membership' },
+      { ...employee, membershipId: 'suspended-membership', status: 'SUSPENDED' },
+    ] })
+
+    renderWorkspace()
+
+    expect(screen.getAllByRole('button', { name: 'Generate password reset' })).toHaveLength(1)
+  })
+
+  it('does not offer password reset while the selected firm is suspended', () => {
+    mocks.employees.mockReturnValue({ isLoading: false, data: [employee] })
+
+    renderWorkspace({ ...firm, status: 'SUSPENDED' })
+
+    expect(screen.queryByRole('button', { name: 'Generate password reset' })).not.toBeInTheDocument()
   })
 })

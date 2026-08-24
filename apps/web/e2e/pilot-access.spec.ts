@@ -76,21 +76,22 @@ async function signInAt(page: Page, path: string, credentials: Credentials) {
 
 async function acceptNewInvitation(page: Page, link: AccessLink, displayName: string, account: Credentials) {
   await page.goto(routePath(link.link))
-  await expect(page.getByRole('heading', { name: 'Accept invitation' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Accept your invitation' })).toBeVisible()
   await page.getByLabel('Your name').fill(displayName)
-  await page.getByLabel('Password').fill(account.password)
+  await page.getByLabel('Password', { exact: true }).fill(account.password)
   await page.getByLabel('Confirm password').fill(account.password)
   await page.getByRole('button', { name: 'Accept invitation' }).click()
   await expect(page).toHaveURL('/', { timeout: 15_000 })
 }
 
 async function expectGenericInvitationDenial(page: Page, linkPath: string) {
+  const genericDenial = 'We could not complete this request. The link may be invalid or expired. Please request a new link.'
   await page.goto(linkPath)
   await page.getByLabel('Your name').fill('Denied Member')
-  await page.getByLabel('Password').fill(password)
+  await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByLabel('Confirm password').fill(password)
   await page.getByRole('button', { name: 'Accept invitation' }).click()
-  await expect(page.getByRole('alert')).toHaveText('We could not complete this request. The link may be invalid or expired. Please request a new link.')
+  await expect(page.getByRole('alert').filter({ hasText: genericDenial })).toHaveText(genericDenial)
 }
 
 test('accepts new and existing-account invitations through the public Next pages', async ({ page, browser, request }) => {
@@ -168,8 +169,10 @@ test('allows a configured platform administrator to reset a password and forces 
   const target = await createFirm(request, 'reset-target')
   await signInAt(page, `/firms/${target.slug}/my-work`, target.owner)
   await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
+  const targetMembership = (await employees(request, target)).find((employee) => employee.userId === target.ownerId)
+  expect(targetMembership).toBeDefined()
 
-  const reset = await request.post(`${apiBaseURL}/api/platform-admin/users/${target.ownerId}/password-reset`, {
+  const reset = await request.post(`${apiBaseURL}/api/platform-admin/firms/${target.id}/employees/${targetMembership!.membershipId}/password-reset`, {
     headers: { Authorization: `Bearer ${administrator.token}` },
   })
   expect(reset.status()).toBe(200)
@@ -178,14 +181,16 @@ test('allows a configured platform administrator to reset a password and forces 
   const resetContext = await browser.newContext()
   const resetPage = await resetContext.newPage()
   await resetPage.goto(routePath(link.link))
-  await resetPage.getByLabel('New password').fill(newPassword)
+  await resetPage.getByLabel('New password', { exact: true }).fill(newPassword)
   await resetPage.getByLabel('Confirm new password').fill(newPassword)
   await resetPage.getByRole('button', { name: 'Reset password' }).click()
   await expect(resetPage).toHaveURL('/', { timeout: 15_000 })
   await resetContext.close()
 
-  await page.reload()
-  await expect(page).toHaveURL(/\/?callbackUrl=%2Ffirms%2F/)
+  const protectedPath = `/firms/${target.slug}/my-work`
+  await page.goto(protectedPath)
+  await expect(page).not.toHaveURL(new RegExp(`${protectedPath}$`))
+  await page.goto(`/sign-in?callbackUrl=${encodeURIComponent(protectedPath)}`)
   await page.getByLabel('Email address').fill(target.owner.email)
   await page.getByLabel('Password').fill(target.owner.password)
   await page.getByRole('button', { name: 'Sign in' }).click()

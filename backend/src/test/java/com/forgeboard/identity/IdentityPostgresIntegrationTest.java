@@ -123,11 +123,19 @@ class IdentityPostgresIntegrationTest {
         ForgeBoardUser first = users.save(new ForgeBoardUser(UUID.randomUUID(), "first.staff@example.com", "First Staff", "hash", start));
         ForgeBoardUser second = users.save(new ForgeBoardUser(UUID.randomUUID(), "second.staff@example.com", "Second Staff", "hash", start));
         ForgeBoardUser disabled = users.save(new ForgeBoardUser(UUID.randomUUID(), "disabled.staff@example.com", "Disabled Staff", "hash", start));
+        ForgeBoardUser suspended = users.save(new ForgeBoardUser(UUID.randomUUID(), "suspended.staff@example.com", "Suspended Staff", "hash", start));
+        ForgeBoardUser removed = users.save(new ForgeBoardUser(UUID.randomUUID(), "removed.staff@example.com", "Removed Staff", "hash", start));
         ForgeBoardUser otherFirmUser = users.save(new ForgeBoardUser(UUID.randomUUID(), "other.staff@example.com", "Other Staff", "hash", start));
         users.save(new ForgeBoardUser(UUID.randomUUID(), "unaffiliated.staff@example.com", "Unaffiliated Staff", "hash", start));
         FirmMembership firstMembership = memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId, first.id(), MembershipRole.MEMBER, start.plusSeconds(1)));
         FirmMembership secondMembership = memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId, second.id(), MembershipRole.ADMINISTRATOR, start.plusSeconds(2)));
         memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId, disabled.id(), MembershipRole.MEMBER, start.plusSeconds(3)));
+        FirmMembership suspendedMembership = memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId,
+                suspended.id(), MembershipRole.MEMBER, start.plusSeconds(4)));
+        suspendedMembership.suspend(start.plusSeconds(5));
+        FirmMembership removedMembership = memberships.save(new FirmMembership(UUID.randomUUID(), selectedFirmId,
+                removed.id(), MembershipRole.MEMBER, start.plusSeconds(6)));
+        removedMembership.remove(start.plusSeconds(7));
         memberships.save(new FirmMembership(UUID.randomUUID(), otherFirmId, otherFirmUser.id(), MembershipRole.OWNER, start.plusSeconds(1)));
         users.flush();
         assertThat(jdbc.sql("update users set enabled = false where id = :id").param("id", disabled.id()).update()).isEqualTo(1);

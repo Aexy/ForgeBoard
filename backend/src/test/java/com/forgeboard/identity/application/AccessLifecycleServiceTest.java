@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,7 +16,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,11 +32,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.forgeboard.identity.domain.AccessAction;
 import com.forgeboard.identity.domain.AccessActionType;
 import com.forgeboard.identity.domain.FirmMembership;
+import com.forgeboard.identity.domain.Firm;
 import com.forgeboard.identity.domain.ForgeBoardUser;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.domain.MembershipStatus;
 import com.forgeboard.identity.persistence.AccessActionRepository;
 import com.forgeboard.identity.persistence.FirmMembershipRepository;
+import com.forgeboard.identity.persistence.FirmRepository;
 import com.forgeboard.identity.persistence.UserRepository;
 import com.forgeboard.identity.security.ApiTokenService;
 
@@ -46,6 +48,7 @@ class AccessLifecycleServiceTest {
 
     @Mock AccessActionRepository actions;
     @Mock FirmMembershipRepository memberships;
+    @Mock FirmRepository firms;
     @Mock UserRepository users;
     @Mock PasswordEncoder passwords;
     @Mock ApiTokenService tokens;
@@ -58,8 +61,12 @@ class AccessLifecycleServiceTest {
         UUID firmId = UUID.randomUUID();
         UUID membershipId = UUID.randomUUID();
         AccessAction invitation = invitation(firmId, membershipId, "new.member@example.com", "new-account-token");
-        FirmMembership membership = FirmMembership.invited(membershipId, firmId, MembershipRole.MEMBER, NOW);
+        FirmMembership membership = FirmMembership.invited(membershipId, firmId, "new.member@example.com",
+                "Operator Name", MembershipRole.MEMBER, NOW);
+        when(actions.findScopeByTokenHash(hash("new-account-token")))
+                .thenReturn(Optional.of(new AccessActionRepository.ActionScope(firmId, AccessActionType.INVITATION)));
         when(actions.findByTokenHashForUpdate(hash("new-account-token"))).thenReturn(Optional.of(invitation));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
         when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
         when(users.existsByEmail("new.member@example.com")).thenReturn(false);
         when(passwords.encode("correct horse battery staple")).thenReturn("encoded-password");
@@ -70,11 +77,12 @@ class AccessLifecycleServiceTest {
         ArgumentCaptor<ForgeBoardUser> user = ArgumentCaptor.forClass(ForgeBoardUser.class);
         verify(users).save(user.capture());
         assertThat(user.getValue().email()).isEqualTo("new.member@example.com");
-        assertThat(user.getValue().displayName()).isEqualTo("New Member");
+        assertThat(user.getValue().displayName()).isEqualTo("Operator Name");
         assertThat(user.getValue().passwordHash()).isEqualTo("encoded-password");
         assertThat(membership.userId()).isEqualTo(user.getValue().id());
         assertThat(membership.status()).isEqualTo(MembershipStatus.ACTIVE);
         assertThat(invitation.consumedAt()).isEqualTo(NOW);
+        assertThat(invitation.userId()).isEqualTo(user.getValue().id());
     }
 
     @Test
@@ -83,9 +91,13 @@ class AccessLifecycleServiceTest {
         UUID membershipId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         AccessAction invitation = invitation(firmId, membershipId, "existing.member@example.com", "existing-account-token");
-        FirmMembership membership = FirmMembership.invited(membershipId, firmId, MembershipRole.MANAGER, NOW);
+        FirmMembership membership = FirmMembership.invited(membershipId, firmId, "existing.member@example.com",
+                "Existing Member", MembershipRole.MANAGER, NOW);
         ForgeBoardUser authenticatedUser = new ForgeBoardUser(userId, "Existing.Member@Example.com", "Existing", "hash", NOW);
+        when(actions.findScopeByTokenHash(hash("existing-account-token")))
+                .thenReturn(Optional.of(new AccessActionRepository.ActionScope(firmId, AccessActionType.INVITATION)));
         when(actions.findByTokenHashForUpdate(hash("existing-account-token"))).thenReturn(Optional.of(invitation));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
         when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
         when(users.findById(userId)).thenReturn(Optional.of(authenticatedUser));
 
@@ -94,6 +106,7 @@ class AccessLifecycleServiceTest {
         assertThat(membership.userId()).isEqualTo(userId);
         assertThat(membership.status()).isEqualTo(MembershipStatus.ACTIVE);
         assertThat(invitation.consumedAt()).isEqualTo(NOW);
+        assertThat(invitation.userId()).isEqualTo(userId);
     }
 
     @Test
@@ -102,15 +115,20 @@ class AccessLifecycleServiceTest {
         UUID membershipId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         AccessAction invitation = invitation(firmId, membershipId, "intended@example.com", "mismatch-token");
+        FirmMembership membership = FirmMembership.invited(membershipId, firmId, "intended@example.com",
+                "Intended", MembershipRole.MEMBER, NOW);
         ForgeBoardUser authenticatedUser = new ForgeBoardUser(userId, "other@example.com", "Other", "hash", NOW);
+        when(actions.findScopeByTokenHash(hash("mismatch-token")))
+                .thenReturn(Optional.of(new AccessActionRepository.ActionScope(firmId, AccessActionType.INVITATION)));
         when(actions.findByTokenHashForUpdate(hash("mismatch-token"))).thenReturn(Optional.of(invitation));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
         when(users.findById(userId)).thenReturn(Optional.of(authenticatedUser));
 
         assertThatThrownBy(() -> service().acceptExistingAccountInvitation(userId,
                 new AcceptInvitationRequest("mismatch-token")))
                 .isInstanceOf(AccessDeniedException.class);
 
-        verify(memberships, never()).findByIdAndFirmId(any(), any());
         assertThat(invitation.consumedAt()).isNull();
     }
 
@@ -119,14 +137,17 @@ class AccessLifecycleServiceTest {
         UUID firmId = UUID.randomUUID();
         UUID actorId = UUID.randomUUID();
         UUID membershipId = UUID.randomUUID();
-        FirmMembership invitedMembership = FirmMembership.invited(membershipId, firmId, MembershipRole.MEMBER, NOW);
+        FirmMembership invitedMembership = FirmMembership.invited(membershipId, firmId, "invitee@example.com",
+                "Invitee", MembershipRole.MEMBER, NOW);
         AccessAction prior = invitation(firmId, membershipId, "invitee@example.com", "prior-token");
+        when(memberships.findByFirmIdAndInvitationEmailAndStatus(firmId, "invitee@example.com", MembershipStatus.INVITED))
+                .thenReturn(Optional.of(invitedMembership));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
         when(actions.findFirstByTypeAndFirmIdAndTargetEmailAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
                 AccessActionType.INVITATION, firmId, "invitee@example.com")).thenReturn(Optional.of(prior));
-        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(invitedMembership));
 
         GeneratedAccessLink generated = service().createInvitation(firmId, actorId,
-                new InviteMemberRequest(" INVITEE@EXAMPLE.COM ", MembershipRole.MANAGER));
+                new InviteMemberRequest("Invitee", " INVITEE@EXAMPLE.COM ", MembershipRole.MANAGER));
 
         ArgumentCaptor<AccessAction> replacement = ArgumentCaptor.forClass(AccessAction.class);
         verify(actions).save(replacement.capture());
@@ -145,17 +166,42 @@ class AccessLifecycleServiceTest {
     }
 
     @Test
+    void platformInvitationAuditIdentifiesItsOperatorOrigin() {
+        UUID firmId = UUID.randomUUID();
+        UUID actorId = UUID.randomUUID();
+        FirmMembership membership = FirmMembership.invited(UUID.randomUUID(), firmId, "invitee@example.com",
+                "Invitee", MembershipRole.MEMBER, NOW);
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByFirmIdAndInvitationEmailAndStatus(firmId, "invitee@example.com",
+                MembershipStatus.INVITED)).thenReturn(Optional.of(membership));
+
+        service().createInvitation(firmId, actorId,
+                new InviteMemberRequest("Invitee", "invitee@example.com", MembershipRole.MEMBER),
+                AccessManagementOrigin.PLATFORM);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> summary = ArgumentCaptor.forClass(Map.class);
+        verify(audit).recordUserAction(eq(firmId), eq(actorId), any(), eq("platform.membership.invited"),
+                eq("access-action"), any(), summary.capture());
+        assertThat(summary.getValue()).containsEntry("origin", "PLATFORM");
+    }
+
+    @Test
     void serializesPasswordResetReissueBeforeItLooksForThePriorAction() {
         UUID actorId = UUID.randomUUID();
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         ForgeBoardUser user = new ForgeBoardUser(userId, "member@example.com", "Member", "hash", NOW);
-        AccessAction prior = passwordReset(userId, "member@example.com", "prior-reset-token");
+        FirmMembership membership = new FirmMembership(membershipId, firmId, userId, MembershipRole.MEMBER, NOW);
+        AccessAction prior = passwordReset(firmId, membershipId, userId, "member@example.com", "prior-reset-token");
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
         when(users.findById(userId)).thenReturn(Optional.of(user));
         when(actions.findFirstByTypeAndUserIdAndConsumedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
                 AccessActionType.PASSWORD_RESET, userId)).thenReturn(Optional.of(prior));
-        when(memberships.findAllByUserId(userId)).thenReturn(List.of());
 
-        GeneratedAccessLink generated = service().createPasswordReset(actorId, userId);
+        GeneratedAccessLink generated = service().createPasswordReset(actorId, firmId, membershipId);
 
         assertThat(prior.revokedAt()).isEqualTo(NOW);
         assertThat(generated.link()).startsWith("https://pilot.forgeboard.example/reset/");
@@ -169,8 +215,12 @@ class AccessLifecycleServiceTest {
 
     @Test
     void rejectsAResetActionAtTheInvitationAcceptanceBoundary() {
-        AccessAction reset = passwordReset(UUID.randomUUID(), "member@example.com", "reset-token");
+        AccessAction reset = passwordReset(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                "member@example.com", "reset-token");
+        when(actions.findScopeByTokenHash(hash("reset-token"))).thenReturn(Optional.of(
+                new AccessActionRepository.ActionScope(reset.firmId(), AccessActionType.INVITATION)));
         when(actions.findByTokenHashForUpdate(hash("reset-token"))).thenReturn(Optional.of(reset));
+        when(firms.findByIdForUpdate(reset.firmId())).thenReturn(Optional.of(firm(reset.firmId())));
 
         assertThatThrownBy(() -> service().acceptNewAccountInvitation(new AcceptInvitationRequest("reset-token", "Member",
                 "correct horse battery staple")))
@@ -182,15 +232,19 @@ class AccessLifecycleServiceTest {
     @Test
     void completesPasswordResetAndRevokesEveryRefreshFamilyForTheUser() {
         UUID actorId = UUID.randomUUID();
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        AccessAction reset = passwordReset(userId, "member@example.com", "reset-completion-token");
+        AccessAction reset = passwordReset(firmId, membershipId, userId, "member@example.com", "reset-completion-token");
         ForgeBoardUser user = new ForgeBoardUser(userId, "member@example.com", "Member", "old-hash", NOW);
-        FirmMembership membership = new FirmMembership(UUID.randomUUID(), UUID.randomUUID(), userId,
-                MembershipRole.MEMBER, NOW);
+        FirmMembership membership = new FirmMembership(membershipId, firmId, userId, MembershipRole.MEMBER, NOW);
         when(actions.findByTokenHashForUpdate(hash("reset-completion-token"))).thenReturn(Optional.of(reset));
+        when(actions.findScopeByTokenHash(hash("reset-completion-token"))).thenReturn(Optional.of(
+                new AccessActionRepository.ActionScope(firmId, AccessActionType.PASSWORD_RESET)));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
         when(users.findById(userId)).thenReturn(Optional.of(user));
         when(passwords.encode("new secure password")).thenReturn("new-hash");
-        when(memberships.findAllByUserId(userId)).thenReturn(List.of(membership));
 
         service().completePasswordReset(actorId, new CompletePasswordResetRequest("reset-completion-token", "new secure password"));
 
@@ -201,21 +255,26 @@ class AccessLifecycleServiceTest {
         ArgumentCaptor<Map<String, Object>> summary = ArgumentCaptor.forClass(Map.class);
         verify(audit).recordUserAction(eq(membership.firmId()), eq(actorId), any(), eq("password-reset.completed"),
                 eq("access-action"), eq(reset.id()), summary.capture());
-        assertThat(summary.getValue()).containsExactlyInAnyOrderEntriesOf(Map.of("role", "MEMBER", "status", "ACTIVE"));
+        assertThat(summary.getValue()).containsExactlyInAnyOrderEntriesOf(
+                Map.of("role", "MEMBER", "status", "ACTIVE", "origin", "RECIPIENT"));
         assertThat(summary.getValue().values()).doesNotContain("reset-completion-token", hash("reset-completion-token"));
     }
 
     @Test
     void publicPasswordResetRecordsTheResetAccountAsTheAuditActor() {
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        AccessAction reset = passwordReset(userId, "member@example.com", "public-reset-token");
+        AccessAction reset = passwordReset(firmId, membershipId, userId, "member@example.com", "public-reset-token");
         ForgeBoardUser user = new ForgeBoardUser(userId, "member@example.com", "Member", "old-hash", NOW);
-        FirmMembership membership = new FirmMembership(UUID.randomUUID(), UUID.randomUUID(), userId,
-                MembershipRole.MEMBER, NOW);
+        FirmMembership membership = new FirmMembership(membershipId, firmId, userId, MembershipRole.MEMBER, NOW);
         when(actions.findByTokenHashForUpdate(hash("public-reset-token"))).thenReturn(Optional.of(reset));
+        when(actions.findScopeByTokenHash(hash("public-reset-token"))).thenReturn(Optional.of(
+                new AccessActionRepository.ActionScope(firmId, AccessActionType.PASSWORD_RESET)));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
         when(users.findById(userId)).thenReturn(Optional.of(user));
         when(passwords.encode("new secure password")).thenReturn("new-hash");
-        when(memberships.findAllByUserId(userId)).thenReturn(List.of(membership));
 
         service().completePasswordReset(null, new CompletePasswordResetRequest("public-reset-token", "new secure password"));
 
@@ -223,8 +282,76 @@ class AccessLifecycleServiceTest {
                 eq("access-action"), eq(reset.id()), any());
     }
 
+    @Test
+    void invitationRedemptionFailsClosedWhenTheFirmIsSuspended() {
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
+        AccessAction invitation = invitation(firmId, membershipId, "member@example.com", "suspended-firm-token");
+        Firm suspended = firm(firmId);
+        suspended.suspend(NOW.plusSeconds(1));
+        when(actions.findScopeByTokenHash(hash("suspended-firm-token"))).thenReturn(Optional.of(
+                new AccessActionRepository.ActionScope(firmId, AccessActionType.INVITATION)));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(suspended));
+
+        assertThatThrownBy(() -> service().acceptNewAccountInvitation(new AcceptInvitationRequest(
+                "suspended-firm-token", "Member", "correct horse battery staple")))
+                .isInstanceOf(InvalidIdentityException.class);
+
+        verify(users, never()).save(any());
+        assertThat(invitation.consumedAt()).isNull();
+    }
+
+    @Test
+    void resetRedemptionRequiresAnEnabledActiveMembershipAndANonblankPassword() {
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        AccessAction reset = passwordReset(firmId, membershipId, userId, "member@example.com", "inactive-reset-token");
+        FirmMembership membership = new FirmMembership(membershipId, firmId, userId, MembershipRole.MEMBER, NOW);
+        membership.suspend(NOW.plusSeconds(1));
+        when(actions.findByTokenHashForUpdate(hash("inactive-reset-token"))).thenReturn(Optional.of(reset));
+        when(actions.findScopeByTokenHash(hash("inactive-reset-token"))).thenReturn(Optional.of(
+                new AccessActionRepository.ActionScope(firmId, AccessActionType.PASSWORD_RESET)));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
+
+        assertThatThrownBy(() -> service().completePasswordReset(null,
+                new CompletePasswordResetRequest("inactive-reset-token", "new secure password")))
+                .isInstanceOf(InvalidIdentityException.class);
+
+        assertThatThrownBy(() -> service().completePasswordReset(null,
+                new CompletePasswordResetRequest("inactive-reset-token", "            ")))
+                .isInstanceOf(InvalidIdentityException.class);
+        verify(passwords, never()).encode(any());
+        assertThat(reset.consumedAt()).isNull();
+    }
+
+    @Test
+    void resetRedemptionFailsClosedWhenTheBoundUserIsDisabled() {
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        AccessAction reset = passwordReset(firmId, membershipId, userId, "member@example.com", "disabled-user-token");
+        FirmMembership membership = new FirmMembership(membershipId, firmId, userId, MembershipRole.MEMBER, NOW);
+        ForgeBoardUser disabled = mock(ForgeBoardUser.class);
+        when(disabled.enabled()).thenReturn(false);
+        when(actions.findScopeByTokenHash(hash("disabled-user-token"))).thenReturn(Optional.of(
+                new AccessActionRepository.ActionScope(firmId, AccessActionType.PASSWORD_RESET)));
+        when(actions.findByTokenHashForUpdate(hash("disabled-user-token"))).thenReturn(Optional.of(reset));
+        when(firms.findByIdForUpdate(firmId)).thenReturn(Optional.of(firm(firmId)));
+        when(memberships.findByIdAndFirmId(membershipId, firmId)).thenReturn(Optional.of(membership));
+        when(users.findById(userId)).thenReturn(Optional.of(disabled));
+
+        assertThatThrownBy(() -> service().completePasswordReset(null,
+                new CompletePasswordResetRequest("disabled-user-token", "new secure password")))
+                .isInstanceOf(InvalidIdentityException.class);
+
+        verify(passwords, never()).encode(any());
+        assertThat(reset.consumedAt()).isNull();
+    }
+
     private AccessLifecycleService service() {
-        return new AccessLifecycleService(actions, memberships, users, passwords, tokens, audit, clock,
+        return new AccessLifecycleService(actions, memberships, firms, users, passwords, tokens, audit, clock,
                 "https://pilot.forgeboard.example");
     }
 
@@ -233,9 +360,13 @@ class AccessLifecycleServiceTest {
                 new AccessAction.TokenHash(hash(token)), UUID.randomUUID(), NOW);
     }
 
-    private static AccessAction passwordReset(UUID userId, String email, String token) {
-        return new AccessAction(UUID.randomUUID(), null, null, userId, AccessActionType.PASSWORD_RESET, email,
+    private static AccessAction passwordReset(UUID firmId, UUID membershipId, UUID userId, String email, String token) {
+        return new AccessAction(UUID.randomUUID(), firmId, membershipId, userId, AccessActionType.PASSWORD_RESET, email,
                 new AccessAction.TokenHash(hash(token)), UUID.randomUUID(), NOW);
+    }
+
+    private static Firm firm(UUID firmId) {
+        return new Firm(firmId, "Pilot Firm", "pilot-firm", NOW);
     }
 
     private static String hash(String value) {

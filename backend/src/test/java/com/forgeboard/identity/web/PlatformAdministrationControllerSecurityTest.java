@@ -76,15 +76,17 @@ class PlatformAdministrationControllerSecurityTest {
 
     @Test
     void platformAdministratorCanRequestAPasswordResetLink() throws Exception {
-        UUID userId = UUID.randomUUID();
+        UUID firmId = UUID.randomUUID();
+        UUID membershipId = UUID.randomUUID();
         GeneratedAccessLink link = new GeneratedAccessLink(UUID.randomUUID(), "https://app.example/reset/token",
                 Instant.parse("2026-08-14T12:00:00Z"));
-        org.mockito.Mockito.when(access.createPasswordReset(any(), eq(userId))).thenReturn(link);
+        org.mockito.Mockito.when(access.createPasswordReset(any(), eq(firmId), eq(membershipId))).thenReturn(link);
 
-        mockMvc.perform(post("/api/platform-admin/users/" + userId + "/password-reset").with(user("admin@example.com")))
+        mockMvc.perform(post("/api/platform-admin/firms/" + firmId + "/employees/" + membershipId
+                        + "/password-reset").with(user("admin@example.com")))
                 .andExpect(status().isOk());
 
-        verify(access).createPasswordReset(any(), eq(userId));
+        verify(access).createPasswordReset(any(), eq(firmId), eq(membershipId));
     }
 
     @Test

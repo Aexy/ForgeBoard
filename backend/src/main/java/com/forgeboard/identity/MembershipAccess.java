@@ -18,14 +18,18 @@ public class MembershipAccess {
     }
     public void requireAssignmentManagement(SelectedTenant tenant) { authorization.requireAssignmentManagement(tenant); }
     public void requireWorkflowManagement(SelectedTenant tenant) {
+        authorization.requireActiveTenant(tenant);
         if (tenant.role() != MembershipRole.OWNER
                 && tenant.role() != MembershipRole.ADMINISTRATOR
                 && tenant.role() != MembershipRole.MANAGER)
             throw new AccessDeniedException("Only owners, administrators, and managers can manage workflows");
     }
     public void requireWorkflowViewManagement(SelectedTenant tenant) {
+        authorization.requireActiveTenant(tenant);
         if (!tenant.role().canManageMemberships())
             throw new AccessDeniedException("Only owners and administrators can manage shared workflow views");
     }
-    public boolean belongsToFirm(UUID firmId, UUID userId) { return memberships.existsByFirmIdAndUserId(firmId, userId); }
+    public boolean belongsToFirm(UUID firmId, UUID userId) {
+        return memberships.existsActiveEnabledByFirmIdAndUserId(firmId, userId);
+    }
 }
