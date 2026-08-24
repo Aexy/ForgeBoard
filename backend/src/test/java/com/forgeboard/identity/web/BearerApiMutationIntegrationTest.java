@@ -3,6 +3,7 @@ package com.forgeboard.identity.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -73,6 +74,7 @@ class BearerApiMutationIntegrationTest {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("forgeboard.api-token.secret", () -> Base64.getEncoder().encodeToString(new byte[32]));
+        registry.add("forgeboard.platform-admin.emails", () -> "platform-admin@forgeboard.test");
     }
 
     @Autowired MockMvc mockMvc;
@@ -192,6 +194,73 @@ class BearerApiMutationIntegrationTest {
                 item, engagement, grant(ownerEmail), grant(preparerEmail), grant(reviewerEmail));
     }
 
+    @Test
+    void bearerAccessManagementEnforcesRoleAndTenantBoundariesAndPlatformResetRevokesSessions() throws Exception {
+        String suffix = UUID.randomUUID().toString();
+        OnboardingResult firm = onboarding.createFirm(new OnboardingRequest("Access Firm", "access-" + suffix,
+                "owner-" + suffix + "@example.com", "Access Owner", "correct horse battery"));
+        String ownerToken = grant(firm.ownerEmail());
+        String adminEmail = "administrator-" + suffix + "@example.com";
+
+        MvcResult invitation = mockMvc.perform(post("/api/identity/employees")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSelectionFilter.FIRM_HEADER, firm.firmId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Access Administrator\",\"email\":\"" + adminEmail
+                                + "\",\"role\":\"ADMINISTRATOR\"}"))
+                .andExpect(status().isCreated()).andReturn();
+        accessLifecycle.acceptNewAccountInvitation(new AcceptInvitationRequest(accessLinkToken(invitation),
+                "Access Administrator", "correct horse battery"));
+        String administratorToken = grant(adminEmail);
+        MvcResult employeesInFirm = mockMvc.perform(get("/api/identity/employees")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .header(TenantSelectionFilter.FIRM_HEADER, firm.firmId()))
+                .andExpect(status().isOk()).andReturn();
+        UUID administratorMembershipId = membershipId(employeesInFirm, adminEmail);
+
+        mockMvc.perform(post("/api/identity/employees")
+                        .header("Authorization", "Bearer " + administratorToken)
+                        .header(TenantSelectionFilter.FIRM_HEADER, firm.firmId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"Prohibited Owner\",\"email\":\"prohibited-" + suffix
+                                + "@example.com\",\"role\":\"OWNER\"}"))
+                .andExpect(status().isForbidden());
+
+        OnboardingResult otherFirm = onboarding.createFirm(new OnboardingRequest("Other Access Firm", "other-access-" + suffix,
+                "other-owner-" + suffix + "@example.com", "Other Owner", "correct horse battery"));
+        mockMvc.perform(post("/api/identity/employees/" + administratorMembershipId + "/suspension")
+                        .header("Authorization", "Bearer " + grant(otherFirm.ownerEmail()))
+                        .header(TenantSelectionFilter.FIRM_HEADER, otherFirm.firmId()))
+                .andExpect(status().isNotFound());
+
+        OnboardingResult platformFirm = onboarding.createFirm(new OnboardingRequest("Platform Firm", "platform-" + suffix,
+                "platform-admin@forgeboard.test", "Platform Administrator", "correct horse battery"));
+        String targetToken = ownerToken;
+        UUID targetUserId = firm.ownerId();
+        MvcResult reset = mockMvc.perform(post("/api/platform-admin/users/" + targetUserId + "/password-reset")
+                        .header("Authorization", "Bearer " + grant(platformFirm.ownerEmail())))
+                .andExpect(status().isOk()).andReturn();
+        String resetToken = accessLinkToken(reset);
+
+        mockMvc.perform(post("/api/access/password-resets/" + resetToken + "/complete")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"new correct horse battery\"}"))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/identity/me")
+                        .header("Authorization", "Bearer " + targetToken)
+                        .header(TenantSelectionFilter.FIRM_HEADER, firm.firmId()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/grant").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + firm.ownerEmail()
+                                + "\",\"password\":\"correct horse battery\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/auth/grant").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + firm.ownerEmail()
+                                + "\",\"password\":\"new correct horse battery\"}"))
+                .andExpect(status().isOk());
+    }
+
     private UUID acceptInvitation(SelectedTenant owner, String displayName, String email) {
         GeneratedAccessLink invitation = employees.create(owner,
                 new InviteMemberRequest(displayName, email, MembershipRole.MEMBER));
@@ -232,5 +301,20 @@ class BearerApiMutationIntegrationTest {
                 .matcher(grant.getResponse().getContentAsString());
         assertThat(token.find()).isTrue();
         return token.group(1);
+    }
+
+    private String accessLinkToken(MvcResult response) throws Exception {
+        Matcher link = Pattern.compile("\\\"link\\\":\\\"([^\\\"]+)\\\"")
+                .matcher(response.getResponse().getContentAsString());
+        assertThat(link.find()).isTrue();
+        String rawLink = link.group(1).replace("\\/", "/");
+        return rawLink.substring(rawLink.lastIndexOf('/') + 1);
+    }
+
+    private UUID membershipId(MvcResult response, String email) throws Exception {
+        Matcher membership = Pattern.compile("\\\"membershipId\\\":\\\"([^\\\"]+)\\\"[^}]*\\\"email\\\":\\\""
+                + Pattern.quote(email) + "\\\"").matcher(response.getResponse().getContentAsString());
+        assertThat(membership.find()).isTrue();
+        return UUID.fromString(membership.group(1));
     }
 }

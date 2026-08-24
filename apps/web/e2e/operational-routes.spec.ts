@@ -80,14 +80,7 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
     { ...readOnly, displayName: 'Playwright Read only', role: 'READ_ONLY' },
     { ...preparer, displayName: 'Playwright Preparer', role: 'MEMBER' },
     { ...reviewer, displayName: 'Playwright Reviewer', role: 'MEMBER' },
-  ].map(async (employee) => {
-    const provision = await request.post(`${apiBaseURL}/api/identity/employees`, {
-      headers,
-      data: { displayName: employee.displayName, email: employee.email, temporaryPassword: employee.password, role: employee.role },
-    })
-    expect(provision.status()).toBe(201)
-    return provision.json() as Promise<{ userId: string }>
-  }))
+  ].map((employee) => provisionEmployeeThroughInvitation(request, headers, employee)))
 
   return {
     firmSlug, owner, manager, readOnly, preparer, reviewer, clientName, workflowName,
@@ -95,6 +88,28 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
     ownerToken: credentials.accessToken,
     preparerUserId: employees[2].userId, reviewerUserId: employees[3].userId,
   }
+}
+
+async function provisionEmployeeThroughInvitation(request: APIRequestContext, headers: Record<string, string>,
+  employee: Credentials & { displayName: string; role: string }): Promise<{ userId: string }> {
+  const invitation = await request.post(`${apiBaseURL}/api/identity/employees`, {
+    headers,
+    data: { displayName: employee.displayName, email: employee.email, role: employee.role },
+  })
+  expect(invitation.status()).toBe(201)
+  const link = await invitation.json() as { link: string }
+  const token = new URL(link.link).pathname.split('/').at(-1)
+  expect(token).toBeTruthy()
+  const acceptance = await request.post(`${apiBaseURL}/api/access/invitations/${token}/accept-new`, {
+    data: { displayName: employee.displayName, password: employee.password },
+  })
+  expect(acceptance.status()).toBe(204)
+  const response = await request.get(`${apiBaseURL}/api/identity/employees`, { headers })
+  expect(response.status()).toBe(200)
+  const provisioned = (await response.json() as Array<{ userId: string | null; email: string }>)
+    .find((candidate) => candidate.email === employee.email)
+  expect(provisioned?.userId).toBeTruthy()
+  return { userId: provisioned!.userId! }
 }
 
 test('opens operational routes directly for their authorized roles', async ({ page, browser, request }) => {
@@ -151,10 +166,10 @@ test('provisions a read-only employee through the browser and preserves their re
   await page.locator('summary').filter({ hasText: 'New employee' }).click()
   await page.getByLabel('Employee name').fill(employee.displayName)
   await page.getByLabel('Work email').fill(employee.email)
-  await page.getByLabel('Temporary password').fill(employee.password)
   await page.getByLabel('Role').selectOption('READ_ONLY')
-  await page.getByRole('button', { name: 'Create employee' }).click()
+  await page.getByRole('button', { name: 'Send invitation' }).click()
   await expect(page.getByRole('heading', { name: employee.displayName })).toBeVisible()
+  const invitationLink = await page.getByLabel('Invitation link').inputValue()
 
   await page.reload()
   await expect(page.getByRole('heading', { name: employee.displayName })).toBeVisible()
@@ -162,6 +177,12 @@ test('provisions a read-only employee through the browser and preserves their re
 
   const employeeContext = await browser.newContext()
   const employeePage = await employeeContext.newPage()
+  await employeePage.goto(new URL(invitationLink).pathname)
+  await employeePage.getByLabel('Your name').fill(employee.displayName)
+  await employeePage.getByLabel('Password').fill(employee.password)
+  await employeePage.getByLabel('Confirm password').fill(employee.password)
+  await employeePage.getByRole('button', { name: 'Accept invitation' }).click()
+  await expect(employeePage).toHaveURL('/', { timeout: 15_000 })
   await signInAt(employeePage, `/firms/${firm.firmSlug}/engagements`, employee)
   await expect(employeePage.getByRole('heading', { name: 'Engagements', exact: true })).toBeVisible()
   await expect(employeePage.getByRole('button', { name: '+ New template' })).toHaveCount(0)

@@ -107,6 +107,9 @@ Remove-Item -LiteralPath $backendOutputLog, $backendErrorLog -Force -ErrorAction
 $apiBaseUrl = "http://127.0.0.1:$port"
 $backendProcess = $null
 $shouldCleanFixtures = $true
+# The browser access evidence onboards this disposable account through the normal
+# onboarding endpoint, then exercises the platform-authorized reset route.
+$env:FORGEBOARD_PLATFORM_ADMIN_EMAILS = 'e2e-platform-admin@forgeboard.test'
 
 try {
     Push-Location $repositoryRoot
