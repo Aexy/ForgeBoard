@@ -1,6 +1,6 @@
 'use client'
 
-import { type FormEvent, useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 
 import { useLanguage } from '@/app/LanguageProvider'
 import { useFirmContext } from '@/store/firm-cache-boundary'
@@ -44,7 +44,7 @@ export function Employees() {
   const allowedRoles = firm.role === 'OWNER' ? allAssignableRoles : allAssignableRoles.filter((role) => role !== 'OWNER')
   const employees = useGetEmployeesQuery({ firm }, { skip: !canManageMemberships })
   const [generateInvitation, invitationResult] = useGenerateInvitationMutation()
-  const [reissueInvitation] = useReissueInvitationMutation()
+  const [reissueInvitation, reissueResult] = useReissueInvitationMutation()
   const [revokeInvitation] = useRevokeInvitationMutation()
   const [updateRole] = useUpdateMembershipRoleMutation()
   const [suspendMembership] = useSuspendMembershipMutation()
@@ -53,8 +53,19 @@ export function Employees() {
   const [creating, setCreating] = useState(false)
   const [accessLink, setAccessLink] = useState<{ firmId: string; link: string } | null>(null)
   const [error, setError] = useState('')
+  const previousFirmId = useRef(firm.firmId)
+  const accessMutationResets = useRef<() => void>(() => {})
+  accessMutationResets.current = () => { invitationResult.reset(); reissueResult.reset() }
 
-  useEffect(() => { setAccessLink(null) }, [firm.firmId])
+  function resetAccessMutationResults() { accessMutationResets.current() }
+  function dismissAccessLink() { setAccessLink(null); resetAccessMutationResults() }
+
+  useEffect(() => {
+    if (previousFirmId.current === firm.firmId) return
+    previousFirmId.current = firm.firmId
+    dismissAccessLink()
+  }, [firm.firmId])
+  useEffect(() => () => resetAccessMutationResults(), [])
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -71,6 +82,7 @@ export function Employees() {
         },
       }).unwrap()
       setAccessLink({ firmId: firm.firmId, link: invitation.link })
+      resetAccessMutationResults()
       form.reset()
       setCreating(false)
     } catch (failure) { setError(errorMessage(failure, t('employees.invitationError'))) }
@@ -78,7 +90,11 @@ export function Employees() {
 
   async function reissue(employee: Employee) {
     setError('')
-    try { setAccessLink({ firmId: firm.firmId, link: (await reissueInvitation({ firm, membershipId: employee.membershipId }).unwrap()).link }) } catch (failure) { setError(errorMessage(failure, t('employees.invitationError'))) }
+    try {
+      const invitation = await reissueInvitation({ firm, membershipId: employee.membershipId }).unwrap()
+      setAccessLink({ firmId: firm.firmId, link: invitation.link })
+      resetAccessMutationResults()
+    } catch (failure) { setError(errorMessage(failure, t('employees.invitationError'))) }
   }
 
   async function revoke(employee: Employee) {
@@ -122,7 +138,7 @@ export function Employees() {
     {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite">
       <p>{t('employees.oneTimeLink')}</p>
       <label>{t('employees.invitationLink')}<input aria-label={t('employees.invitationLink')} readOnly value={visibleAccessLink} onFocus={(event) => event.currentTarget.select()} /></label>
-      <div><button type="button" onClick={() => void copyAccessLink()}>{t('employees.copyInvitationLink')}</button><button type="button" onClick={() => setAccessLink(null)}>{t('employees.dismissInvitationLink')}</button></div>
+      <div><button type="button" onClick={() => void copyAccessLink()}>{t('employees.copyInvitationLink')}</button><button type="button" onClick={dismissAccessLink}>{t('employees.dismissInvitationLink')}</button></div>
     </section> : null}
     <details className={styles.createPanel} open={creating} onToggle={(event) => setCreating(event.currentTarget.open)}>
       <summary>{creating ? t('employees.cancelNew') : t('employees.new')}</summary>

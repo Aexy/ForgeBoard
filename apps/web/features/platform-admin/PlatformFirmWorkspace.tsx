@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 
 import { useLanguage } from '@/app/LanguageProvider'
 import {
@@ -40,18 +40,29 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
   const { t } = useLanguage()
   const employees = useGetPlatformEmployeesQuery(firm.id)
   const [generateInvitation, invitationResult] = useGeneratePlatformInvitationMutation()
-  const [reissueInvitation] = useReissuePlatformInvitationMutation()
+  const [reissueInvitation, reissueResult] = useReissuePlatformInvitationMutation()
   const [revokeInvitation] = useRevokePlatformInvitationMutation()
   const [updateRole] = useUpdatePlatformEmployeeRoleMutation()
   const [suspendMembership] = useSuspendPlatformMembershipMutation()
   const [reactivateMembership] = useReactivatePlatformMembershipMutation()
   const [removeMembership] = useRemovePlatformMembershipMutation()
-  const [generatePasswordReset] = useGeneratePasswordResetMutation()
+  const [generatePasswordReset, passwordResetResult] = useGeneratePasswordResetMutation()
   const [creating, setCreating] = useState(false)
   const [accessLink, setAccessLink] = useState<{ firmId: string; link: string; type: 'invitation' | 'reset' } | null>(null)
   const [error, setError] = useState('')
+  const previousFirmId = useRef(firm.id)
+  const accessMutationResets = useRef<() => void>(() => {})
+  accessMutationResets.current = () => { invitationResult.reset(); reissueResult.reset(); passwordResetResult.reset() }
 
-  useEffect(() => { setAccessLink(null) }, [firm.id])
+  function resetAccessMutationResults() { accessMutationResets.current() }
+  function dismissAccessLink() { setAccessLink(null); resetAccessMutationResults() }
+
+  useEffect(() => {
+    if (previousFirmId.current === firm.id) return
+    previousFirmId.current = firm.id
+    dismissAccessLink()
+  }, [firm.id])
+  useEffect(() => () => resetAccessMutationResults(), [])
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -61,6 +72,7 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
     try {
       const invitation = await generateInvitation({ firmId: firm.id, request: { displayName: String(data.get('displayName')), email: String(data.get('email')), role: String(data.get('role')) as MembershipRole } }).unwrap()
       setAccessLink({ firmId: firm.id, link: invitation.link, type: 'invitation' })
+      resetAccessMutationResults()
       form.reset()
       setCreating(false)
     } catch (failure) { setError(errorMessage(failure, t('platformAdmin.invitationError'))) }
@@ -68,7 +80,11 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
 
   async function reissue(employee: PlatformEmployee) {
     setError('')
-    try { setAccessLink({ firmId: firm.id, link: (await reissueInvitation({ firmId: firm.id, membershipId: employee.membershipId }).unwrap()).link, type: 'invitation' }) } catch (failure) { setError(errorMessage(failure, t('platformAdmin.invitationError'))) }
+    try {
+      const invitation = await reissueInvitation({ firmId: firm.id, membershipId: employee.membershipId }).unwrap()
+      setAccessLink({ firmId: firm.id, link: invitation.link, type: 'invitation' })
+      resetAccessMutationResults()
+    } catch (failure) { setError(errorMessage(failure, t('platformAdmin.invitationError'))) }
   }
 
   async function revoke(employee: PlatformEmployee) {
@@ -100,7 +116,11 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
   async function resetPassword(employee: PlatformEmployee) {
     if (!employee.userId) return
     setError('')
-    try { setAccessLink({ firmId: firm.id, link: (await generatePasswordReset({ firmId: firm.id, userId: employee.userId }).unwrap()).link, type: 'reset' }) } catch (failure) { setError(errorMessage(failure, t('platformAdmin.resetError'))) }
+    try {
+      const reset = await generatePasswordReset({ firmId: firm.id, userId: employee.userId }).unwrap()
+      setAccessLink({ firmId: firm.id, link: reset.link, type: 'reset' })
+      resetAccessMutationResults()
+    } catch (failure) { setError(errorMessage(failure, t('platformAdmin.resetError'))) }
   }
 
   async function copyAccessLink() {
@@ -111,11 +131,12 @@ export function PlatformFirmWorkspace({ firm, onBack }: Readonly<{ firm: Platfor
 
   const visibleAccessLink = accessLink?.firmId === firm.id ? accessLink : null
   const accessLabel = visibleAccessLink?.type === 'reset' ? t('platformAdmin.passwordResetLink') : t('platformAdmin.invitationLink')
+  const dismissLabel = visibleAccessLink?.type === 'reset' ? t('platformAdmin.dismissPasswordResetLink') : t('platformAdmin.dismissInvitationLink')
 
   return <section className={styles.workspace}>
     <button type="button" className={styles.back} onClick={onBack}>{t('platformAdmin.backToFirms')}</button>
     <header className={styles.heading}><div><p className={styles.eyebrow}>{t('platformAdmin.firmWorkspace')}</p><h1>{firm.name}</h1><p>{firm.slug} · {t(firm.status === 'ACTIVE' ? 'platformAdmin.active' : 'platformAdmin.suspended')}</p></div><button type="button" onClick={() => setCreating((current) => !current)}>{creating ? t('common.cancel') : t('platformAdmin.inviteEmployee')}</button></header>
-    {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite"><p>{t('platformAdmin.oneTimeLink')}</p><label>{accessLabel}<input aria-label={accessLabel} readOnly value={visibleAccessLink.link} onFocus={(event) => event.currentTarget.select()} /></label><div><button type="button" onClick={() => void copyAccessLink()}>{t('platformAdmin.copyAccessLink')}</button><button type="button" onClick={() => setAccessLink(null)}>{t('platformAdmin.dismissAccessLink')}</button></div></section> : null}
+    {visibleAccessLink ? <section className={styles.accessLink} aria-live="polite"><p>{t('platformAdmin.oneTimeLink')}</p><label>{accessLabel}<input aria-label={accessLabel} readOnly value={visibleAccessLink.link} onFocus={(event) => event.currentTarget.select()} /></label><div><button type="button" onClick={() => void copyAccessLink()}>{t('platformAdmin.copyAccessLink')}</button><button type="button" onClick={dismissAccessLink}>{dismissLabel}</button></div></section> : null}
     {creating ? <form className={styles.form} onSubmit={create}>
       <h2>{t('platformAdmin.inviteEmployee')}</h2>
       <label>{t('platformAdmin.employeeName')}<input name="displayName" required maxLength={160} autoComplete="name" /></label>

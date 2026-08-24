@@ -5,15 +5,15 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  employees: vi.fn(), invite: vi.fn(), reissue: vi.fn(), revoke: vi.fn(), role: vi.fn(), suspend: vi.fn(), reactivate: vi.fn(), remove: vi.fn(), reset: vi.fn(),
+  employees: vi.fn(), invite: vi.fn(), inviteReset: vi.fn(), reissue: vi.fn(), reissueReset: vi.fn(), revoke: vi.fn(), role: vi.fn(), suspend: vi.fn(), reactivate: vi.fn(), remove: vi.fn(), reset: vi.fn(), resetResultReset: vi.fn(),
 }))
 vi.mock('@/features/platform-admin/platform-admin-transport', () => ({
   useGetPlatformEmployeesQuery: mocks.employees,
-  useGeneratePlatformInvitationMutation: () => [mocks.invite, { isLoading: false }],
-  useReissuePlatformInvitationMutation: () => [mocks.reissue], useRevokePlatformInvitationMutation: () => [mocks.revoke],
+  useGeneratePlatformInvitationMutation: () => [mocks.invite, { isLoading: false, reset: mocks.inviteReset }],
+  useReissuePlatformInvitationMutation: () => [mocks.reissue, { reset: mocks.reissueReset }], useRevokePlatformInvitationMutation: () => [mocks.revoke],
   useUpdatePlatformEmployeeRoleMutation: () => [mocks.role], useSuspendPlatformMembershipMutation: () => [mocks.suspend],
   useReactivatePlatformMembershipMutation: () => [mocks.reactivate], useRemovePlatformMembershipMutation: () => [mocks.remove],
-  useGeneratePasswordResetMutation: () => [mocks.reset],
+  useGeneratePasswordResetMutation: () => [mocks.reset, { reset: mocks.resetResultReset }],
 }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 
@@ -51,8 +51,10 @@ describe('Platform firm workspace', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Send invitation' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.invite).toHaveBeenCalledWith(expect.objectContaining({ firmId: 'firm-1', request: expect.objectContaining({ email: 'avery@example.com' }) })))
     expect(await screen.findByLabelText('Invitation link')).toHaveValue(invitation.link)
+    expect(mocks.inviteReset).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss invitation link' }))
     expect(screen.queryByLabelText('Invitation link')).not.toBeInTheDocument()
+    expect(mocks.inviteReset).toHaveBeenCalledTimes(2)
 
     fireEvent.click(screen.getByRole('button', { name: 'Invite employee' }))
     fireEvent.change(screen.getByLabelText('Employee name'), { target: { value: 'Avery Accountant' } })
@@ -61,6 +63,9 @@ describe('Platform firm workspace', () => {
     expect(await screen.findByLabelText('Invitation link')).toBeVisible()
     view.rerender(<LanguageProvider initialLanguage="en"><PlatformFirmWorkspace firm={otherFirm} onBack={vi.fn()} /></LanguageProvider>)
     await vi.waitFor(() => expect(screen.queryByLabelText('Invitation link')).not.toBeInTheDocument())
+    expect(mocks.inviteReset).toHaveBeenCalledTimes(4)
+    view.unmount()
+    expect(mocks.inviteReset).toHaveBeenCalledTimes(5)
   })
 
   it('lets a platform administrator manage only the selected firm membership and generate a reset link for an existing account', async () => {
@@ -77,5 +82,8 @@ describe('Platform firm workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Generate password reset' }))
     await vi.waitFor(() => expect(mocks.reset).toHaveBeenCalledWith({ firmId: 'firm-1', userId: 'user-1' }))
     expect(await screen.findByLabelText('Password reset link')).toHaveValue(reset.link)
+    expect(mocks.resetResultReset).toHaveBeenCalledOnce()
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss password reset link' }))
+    expect(mocks.resetResultReset).toHaveBeenCalledTimes(2)
   })
 })

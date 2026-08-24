@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
+import { createElement, type ReactNode } from 'react'
+import { Provider } from 'react-redux'
+import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { employeesApi } from './employees-transport'
+import { employeesApi, useGenerateInvitationMutation } from './employees-transport'
 import { makeStore } from '@/store/store'
 
 const firmA = { firmId: 'firm-a', firmSlug: 'hearth', role: 'OWNER' as const }
@@ -35,5 +38,20 @@ describe('employees transport', () => {
     expect(await invitation?.clone().json()).toEqual({ displayName: 'Mira Miller', email: 'mira@example.com', role: 'MEMBER' })
     // Two directory requests, one invitation, then exactly one firm-local refetch.
     expect(requests.filter((request) => request.url.includes('identity/employees'))).toHaveLength(4)
+  })
+
+  it('removes the raw generated link from the actual RTK Query mutation cache when reset', async () => {
+    const store = makeStore()
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(Provider, { store, children })
+    const { result } = renderHook(() => useGenerateInvitationMutation(), { wrapper })
+
+    await act(async () => {
+      await result.current[0]({ firm: firmA, request: { displayName: 'Mira Miller', email: 'mira@example.com', role: 'MEMBER' } }).unwrap()
+    })
+    expect(result.current[1].data).toMatchObject({ link: 'https://forgeboard.example/invite/one-time' })
+
+    act(() => result.current[1].reset())
+    expect(result.current[1].data).toBeUndefined()
+    expect(Object.keys(store.getState().forgeboardApi.mutations)).toHaveLength(0)
   })
 })

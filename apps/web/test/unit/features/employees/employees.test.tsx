@@ -5,13 +5,13 @@ import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  useFirmContext: vi.fn(), useGetEmployeesQuery: vi.fn(), invite: vi.fn(), reissue: vi.fn(), revoke: vi.fn(), role: vi.fn(), suspend: vi.fn(), reactivate: vi.fn(), remove: vi.fn(),
+  useFirmContext: vi.fn(), useGetEmployeesQuery: vi.fn(), invite: vi.fn(), inviteReset: vi.fn(), reissue: vi.fn(), reissueReset: vi.fn(), revoke: vi.fn(), role: vi.fn(), suspend: vi.fn(), reactivate: vi.fn(), remove: vi.fn(),
 }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
 vi.mock('@/features/employees/employees-transport', () => ({
   useGetEmployeesQuery: mocks.useGetEmployeesQuery,
-  useGenerateInvitationMutation: () => [mocks.invite, { isLoading: false }],
-  useReissueInvitationMutation: () => [mocks.reissue], useRevokeInvitationMutation: () => [mocks.revoke],
+  useGenerateInvitationMutation: () => [mocks.invite, { isLoading: false, reset: mocks.inviteReset }],
+  useReissueInvitationMutation: () => [mocks.reissue, { reset: mocks.reissueReset }], useRevokeInvitationMutation: () => [mocks.revoke],
   useUpdateMembershipRoleMutation: () => [mocks.role], useSuspendMembershipMutation: () => [mocks.suspend],
   useReactivateMembershipMutation: () => [mocks.reactivate], useRemoveMembershipMutation: () => [mocks.remove],
 }))
@@ -57,8 +57,10 @@ describe('Employees route feature', () => {
     fireEvent.submit(screen.getByRole('button', { name: 'Send invitation' }).closest('form')!)
     await vi.waitFor(() => expect(mocks.invite).toHaveBeenCalledWith(expect.objectContaining({ firm: expect.objectContaining({ firmId: 'firm-1' }), request: expect.objectContaining({ email: employee.email, role: 'MEMBER' }) })))
     expect(await screen.findByLabelText('Invitation link')).toHaveValue(invitation.link)
+    expect(mocks.inviteReset).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss invitation link' }))
     expect(screen.queryByLabelText('Invitation link')).not.toBeInTheDocument()
+    expect(mocks.inviteReset).toHaveBeenCalledTimes(2)
 
     fireEvent.change(screen.getByLabelText('Employee name'), { target: { value: employee.displayName } })
     fireEvent.change(screen.getByLabelText('Work email'), { target: { value: employee.email } })
@@ -67,6 +69,9 @@ describe('Employees route feature', () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-2', firmSlug: 'northstar', role: 'OWNER' })
     view.rerender(<LanguageProvider initialLanguage="en"><Employees /></LanguageProvider>)
     await vi.waitFor(() => expect(screen.queryByLabelText('Invitation link')).not.toBeInTheDocument())
+    expect(mocks.inviteReset).toHaveBeenCalledTimes(4)
+    view.unmount()
+    expect(mocks.inviteReset).toHaveBeenCalledTimes(5)
   })
 
   it('limits role and membership actions to the authority Spring grants the current role', () => {
