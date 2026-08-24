@@ -1,0 +1,15 @@
+.card { width: min(100%, 32rem); margin: clamp(2rem, 9vh, 6rem) auto; padding: clamp(1.5rem, 5vw, 2.5rem); border: 1px solid var(--forge-border); border-radius: .75rem; background: #fff; box-shadow: 0 1rem 3rem rgb(16 39 30 / 8%); }
+.eyebrow { margin: 0 0 .5rem; color: var(--forge-green-800); font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.title { margin: 0; color: #10271e; font-size: clamp(1.75rem, 6vw, 2.4rem); letter-spacing: -.03em; }
+.description { margin: .75rem 0 1.5rem; color: #4b5d54; line-height: 1.55; }
+.mode { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1.5rem; }
+.modeButton { border: 1px solid var(--forge-border); border-radius: 999px; background: #fff; color: #284438; cursor: pointer; font: inherit; font-weight: 650; padding: .5rem .8rem; }
+.modeButton[aria-pressed='true'] { border-color: var(--forge-green-800); background: #e6f1e9; color: #10271e; }
+.form { display: grid; gap: 1rem; }
+.field { display: grid; gap: .4rem; color: #20362c; font-weight: 650; }
+.field input { min-width: 0; border: 1px solid var(--forge-border); border-radius: .4rem; color: #10271e; font: inherit; font-weight: 400; padding: .7rem .75rem; }
+.field input:focus-visible, .modeButton:focus-visible, .submit:focus-visible { outline: 3px solid #75af86; outline-offset: 2px; }
+.alert { margin: 0; border-left: 3px solid #a11e26; color: #8b1820; font-weight: 600; padding-left: .75rem; }
+.submit { border: 0; border-radius: .4rem; background: var(--forge-green-800); color: #fff; cursor: pointer; font: inherit; font-weight: 750; padding: .75rem 1rem; }
+.submit:disabled { cursor: progress; opacity: .7; }
+@media (max-width: 34rem) { .card { margin: 1rem; } }
