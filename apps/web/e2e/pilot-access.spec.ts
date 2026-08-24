@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
@@ -28,6 +29,27 @@ async function createFirm(request: APIRequestContext, prefix: string, email?: st
 
 function headers(firm: Firm) { return { Authorization: `Bearer ${firm.token}`, 'X-ForgeBoard-Firm': firm.id } }
 function routePath(link: string) { return new URL(link).pathname }
+
+function expireAccessAction(token: string) {
+  const jdbcUrl = process.env.DB_URL
+  const databaseUser = process.env.DB_USER
+  const databasePassword = process.env.DB_PASSWORD
+  const psql = process.env.FORGEBOARD_E2E_PSQL
+  if (!jdbcUrl || !databaseUser || !databasePassword || !psql)
+    throw new Error('The supported E2E runner must provide disposable PostgreSQL configuration to expire an access action')
+
+  const connection = new URL(jdbcUrl.replace(/^jdbc:/, ''))
+  const tokenHash = createHash('sha256').update(token).digest('hex')
+  const sql = `update access_actions set expires_at = created_at + interval '1 millisecond' where token_hash = '${tokenHash}' returning id;`
+  const output = execFileSync(psql, [
+    '-h', connection.hostname,
+    '-p', String(connection.port ? Number(connection.port) : 5432),
+    '-U', databaseUser,
+    '-d', connection.pathname.slice(1),
+    '-w', '-tAc', sql,
+  ], { encoding: 'utf8', env: { ...process.env, PGPASSWORD: databasePassword } })
+  expect(output.trim(), 'the authenticated API-created action must be expired in the disposable test database').not.toBe('')
+}
 
 async function invite(request: APIRequestContext, firm: Firm, displayName: string, email: string, role = 'MEMBER'): Promise<AccessLink> {
   const response = await request.post(`${apiBaseURL}/api/identity/employees`, {
@@ -111,8 +133,9 @@ test('shows the same generic denial for revoked, reused, and expired access link
   await acceptNewInvitation(page, reusable, 'Reused Invitee', reusableAccount)
   await expectGenericInvitationDenial(page, routePath(reusable.link))
 
-  // The public boundary intentionally makes an expired token indistinguishable from an unknown token.
-  await expectGenericInvitationDenial(page, '/invite/expired-access-link')
+  const expired = await invite(request, firm, 'Expired Invitee', `e2e-expired-${suffix}@forgeboard.test`)
+  expireAccessAction(routePath(expired.link).split('/').at(-1)!)
+  await expectGenericInvitationDenial(page, routePath(expired.link))
 })
 
 test('denies administrator owner-role changes and cross-firm membership access', async ({ page, request }) => {
@@ -140,7 +163,7 @@ test('denies administrator owner-role changes and cross-firm membership access',
   expect(crossFirm.status()).toBe(404)
 })
 
-test('allows a configured platform administrator to reset a password and forces a fresh browser sign-in', async ({ page, request }) => {
+test('allows a configured platform administrator to reset a password and forces a fresh browser sign-in', async ({ page, browser, request }) => {
   const administrator = await createFirm(request, 'platform-admin', platformAdministratorEmail)
   const target = await createFirm(request, 'reset-target')
   await signInAt(page, `/firms/${target.slug}/my-work`, target.owner)
@@ -152,13 +175,16 @@ test('allows a configured platform administrator to reset a password and forces 
   expect(reset.status()).toBe(200)
   const link = await reset.json() as AccessLink
   const newPassword = 'new-playwright-test-password'
-  await page.goto(routePath(link.link))
-  await page.getByLabel('New password').fill(newPassword)
-  await page.getByLabel('Confirm new password').fill(newPassword)
-  await page.getByRole('button', { name: 'Reset password' }).click()
-  await expect(page).toHaveURL('/', { timeout: 15_000 })
+  const resetContext = await browser.newContext()
+  const resetPage = await resetContext.newPage()
+  await resetPage.goto(routePath(link.link))
+  await resetPage.getByLabel('New password').fill(newPassword)
+  await resetPage.getByLabel('Confirm new password').fill(newPassword)
+  await resetPage.getByRole('button', { name: 'Reset password' }).click()
+  await expect(resetPage).toHaveURL('/', { timeout: 15_000 })
+  await resetContext.close()
 
-  await page.goto(`/firms/${target.slug}/my-work`)
+  await page.reload()
   await expect(page).toHaveURL(/\/?callbackUrl=%2Ffirms%2F/)
   await page.getByLabel('Email address').fill(target.owner.email)
   await page.getByLabel('Password').fill(target.owner.password)

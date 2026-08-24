@@ -227,4 +227,17 @@ describe('ForgeBoard BFF proxy', () => {
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(response.headers.get('authorization')).toBeNull()
   })
+
+  it('marks an authenticated upstream rejection for a fresh browser sign-in without exposing credentials', async () => {
+    mocks.upstreamResponse.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'expired credential' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer hidden' },
+    }))
+
+    const response = await GET(await request(), routeContext)
+
+    expect(response.status).toBe(401)
+    expect(response.headers.get('x-forgeboard-reauthenticate')).toBe('1')
+    expect(response.headers.get('authorization')).toBeNull()
+  })
 })

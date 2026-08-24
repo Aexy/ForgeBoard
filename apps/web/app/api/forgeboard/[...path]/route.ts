@@ -70,6 +70,11 @@ async function proxy(request: Request, context: RouteContext): Promise<NextRespo
     const value = upstream.headers.get(name)
     if (value) headers.set(name, value)
   }
+  // The browser never sees Spring credentials, but its encrypted Auth.js
+  // session can outlive server-side credential revocation. Mark only an
+  // authenticated upstream rejection so the shared client transport can
+  // clear that stale browser session and require a fresh sign-in.
+  if (upstream.status === 401) headers.set('X-ForgeBoard-Reauthenticate', '1')
   if (!headers.has('content-type')) headers.set('content-type', 'application/json; charset=utf-8')
 
   return new NextResponse(await upstream.arrayBuffer(), { status: upstream.status, headers })

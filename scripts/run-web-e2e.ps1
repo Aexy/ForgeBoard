@@ -101,6 +101,17 @@ if (Get-NetTCPConnection -LocalPort ([int]$port) -State Listen -ErrorAction Sile
     throw "Port $port is already in use. Refusing to reuse an existing backend for E2E."
 }
 
+$psqlCommand = Get-Command psql -ErrorAction SilentlyContinue
+if ($null -eq $psqlCommand) {
+    $fallbackPsql = 'C:\Program Files\PostgreSQL\17\bin\psql.exe'
+    if (-not (Test-Path -LiteralPath $fallbackPsql -PathType Leaf)) {
+        throw 'Could not find psql required for disposable E2E access-action expiry fixtures.'
+    }
+    $env:FORGEBOARD_E2E_PSQL = $fallbackPsql
+} else {
+    $env:FORGEBOARD_E2E_PSQL = $psqlCommand.Source
+}
+
 New-Item -ItemType Directory -Path $backendLogDirectory -Force | Out-Null
 Remove-Item -LiteralPath $backendOutputLog, $backendErrorLog -Force -ErrorAction SilentlyContinue
 
