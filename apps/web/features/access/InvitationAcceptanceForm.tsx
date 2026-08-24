@@ -22,7 +22,11 @@ export function InvitationAcceptanceForm({ token }: Readonly<{ token: string }>)
   useEffect(() => { if (error) alert.current?.focus() }, [error])
 
   async function finish() {
-    await signOut({ redirect: false })
+    try {
+      await signOut({ redirect: false })
+    } catch {
+      // Redemption has already succeeded. Preserve the mandatory fresh-sign-in redirect.
+    }
     router.replace('/sign-in')
     router.refresh()
   }

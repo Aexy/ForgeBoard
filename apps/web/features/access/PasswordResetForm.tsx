@@ -28,7 +28,11 @@ export function PasswordResetForm({ token }: Readonly<{ token: string }>) {
     try {
       const response = await fetch(`/api/forgeboard/access/password-resets/${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) })
       if (!response.ok) throw new Error('Password reset failed')
-      await signOut({ redirect: false })
+      try {
+        await signOut({ redirect: false })
+      } catch {
+        // The reset is complete; redirect even when session clearing is unavailable.
+      }
       router.replace('/sign-in')
       router.refresh()
     } catch { setError(t('access.actionFailed')); submitting.current = false; setBusy(false) }

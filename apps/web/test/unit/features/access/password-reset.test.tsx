@@ -43,6 +43,19 @@ describe('password reset form', () => {
     expect(mocks.refresh).toHaveBeenCalledOnce()
   })
 
+  it('redirects to fresh sign-in without an alert when sign-out fails after a successful reset', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 204 }))
+    mocks.signOut.mockRejectedValue(new Error('Sign-out unavailable'))
+    renderForm()
+    fireEvent.change(screen.getByLabelText('New password'), { target: { value: 'correct horse battery' } })
+    fireEvent.change(screen.getByLabelText('Confirm new password'), { target: { value: 'correct horse battery' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Reset password' }).closest('form')!)
+
+    await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/sign-in'))
+    expect(mocks.refresh).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows and focuses a translated validation alert without calling the endpoint', async () => {
     renderForm('de')
     fireEvent.change(screen.getByLabelText('Neues Passwort'), { target: { value: 'one sufficiently long password' } })

@@ -46,6 +46,20 @@ describe('invitation acceptance form', () => {
     expect(mocks.refresh).toHaveBeenCalledOnce()
   })
 
+  it('redirects to fresh sign-in without an alert when sign-out fails after a successful invitation', async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({ completed: true }), { status: 200 }))
+    mocks.signOut.mockRejectedValue(new Error('Sign-out unavailable'))
+    renderForm()
+    fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Mira Member' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct horse battery' } })
+    fireEvent.change(screen.getByLabelText('Confirm password'), { target: { value: 'correct horse battery' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Accept invitation' }).closest('form')!)
+
+    await vi.waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/sign-in'))
+    expect(mocks.refresh).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows and focuses the translated password validation alert', async () => {
     renderForm('de')
     fireEvent.change(screen.getByLabelText('Ihr Name'), { target: { value: 'Mira Mitglied' } })
