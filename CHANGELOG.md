@@ -70,6 +70,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Delayed workflow-card side-panel opening so double-clicking a work item reliably opens its full task workspace without a board reflow redirecting the second click. (`M2`)
+
 - Return `403 Forbidden` when an authenticated firm member lacks permission for an identity-management action, rather than incorrectly reporting a credential failure. (`M3`)
 
 - Focus and select newly generated invitation and password-reset links for firm and platform operators, and hide reset actions unless both the selected firm and target membership are active. (`M3`)
