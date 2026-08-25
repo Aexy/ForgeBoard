@@ -41,6 +41,11 @@ class IdentityExceptionHandler {
     ProblemDetail conflict(PlatformAdministrationConflictException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
     }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail forbidden(AccessDeniedException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
 }
 
 @RestControllerAdvice(assignableTypes = AccessActionController.class)

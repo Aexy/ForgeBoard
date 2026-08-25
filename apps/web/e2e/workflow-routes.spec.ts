@@ -47,7 +47,7 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
 
   const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers,
-    data: { name: 'Monthly close', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: { name: 'Monthly close', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
   })
   expect(workflow.status()).toBe(201)
   const workflowData = await workflow.json() as { id: string; stages: Array<{ id: string }> }
@@ -145,7 +145,7 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   const clientData = await client.json() as { id: string }
   const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers,
-    data: { name: 'Conflict workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: { name: 'Conflict workflow', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
   })
   expect(workflow.status()).toBe(201)
   const workflowData = await workflow.json() as { id: string; stages: Array<{ id: string }> }
@@ -197,7 +197,7 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
   const secondHeaders = { Authorization: `Bearer ${secondCredentials.accessToken}`, 'X-ForgeBoard-Firm': secondCredentials.firms[0].id }
   const secondWorkflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers: secondHeaders,
-    data: { name: 'Private second-firm workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: { name: 'Private second-firm workflow', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
   })
   expect(secondWorkflow.status()).toBe(201)
   const secondWorkflowData = await secondWorkflow.json() as { id: string; stages: Array<{ id: string }> }
@@ -290,7 +290,7 @@ test('shows a Spring authorization denial and preserves board state for read-onl
   expect(documentRequest.status()).toBe(201)
   const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers,
-    data: { name: 'Read only workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: { name: 'Read only workflow', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
   })
   expect(workflow.status()).toBe(201)
   const workflowData = await workflow.json() as { id: string; stages: Array<{ id: string }> }
@@ -305,11 +305,16 @@ test('shows a Spring authorization denial and preserves board state for read-onl
   const createdItem = boardData.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === itemData.id)
   expect(createdItem).toBeDefined()
 
-  const provision = await request.post(`${apiBaseURL}/api/identity/employees`, {
+  const invitation = await request.post(`${apiBaseURL}/api/identity/employees`, {
     headers,
-    data: { displayName: 'Playwright Read only', email: reader.email, temporaryPassword: reader.password, role: 'READ_ONLY' },
+    data: { displayName: 'Playwright Read only', email: reader.email, role: 'READ_ONLY' },
   })
-  expect(provision.status()).toBe(201)
+  expect(invitation.status()).toBe(201)
+  const invitationToken = new URL((await invitation.json() as { link: string }).link).pathname.split('/').at(-1)
+  const acceptance = await request.post(`${apiBaseURL}/api/access/invitations/${invitationToken}/accept-new`, {
+    data: { displayName: 'Playwright Read only', password: reader.password },
+  })
+  expect(acceptance.status()).toBe(204)
 
   const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
   await page.goto(boardPath)

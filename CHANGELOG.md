@@ -70,6 +70,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Return `403 Forbidden` when an authenticated firm member lacks permission for an identity-management action, rather than incorrectly reporting a credential failure. (`M3`)
+
 - Focus and select newly generated invitation and password-reset links for firm and platform operators, and hide reset actions unless both the selected firm and target membership are active. (`M3`)
 
 - Show each workflow card's assigned employee name, or an explicit unassigned state, to all workflow users in English and German. (`M2`)

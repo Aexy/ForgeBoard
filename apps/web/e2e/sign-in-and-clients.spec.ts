@@ -79,7 +79,7 @@ test('opens assigned work from My work and preserves the direct task link', asyn
 
   const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers,
-    data: { name: 'My work workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: { name: 'My work workflow', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
   })
   expect(workflow.status()).toBe(201)
   const workflowData = await workflow.json() as { id: string; stages: Array<{ id: string }> }

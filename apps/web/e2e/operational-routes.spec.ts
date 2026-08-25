@@ -166,7 +166,7 @@ test('provisions a read-only employee through the browser and preserves their re
   await page.locator('summary').filter({ hasText: 'New employee' }).click()
   await page.getByLabel('Employee name').fill(employee.displayName)
   await page.getByLabel('Work email').fill(employee.email)
-  await page.getByLabel('Role').selectOption('READ_ONLY')
+  await page.locator('details form').getByLabel('Role').selectOption('READ_ONLY')
   await page.getByRole('button', { name: 'Send invitation' }).click()
   await expect(page.getByRole('heading', { name: employee.displayName })).toBeVisible()
   const invitationLink = await page.getByLabel('Invitation link').inputValue()
@@ -179,7 +179,7 @@ test('provisions a read-only employee through the browser and preserves their re
   const employeePage = await employeeContext.newPage()
   await employeePage.goto(new URL(invitationLink).pathname)
   await employeePage.getByLabel('Your name').fill(employee.displayName)
-  await employeePage.getByLabel('Password').fill(employee.password)
+  await employeePage.getByLabel('Password', { exact: true }).fill(employee.password)
   await employeePage.getByLabel('Confirm password').fill(employee.password)
   await employeePage.getByRole('button', { name: 'Accept invitation' }).click()
   await expect(employeePage).toHaveURL('/', { timeout: 15_000 })
@@ -246,9 +246,22 @@ test('runs an owner engagement and document-request operating loop through the b
 test('runs the engagement review lifecycle through the browser without moving the completed card', async ({ page, browser, request }) => {
   const firm = await createOperationalFirm(request)
   const headers = { Authorization: `Bearer ${firm.ownerToken}`, 'X-ForgeBoard-Firm': firm.firmId }
+  const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
+    headers,
+    data: {
+      name: `Lifecycle workflow ${firm.firmSlug.slice(-6)}`,
+      stages: [
+        { name: 'Prepare', attention: 'NONE', finalStage: false },
+        { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false },
+        { name: 'Complete', attention: 'NONE', finalStage: true },
+      ],
+    },
+  })
+  expect(workflow.status()).toBe(201)
+  const lifecycleWorkflow = await workflow.json() as { id: string; workflowSlug: string }
   const template = await request.post(`${apiBaseURL}/api/engagements/templates`, {
     headers,
-    data: { name: `Lifecycle ${firm.firmSlug.slice(-6)}`, workflowId: firm.workflowId, recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare lifecycle', dueDay: 20 },
+    data: { name: `Lifecycle ${firm.firmSlug.slice(-6)}`, workflowId: lifecycleWorkflow.id, recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare lifecycle', dueDay: 20 },
   })
   expect(template.status()).toBe(201)
   const createdTemplate = await template.json() as { id: string }
@@ -261,7 +274,7 @@ test('runs the engagement review lifecycle through the browser without moving th
   })
   expect(engagementResponse.status()).toBe(201)
   const engagement = await engagementResponse.json() as { id: string; workItemId: string }
-  await exerciseLifecycleBrowserFlow(page, browser, request, firm, headers, engagement)
+  await exerciseLifecycleBrowserFlow(page, browser, request, { ...firm, workflowId: lifecycleWorkflow.id, workflowSlug: lifecycleWorkflow.workflowSlug }, headers, engagement)
 })
 
 async function exerciseLifecycleBrowserFlow(page: Page, browser: import('@playwright/test').Browser, request: APIRequestContext, firm: OperationalFirm, headers: Record<string, string>, engagement: { id: string; workItemId: string }) {
@@ -285,6 +298,7 @@ async function exerciseLifecycleBrowserFlow(page: Page, browser: import('@playwr
 
   const reviewerContext = await browser.newContext(); const reviewerPage = await reviewerContext.newPage()
   await signInAt(reviewerPage, `/firms/${firm.firmSlug}/workflow/${firm.workflowSlug}`, firm.reviewer)
+  await expect(reviewerPage.getByLabel('Review stage').getByRole('heading', { name: 'Prepare lifecycle' })).toBeVisible()
   await reviewerPage.getByRole('button', { name: /Move left Prepare lifecycle/ }).click()
   await reviewerPage.getByLabel('Review note').fill('Please correct the reconciliation.')
   await reviewerPage.getByRole('button', { name: 'Return work' }).click()
@@ -308,16 +322,17 @@ async function exerciseLifecycleBrowserFlow(page: Page, browser: import('@playwr
 
   const managerContext = await browser.newContext(); const managerPage = await managerContext.newPage()
   await signInAt(managerPage, `/firms/${firm.firmSlug}/engagements`, firm.manager)
-  await managerPage.getByRole('button', { name: 'reopen' }).click()
-  await expect(managerPage.getByRole('button', { name: 'cancel' })).toBeVisible()
   managerPage.once('dialog', (dialog) => dialog.accept())
-  await managerPage.getByRole('button', { name: 'cancel' }).click()
-  await expect(managerPage.getByRole('button', { name: 'archive' })).toBeVisible()
+  await managerPage.getByRole('button', { name: 'Reopen engagement' }).click()
+  await expect(managerPage.getByRole('button', { name: 'Cancel engagement' })).toBeVisible()
   managerPage.once('dialog', (dialog) => dialog.accept())
-  await managerPage.getByRole('button', { name: 'archive' }).click()
-  await expect(managerPage.getByRole('button', { name: 'unarchive' })).toBeVisible()
+  await managerPage.getByRole('button', { name: 'Cancel engagement' }).click()
+  await expect(managerPage.getByRole('button', { name: 'Archive engagement' })).toBeVisible()
   managerPage.once('dialog', (dialog) => dialog.accept())
-  await managerPage.getByRole('button', { name: 'unarchive' }).click()
+  await managerPage.getByRole('button', { name: 'Archive engagement' }).click()
+  await expect(managerPage.getByRole('button', { name: 'Unarchive engagement' })).toBeVisible()
+  managerPage.once('dialog', (dialog) => dialog.accept())
+  await managerPage.getByRole('button', { name: 'Unarchive engagement' }).click()
   await expect(managerPage.getByText('cancelled', { exact: true })).toBeVisible()
 
   const finalBoard = await request.get(`${apiBaseURL}/api/workflows/public/${firm.workflowSlug}`, { headers })

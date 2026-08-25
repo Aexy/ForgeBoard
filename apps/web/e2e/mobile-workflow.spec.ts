@@ -31,7 +31,7 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
 
   const workflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers,
-    data: { name: 'Mobile workflow', stages: [{ name: 'Prepare', attention: 'NONE' }, { name: 'Review', attention: 'AWAITING_REVIEW' }] },
+    data: { name: 'Mobile workflow', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
   })
   expect(workflow.status()).toBe(201)
   const workflowData = await workflow.json() as { id: string; stages: Array<{ id: string }> }

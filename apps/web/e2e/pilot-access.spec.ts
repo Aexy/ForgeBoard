@@ -85,7 +85,7 @@ async function acceptNewInvitation(page: Page, link: AccessLink, displayName: st
 }
 
 async function expectGenericInvitationDenial(page: Page, linkPath: string) {
-  const genericDenial = 'We could not complete this request. The link may be invalid or expired. Please request a new link.'
+  const genericDenial = 'We could not complete this request. The link may be invalid or expired. Please ask for a new one.'
   await page.goto(linkPath)
   await page.getByLabel('Your name').fill('Denied Member')
   await page.getByLabel('Password', { exact: true }).fill(password)
@@ -139,15 +139,21 @@ test('shows the same generic denial for revoked, reused, and expired access link
   await expectGenericInvitationDenial(page, routePath(expired.link))
 })
 
-test('denies administrator owner-role changes and cross-firm membership access', async ({ page, request }) => {
+test('denies administrator owner-role changes and cross-firm membership access', async ({ request }) => {
   const firm = await createFirm(request, 'pilot-authority')
   const suffix = randomUUID().replaceAll('-', '')
-  const administrator = { email: `e2e-admin-${suffix}@forgeboard.test`, password }
-  const invitation = await invite(request, firm, 'Pilot Administrator', administrator.email, 'ADMINISTRATOR')
-  await acceptNewInvitation(page, invitation, 'Pilot Administrator', administrator)
-  const administratorGrant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: administrator })
+  const administrator = await createFirm(request, 'pilot-administrator')
+  const invitation = await invite(request, firm, 'Pilot Administrator', administrator.owner.email, 'ADMINISTRATOR')
+  const acceptance = await request.post(`${apiBaseURL}/api/access/invitations/${routePath(invitation.link).split('/').at(-1)}/accept-existing`, {
+    headers: { Authorization: `Bearer ${administrator.token}` },
+  })
+  expect(acceptance.status()).toBe(204)
+  const administratorGrant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: administrator.owner })
   expect(administratorGrant.status()).toBe(200)
   const administratorToken = (await administratorGrant.json() as { accessToken: string }).accessToken
+  await expect.poll(async () => (await request.get(`${apiBaseURL}/api/identity/firms`, {
+    headers: { Authorization: `Bearer ${administratorToken}` },
+  })).status()).toBe(200)
 
   const ownerInvitation = await request.post(`${apiBaseURL}/api/identity/employees`, {
     headers: { Authorization: `Bearer ${administratorToken}`, 'X-ForgeBoard-Firm': firm.id },
@@ -155,7 +161,7 @@ test('denies administrator owner-role changes and cross-firm membership access',
   })
   expect(ownerInvitation.status()).toBe(403)
 
-  const administratorMembership = (await employees(request, firm)).find((employee) => employee.email === administrator.email)
+  const administratorMembership = (await employees(request, firm)).find((employee) => employee.email === administrator.owner.email)
   expect(administratorMembership).toBeDefined()
   const otherFirm = await createFirm(request, 'pilot-other')
   const crossFirm = await request.post(`${apiBaseURL}/api/identity/employees/${administratorMembership!.membershipId}/suspension`, {
@@ -194,7 +200,7 @@ test('allows a configured platform administrator to reset a password and forces 
   await page.getByLabel('Email address').fill(target.owner.email)
   await page.getByLabel('Password').fill(target.owner.password)
   await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page.getByRole('alert')).toHaveText('We could not sign you in. Check your details and try again.')
+  await expect(page.locator('p[role="alert"]')).toHaveText('We could not sign you in. Check your details and try again.')
   await page.getByLabel('Password').fill(newPassword)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page).toHaveURL(`/firms/${target.slug}/my-work`, { timeout: 15_000 })
