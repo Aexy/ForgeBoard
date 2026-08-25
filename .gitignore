@@ -4,6 +4,7 @@
 .DS_Store
 Thumbs.db
 backend/target/
+build/generated-spring-modulith/
 frontend/node_modules/
 node_modules/
 .vite/
