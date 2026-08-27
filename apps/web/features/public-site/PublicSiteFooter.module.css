@@ -1,0 +1,2 @@
+.footer { align-items: center; background: #10291f; color: #b9cabe; display: flex; font-size: .875rem; gap: 1rem; justify-content: space-between; padding: 1.5rem clamp(1.5rem, 6vw, 5.5rem); }.footer p { margin: 0; }.footer a { color: #f4f8f5; font-weight: 650; text-decoration: none; }.footer a:hover { color: #b9dfc6; }.footer a:focus-visible { outline: .1875rem solid #b9dfc6; outline-offset: .25rem; }
+@media (max-width: 30rem) { .footer { align-items: flex-start; flex-direction: column; } }

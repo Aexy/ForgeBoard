@@ -1,0 +1,7 @@
+.number { display: inline-flex; font-variant-numeric: tabular-nums; position: relative; }
+.staticValue { clip: rect(0 0 0 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+.animatedValue { display: inline-flex; }
+.digit { display: inline-block; height: 1em; overflow: hidden; width: .68em; }
+.track { display: grid; grid-auto-rows: 1em; transition: none; }
+.number[data-animated='true'] .track { transition: transform 600ms cubic-bezier(.2, .8, .2, 1); }
+@media (prefers-reduced-motion: reduce) { .track { transition: none !important; } }

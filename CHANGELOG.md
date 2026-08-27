@@ -21,6 +21,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added a public ForgeBoard site with a full-screen introduction, separate product, rationale, and email-contact routes, an accessible responsive public navigation, and a dependency-free fixed user proof-point animation. Authenticated users continue directly to their authorized firm workspace; no deployment or domain split changed. (M2)
+
 - Added secure pilot-access browser evidence for invitation-only manual delivery, generic unusable-link denial, role and tenant boundaries, platform-admin password resets, and forced reauthentication after credential revocation. (`M3`, migration `V018`)
 
 - Added the approved stage-driven engagement lifecycle: assigned-owner review submission, reviewer-only return with immutable notes, and automatic completion on the workflow's single final stage. Owners and managers can steward cancel, reopen, archive, and unarchive without moving the linked board card. (`M2`, migration `V017`)

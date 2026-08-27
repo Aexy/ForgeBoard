@@ -1,0 +1,15 @@
+.page { background: radial-gradient(circle at 78% 20%, rgb(67 126 92 / .5), transparent 26rem), linear-gradient(135deg, #10291f, #17382b 62%, #214b38); color: #f4f8f5; display: grid; gap: clamp(2.5rem, 7vw, 5.5rem); grid-template-columns: minmax(0, 1.1fr) minmax(19rem, .9fr); min-height: calc(100dvh - 5.5rem); overflow: hidden; padding: clamp(4rem, 9vw, 8rem) clamp(1.5rem, 10vw, 10rem); }
+.copy { max-width: 47rem; }
+.illustration { align-self: center; justify-self: end; max-width: 34rem; min-width: 0; width: 100%; }
+.eyebrow { color: #b9dfc6; font-size: .75rem; font-weight: 800; letter-spacing: .14em; margin: 0 0 1.25rem; }
+.copy h1 { font-size: clamp(2.9rem, 6vw, 6rem); letter-spacing: -.06em; line-height: .98; margin: 0; text-wrap: balance; }
+.copy > p:not(.eyebrow) { color: #d6e6da; font-size: clamp(1.1rem, 1.5vw, 1.35rem); line-height: 1.55; margin: 1.5rem 0 0; max-width: 39rem; }
+.steps { counter-reset: workflow-step; display: grid; gap: 1rem; grid-column: 1 / -1; list-style: none; margin: 0; max-width: 58rem; padding: 0; }
+.steps li { border-top: 1px solid rgb(244 248 245 / .28); counter-increment: workflow-step; display: grid; gap: .35rem; padding: 1.25rem 0 0 3.25rem; position: relative; }
+.steps li::before { color: #b9dfc6; content: '0' counter(workflow-step); font-size: .75rem; font-weight: 800; left: 0; letter-spacing: .1em; position: absolute; top: 1.5rem; }
+.steps h2 { font-size: clamp(1.5rem, 2.4vw, 2rem); letter-spacing: -.04em; margin: 0; }
+.steps p { color: #d6e6da; line-height: 1.5; margin: 0; max-width: 35rem; }
+.cta { align-items: center; border-bottom: .125rem solid currentcolor; color: #f4f8f5; display: inline-flex; font-weight: 800; gap: .65rem; grid-column: 1 / -1; justify-self: start; padding-bottom: .45rem; text-decoration: none; }
+.cta:hover { color: #b9dfc6; }.cta:focus-visible { outline: .1875rem solid #b9dfc6; outline-offset: .4rem; }
+@media (max-width: 64rem) { .page { grid-template-columns: minmax(0, 1fr); }.illustration { justify-self: start; max-width: 32rem; }.steps, .cta { grid-column: auto; } }
+@media (max-width: 44rem) { .page { padding-top: 4rem; }.copy h1 { letter-spacing: -.05em; }.illustration { max-width: 28rem; }.steps { gap: .5rem; } }

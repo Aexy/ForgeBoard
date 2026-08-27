@@ -1,0 +1,96 @@
+.mark {
+  aspect-ratio: 1.05;
+  pointer-events: none;
+  position: absolute;
+  right: 10%;
+  top: 20%;
+  width: min(45vw, 42rem);
+}
+
+.embedded {
+  position: relative;
+  right: auto;
+  top: auto;
+  width: 100%;
+}
+
+.halo {
+  background: radial-gradient(circle, rgb(146 214 170 / .28), transparent 68%);
+  border-radius: 50%;
+  filter: blur(1.5rem);
+  inset: -14%;
+  position: absolute;
+}
+
+.openFrame {
+  border: clamp(.9rem, 1.7vw, 1.45rem) solid #d8ebe0;
+  border-bottom: 0;
+  border-radius: 2.25rem 2.25rem 0 0;
+  box-shadow: 0 1.75rem 3.5rem rgb(0 0 0 / .2);
+  inset: 5% 3% 14% 8%;
+  position: absolute;
+}
+
+.openFrame::after {
+  background: #92d6aa;
+  bottom: clamp(-5.5rem, -9vw, -3rem);
+  content: '';
+  height: clamp(5.5rem, 9vw, 8rem);
+  position: absolute;
+  right: clamp(-5.5rem, -9vw, -3rem);
+  width: clamp(5.5rem, 9vw, 8rem);
+}
+
+.board {
+  background: #f7faf8;
+  box-shadow: 0 1.25rem 2.5rem rgb(0 0 0 / .22);
+  display: grid;
+  gap: clamp(.5rem, 1vw, .9rem);
+  grid-template-columns: repeat(3, 1fr);
+  left: 17%;
+  padding: clamp(.85rem, 1.8vw, 1.5rem);
+  position: absolute;
+  right: 11%;
+  top: 24%;
+}
+
+.column {
+  border-top: .1875rem solid #b8d7c2;
+  display: grid;
+  gap: .55rem;
+  grid-auto-rows: min-content;
+  padding-top: .55rem;
+}
+
+.column span {
+  color: #315044;
+  font-size: clamp(.5rem, .8vw, .6875rem);
+  font-weight: 800;
+  letter-spacing: .07em;
+}
+
+.lightCard,
+.limeCard {
+  border-radius: .25rem;
+  display: block;
+  height: clamp(1.85rem, 4vw, 3.25rem);
+}
+
+.lightCard { background: #dce9e0; }
+.limeCard { background: #92d6aa; }
+
+@media (max-width: 44rem) {
+  .mark {
+    opacity: .38;
+    right: -14%;
+    top: 35%;
+    width: min(86vw, 33rem);
+  }
+
+  .embedded {
+    opacity: .72;
+    right: auto;
+    top: auto;
+    width: 100%;
+  }
+}

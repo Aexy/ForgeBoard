@@ -1,0 +1,103 @@
+.hero {
+  background:
+    radial-gradient(circle at 77% 36%, rgb(67 126 92 / .5), transparent 27rem),
+    linear-gradient(124deg, #10291f 0%, #17382b 58%, #214b38 100%);
+  color: #f4f8f5;
+  display: grid;
+  isolation: isolate;
+  min-height: calc(100dvh - 5.5rem);
+  overflow: hidden;
+  padding: clamp(4rem, 12vh, 9.5rem) clamp(1.5rem, 10vw, 10rem) clamp(3rem, 7vh, 6rem);
+  position: relative;
+}
+
+.copy {
+  align-self: center;
+  max-width: 43rem;
+  position: relative;
+  z-index: 1;
+}
+
+.eyebrow {
+  color: #b9dfc6;
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .14em;
+  margin: 0 0 1.25rem;
+}
+
+.copy h1 {
+  font-size: clamp(3rem, 5.6vw, 6rem);
+  letter-spacing: -.065em;
+  line-height: .98;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.copy > p:not(.eyebrow) {
+  color: #d6e6da;
+  font-size: clamp(1.1rem, 1.55vw, 1.4rem);
+  line-height: 1.55;
+  margin: 1.75rem 0 0;
+  max-width: 35rem;
+}
+
+.cta {
+  align-items: center;
+  border-bottom: .125rem solid currentcolor;
+  color: #f4f8f5;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 800;
+  gap: .65rem;
+  margin-top: 2.25rem;
+  padding-bottom: .45rem;
+  text-decoration: none;
+}
+
+.cta span { font-size: 1.35em; line-height: .75; }
+.cta:hover { color: #b9dfc6; }
+.cta:focus-visible { outline: .1875rem solid #b9dfc6; outline-offset: .4rem; }
+
+.scrollCue {
+  align-items: center;
+  align-self: end;
+  color: #b9cabe;
+  display: flex;
+  font-size: .8125rem;
+  gap: .6rem;
+  margin: 4rem 0 0;
+  position: relative;
+  z-index: 1;
+}
+
+.scrollCue span {
+  border: 1px solid #b9cabe;
+  border-radius: 999px;
+  height: 1.5rem;
+  position: relative;
+  width: .875rem;
+}
+
+.scrollCue span::after {
+  background: #b9cabe;
+  border-radius: 999px;
+  content: '';
+  height: .3rem;
+  left: 50%;
+  position: absolute;
+  top: .3rem;
+  transform: translateX(-50%);
+  width: .125rem;
+}
+
+@media (max-width: 44rem) {
+  .hero { min-height: calc(100dvh - 5.5rem); padding-top: clamp(4rem, 14vh, 7rem); }
+  .copy { max-width: 36rem; }
+  .copy h1 { letter-spacing: -.055em; }
+}
+
+@media (max-width: 30rem) {
+  .hero { padding-inline: 1.5rem; }
+  .copy h1 { font-size: clamp(2.7rem, 14vw, 3.5rem); }
+}

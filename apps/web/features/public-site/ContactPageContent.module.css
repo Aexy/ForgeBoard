@@ -1,0 +1,8 @@
+.page { background: #f7faf8; color: #10291f; display: flex; flex-direction: column; justify-content: center; min-height: calc(100dvh - 5.5rem); padding: clamp(4rem, 10vw, 9rem) clamp(1.5rem, 10vw, 10rem); }
+.eyebrow { color: #397657; font-size: .75rem; font-weight: 800; letter-spacing: .14em; margin: 0 0 1.25rem; }
+.page h1 { font-size: clamp(2.9rem, 6vw, 6rem); letter-spacing: -.065em; line-height: .98; margin: 0; max-width: 51rem; text-wrap: balance; }
+.intro { color: #355347; font-size: clamp(1.1rem, 1.5vw, 1.35rem); line-height: 1.55; margin: 1.75rem 0 0; max-width: 39rem; }
+.cta { align-items: center; background: #10291f; border-radius: 999px; color: #f4f8f5; display: inline-flex; font-weight: 800; gap: .65rem; margin-top: clamp(2.75rem, 6vw, 4.5rem); padding: .9rem 1.25rem; text-decoration: none; width: fit-content; }
+.cta:hover { background: #214b38; }.cta:focus-visible { outline: .1875rem solid #397657; outline-offset: .3rem; }
+.email { color: #355347; margin: 1.25rem 0 0; }
+@media (max-width: 44rem) { .page h1 { letter-spacing: -.05em; } }
