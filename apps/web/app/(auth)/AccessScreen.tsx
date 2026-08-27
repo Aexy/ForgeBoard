@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 
@@ -50,7 +51,9 @@ export function AccessScreen({ callbackUrl }: Readonly<{ callbackUrl?: string }>
 
   return <main className={styles.shell}>
     <section className={styles.intro} aria-label={t('access.introduction')}>
-      <img className={styles.logo} src="/forgeboard-logo.svg" alt="ForgeBoard" />
+      <Link href="/" aria-label="ForgeBoard home">
+        <img className={styles.logo} src="/forgeboard-logo.svg" alt="ForgeBoard" />
+      </Link>
       <div className={styles.hero}>
         <p className={styles.eyebrow}>{t('access.eyebrow')}</p>
         <h1>{t('access.title')}</h1>

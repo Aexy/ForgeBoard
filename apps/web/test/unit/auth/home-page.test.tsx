@@ -25,6 +25,12 @@ describe('public access screen', () => {
     expect(screen.getByRole('group', { name: 'Language' })).toBeVisible()
   })
 
+  it('links the ForgeBoard logo back to the public landing page', () => {
+    render(<LanguageProvider initialLanguage="en"><AccessScreen /></LanguageProvider>)
+
+    expect(screen.getByRole('link', { name: 'ForgeBoard home' })).toHaveAttribute('href', '/')
+  })
+
   it('renders German onboarding validation copy', () => {
     render(<LanguageProvider initialLanguage="de"><AccessScreen /></LanguageProvider>)
     fireEvent.click(screen.getAllByRole('button', { name: 'Firma erstellen' })[0])
