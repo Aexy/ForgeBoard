@@ -26,5 +26,10 @@ public class ActivityAuditService {
         events.save(new ActivityEvent(UUID.randomUUID(), firmId, actorUserId, ActivityActorType.USER,
                 source, action, targetType, targetId, summary, clock.instant()));
     }
-}
 
+    public void recordSystemAction(UUID firmId, String action, String targetType, UUID targetId,
+            Map<String, Object> summary) {
+        events.save(new ActivityEvent(UUID.randomUUID(), firmId, null, ActivityActorType.SYSTEM,
+                ActivitySource.JOB, action, targetType, targetId, summary, clock.instant()));
+    }
+}

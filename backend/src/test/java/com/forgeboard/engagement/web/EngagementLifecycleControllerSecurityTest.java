@@ -25,6 +25,7 @@ import com.forgeboard.engagement.application.EngagementAlreadyExistsException;
 import com.forgeboard.engagement.application.EngagementNotFoundException;
 import com.forgeboard.engagement.application.EngagementService;
 import com.forgeboard.engagement.application.EngagementChecklistService;
+import com.forgeboard.engagement.application.RecurrenceFailureService;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.application.TenantAuthorizationService;
 import com.forgeboard.identity.domain.MembershipRole;
@@ -37,6 +38,7 @@ class EngagementLifecycleControllerSecurityTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean EngagementService engagements;
     @MockitoBean EngagementChecklistService checklist;
+    @MockitoBean RecurrenceFailureService recurrenceFailures;
     @MockitoBean TenantAuthorizationService tenantAuthorization;
 
     @Test void rejectsUnauthenticatedLifecycleMutations() throws Exception {

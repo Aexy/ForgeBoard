@@ -27,6 +27,8 @@ public class Firm {
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Column(nullable = false, length = 64)
+    private String timezone = "Europe/Vienna";
     @Version
     private long version;
 
@@ -46,6 +48,7 @@ public class Firm {
     public String slug() { return slug; }
     public FirmStatus status() { return status; }
     public Instant createdAt() { return createdAt; }
+    public String timezone() { return timezone; }
 
     public void suspend(Instant now) {
         this.status = FirmStatus.SUSPENDED;

@@ -1,6 +1,7 @@
 package com.forgeboard.identity;
 
 import java.util.UUID;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 
@@ -21,5 +22,13 @@ public class FirmDirectory {
      */
     public boolean lockExisting(UUID firmId) {
         return firms.findByIdForUpdate(firmId).isPresent();
+    }
+
+    /** Confirms a selected firm still exists without exposing persistence to another module. */
+    public boolean exists(UUID firmId) { return firms.existsById(firmId); }
+
+    /** Returns active firm identifiers for scheduled firm-scoped work. */
+    public List<UUID> activeFirmIds() {
+        return firms.findAllByStatus(com.forgeboard.identity.domain.FirmStatus.ACTIVE).stream().map(firm -> firm.id()).toList();
     }
 }

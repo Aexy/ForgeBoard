@@ -29,6 +29,7 @@ describe('firm navigation', () => {
     expect(screen.getByRole('link', { name: 'Workflow' })).toHaveAttribute('href', '/firms/hearth/workflow')
     expect(screen.getByRole('link', { name: 'Workflow' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('href', '/firms/hearth/employees')
+    expect(screen.getByRole('link', { name: 'Firm calendar' })).toHaveAttribute('href', '/firms/hearth/calendar')
     expect(screen.getByRole('link', { name: 'Activity trail' })).toHaveAttribute('href', '/firms/hearth/audit-trail')
     expect(screen.getByRole('img', { name: 'ForgeBoard' })).toHaveAttribute('src', '/forgeboard-logo.svg')
   })
@@ -37,6 +38,7 @@ describe('firm navigation', () => {
     renderNavigation('MANAGER')
 
     expect(screen.queryByRole('link', { name: 'Employees' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Firm calendar' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Activity trail' })).toBeInTheDocument()
   })
 

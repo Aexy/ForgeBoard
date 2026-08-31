@@ -26,4 +26,16 @@
 .empty, .notice { border: 1px dashed var(--forge-border); border-radius: .5rem; padding: 1rem; }
 .notice { display: grid; gap: .25rem; }
 .error { color: #a11e26; }
-@media (max-width: 40rem) { .heading, .sectionHeading, .row, .templateRow { flex-direction: column; } }
+.failurePanel { background: #fff8ed; border: 1px solid #d88b26; border-radius: .5rem; display: grid; gap: .8rem; padding: 1rem; }
+.failurePanel h2, .failurePanel h3, .failurePanel p { margin: 0; }
+.failurePanel p { color: var(--forge-text-muted); margin-top: .25rem; }
+.failureRow { align-items: flex-start; border-top: 1px solid #ebc58e; display: flex; gap: .8rem; justify-content: space-between; padding-top: .7rem; }
+.recoveryActions { display: flex; flex-wrap: wrap; gap: .5rem; position: relative; }
+.recoveryActions > button, .splitButton button { background: var(--forge-green-800); border: 1px solid var(--forge-green-800); border-radius: .3rem; color: white; font: inherit; padding: .45rem .65rem; }
+.recoveryActions > button:disabled, .splitButton button:disabled { cursor: not-allowed; opacity: .55; }
+.splitButton { display: inline-flex; position: relative; }
+.splitButton button:first-child { border-radius: .3rem 0 0 .3rem; }
+.splitButton .splitToggle { border-left-color: rgba(255,255,255,.45); border-radius: 0 .3rem .3rem 0; padding-inline: .45rem; }
+.recoveryMenu { background: var(--forge-surface); border: 1px solid var(--forge-border); border-radius: .3rem; box-shadow: 0 .25rem .75rem rgba(0,0,0,.15); padding: .25rem; position: absolute; right: 0; top: calc(100% + .2rem); z-index: 2; }
+.recoveryMenu button { background: transparent; border: 0; color: var(--forge-green-800); cursor: pointer; font: inherit; padding: .4rem .6rem; white-space: nowrap; }
+@media (max-width: 40rem) { .heading, .sectionHeading, .row, .templateRow, .failureRow { flex-direction: column; } }

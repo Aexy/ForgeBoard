@@ -55,16 +55,29 @@ public class EngagementService implements WorkItemEngagementDetails {
     private final ClientDirectory clients;
     private final ActivityRecorder activity;
     private final Clock clock;
+    private final EngagementMaterializer materializer;
 
     public EngagementService(EngagementTemplateRepository templates, EngagementTemplateVersionRepository templateVersions,
             EngagementTemplateVersionChecklistItemRepository templateChecklistItems,
             EngagementChecklistItemRepository engagementChecklistItems, EngagementTemplateEnrollmentRepository enrollments, EngagementRepository engagements,
             EngagementReviewDecisionRepository reviewDecisions, WorkflowDirectory workflows, ClientDirectory clients,
-            ActivityRecorder activity, Clock clock) {
+            ActivityRecorder activity, Clock clock, EngagementMaterializer materializer) {
         this.templates = templates; this.templateVersions = templateVersions; this.templateChecklistItems = templateChecklistItems;
         this.engagementChecklistItems = engagementChecklistItems; this.enrollments = enrollments;
         this.engagements = engagements; this.workflows = workflows; this.reviewDecisions = reviewDecisions;
         this.clients = clients; this.activity = activity; this.clock = clock;
+        this.materializer = materializer;
+    }
+
+    /** Compatibility constructor for focused unit tests; Spring uses the injected materializer constructor. */
+    EngagementService(EngagementTemplateRepository templates, EngagementTemplateVersionRepository templateVersions,
+            EngagementTemplateVersionChecklistItemRepository templateChecklistItems,
+            EngagementChecklistItemRepository engagementChecklistItems, EngagementTemplateEnrollmentRepository enrollments,
+            EngagementRepository engagements, EngagementReviewDecisionRepository reviewDecisions, WorkflowDirectory workflows,
+            ClientDirectory clients, ActivityRecorder activity, Clock clock) {
+        this(templates, templateVersions, templateChecklistItems, engagementChecklistItems, enrollments, engagements,
+                reviewDecisions, workflows, clients, activity, clock,
+                new EngagementMaterializer(engagements, templateChecklistItems, engagementChecklistItems, workflows));
     }
 
     @Transactional(readOnly = true)
@@ -209,24 +222,20 @@ public class EngagementService implements WorkItemEngagementDetails {
             throw new EngagementNotFoundException("Client is not enrolled in this engagement template");
         if (!clients.existsActive(tenant.firmId(), request.clientId()))
             throw new EngagementNotFoundException("Client was not found or is not active in the selected firm");
-        LocalDate periodStart = normalizedPeriodStart(request.periodStart(), template.recurrence());
-        if (engagements.existsByFirmIdAndTemplateIdAndClientIdAndPeriodStart(
-                tenant.firmId(), template.id(), request.clientId(), periodStart)) {
+        LocalDate periodStart = materializer.normalizedPeriodStart(request.periodStart(), template.recurrence());
+        if (engagements.existsByFirmIdAndTemplateIdAndClientIdAndPeriodStart(tenant.firmId(), template.id(), request.clientId(), periodStart))
             throw new EngagementAlreadyExistsException("An engagement already exists for this client and period");
-        }
-        LocalDate periodEnd = periodEnd(periodStart, template.recurrence());
+        LocalDate periodEnd = materializer.periodEnd(periodStart, template.recurrence());
         LocalDate dueDate = YearMonth.from(periodEnd).atDay(Math.min(template.dueDay(), periodEnd.lengthOfMonth()));
-        String workItemTitle = workItemTitle(template, periodStart);
-        UUID workItemId = workflows.createInitialWorkItem(tenant.firmId(), request.clientId(), template.workflowId(),
-                workItemTitle, workItemDescription(template, periodStart, periodEnd), dueDate, clock.instant());
-        Engagement created = engagements.save(new Engagement(UUID.randomUUID(), tenant.firmId(), template.id(), template.currentVersion(), request.clientId(),
-                template.workflowId(), workItemId, periodStart, periodEnd, dueDate, clock.instant()));
-        materializeChecklist(created);
-        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.created", "work-item", workItemId,
-                Map.of("title", workItemTitle, "workflowId", template.workflowId().toString(), "source", "engagement"));
+        EngagementMaterializer.MaterializedEngagement result = materializer.materialize(tenant.firmId(), request.clientId(),
+                EngagementDefinition.current(template), periodStart, dueDate, clock.instant());
+        if (!result.created()) throw new EngagementAlreadyExistsException("An engagement already exists for this client and period");
+        Engagement created = result.engagement();
+        activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.created", "work-item", created.workItemId(),
+                Map.of("title", result.workItemTitle(), "workflowId", template.workflowId().toString(), "source", "engagement"));
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "engagement.created", "engagement", created.id(),
                 Map.of("templateName", template.name(), "periodStart", periodStart.toString(),
-                        "dueDate", dueDate.toString(), "workItemId", workItemId.toString()));
+                        "dueDate", dueDate.toString(), "workItemId", created.workItemId().toString()));
         return engagementView(created);
     }
 

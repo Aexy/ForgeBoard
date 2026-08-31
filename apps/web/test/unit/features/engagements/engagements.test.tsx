@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   useFirmContext: vi.fn(), clients: vi.fn(), workflows: vi.fn(), templates: vi.fn(), engagements: vi.fn(), requests: vi.fn(),
   createTemplate: vi.fn(), createEngagement: vi.fn(), createRequest: vi.fn(), receive: vi.fn(),
   updateTemplate: vi.fn(), enrolledClients: vi.fn(),
+  recurrenceFailures: vi.fn(), retryRecurrence: vi.fn(), markRecurrenceSolved: vi.fn(), generateRecurrence: vi.fn(),
 }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
@@ -19,6 +20,10 @@ vi.mock('@/features/engagements/engagements-transport', () => ({
   useCreateEngagementTemplateMutation: () => [mocks.createTemplate, { isLoading: false }], useCreateEngagementMutation: () => [mocks.createEngagement, { isLoading: false }], useCreateDocumentRequestMutation: () => [mocks.createRequest, { isLoading: false }], useReceiveDocumentRequestMutation: () => [mocks.receive],
   useUpdateEngagementTemplateMutation: () => [mocks.updateTemplate, { isLoading: false }],
   useGetTemplateEnrollmentsQuery: mocks.enrolledClients,
+  useGetRecurrenceFailuresQuery: mocks.recurrenceFailures,
+  useRetryRecurrenceFailureMutation: () => [mocks.retryRecurrence, { isLoading: false }],
+  useMarkRecurrenceFailureSolvedMutation: () => [mocks.markRecurrenceSolved, { isLoading: false }],
+  useGenerateRecurrenceFailureMutation: () => [mocks.generateRecurrence, { isLoading: false }],
 }))
 import { Engagements } from '@/features/engagements/Engagements'
 import { LanguageProvider } from '@/app/LanguageProvider'
@@ -34,6 +39,7 @@ describe('Engagements route feature', () => {
   afterEach(cleanup)
   beforeEach(() => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' })
+    mocks.recurrenceFailures.mockReturnValue({ isLoading: false, data: [] })
     mocks.clients.mockReturnValue({ isLoading: false, data: [client] }); mocks.workflows.mockReturnValue({ isLoading: false, data: [{ id: 'workflow-1', name: 'Monthly close', version: 0 }] }); mocks.templates.mockReturnValue({ isLoading: false, data: [template] }); mocks.engagements.mockReturnValue({ isLoading: false, data: [] }); mocks.requests.mockReturnValue({ isLoading: false, data: [] }); mocks.enrolledClients.mockReturnValue({ isLoading: false, data: [client] })
     mocks.createTemplate.mockReset(); mocks.createEngagement.mockReset(); mocks.createRequest.mockReset(); mocks.receive.mockReset()
   })

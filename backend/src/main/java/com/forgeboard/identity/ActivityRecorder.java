@@ -18,5 +18,10 @@ public class ActivityRecorder {
         audit.recordUserAction(firmId, actorUserId, ActivitySource.REST,
                 action, targetType, targetId, summary);
     }
-}
 
+    /** Records a safe system mutation without exposing audit implementation details to another module. */
+    public void recordSystemAction(UUID firmId, String action, String targetType, UUID targetId,
+            Map<String, Object> summary) {
+        audit.recordSystemAction(firmId, action, targetType, targetId, summary);
+    }
+}

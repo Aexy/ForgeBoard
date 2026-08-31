@@ -161,9 +161,9 @@ class EngagementServiceTest {
 
         template.advanceDefinition("VAT", workflowId, Recurrence.MONTHLY, "VAT {{period}}", 20, now.plusSeconds(1));
 
+        assertThat(created.templateVersion()).isEqualTo(1);
         ArgumentCaptor<com.forgeboard.engagement.domain.Engagement> engagement = ArgumentCaptor.forClass(com.forgeboard.engagement.domain.Engagement.class);
         verify(engagements).save(engagement.capture());
-        assertThat(created.templateVersion()).isEqualTo(1);
         assertThat(engagement.getValue().templateVersion()).isEqualTo(1);
     }
 

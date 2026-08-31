@@ -25,6 +25,9 @@ export function FirmNavigation({ firm, userEmail }: Readonly<FirmNavigationProps
     { href: 'my-work', label: t('navigation.myWork') },
     { href: 'clients', label: t('navigation.clients') },
     { href: 'engagements', label: t('navigation.engagements') },
+    ...(firm.role === 'OWNER' || firm.role === 'ADMINISTRATOR' || firm.role === 'MANAGER'
+      ? [{ href: 'calendar', label: t('navigation.calendar') }]
+      : []),
     ...(firm.role === 'OWNER' || firm.role === 'ADMINISTRATOR'
       ? [{ href: 'employees', label: t('navigation.employees') }]
       : []),

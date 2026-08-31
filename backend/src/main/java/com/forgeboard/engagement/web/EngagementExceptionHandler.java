@@ -8,9 +8,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import com.forgeboard.engagement.application.EngagementAlreadyExistsException;
 import com.forgeboard.engagement.application.EngagementNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
 
 @RestControllerAdvice(assignableTypes = EngagementController.class)
 class EngagementExceptionHandler {
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail forbidden(AccessDeniedException exception) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
     @ExceptionHandler(EngagementNotFoundException.class)
     ProblemDetail notFound(EngagementNotFoundException exception) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());

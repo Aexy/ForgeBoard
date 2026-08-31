@@ -27,6 +27,8 @@ import com.forgeboard.engagement.application.EngagementChecklistItemView;
 import com.forgeboard.engagement.application.UpdateEngagementChecklistItemRequest;
 import com.forgeboard.engagement.EngagementDetail;
 import com.forgeboard.engagement.application.ExpectedVersionRequest;
+import com.forgeboard.engagement.application.RecurrenceFailureService;
+import com.forgeboard.engagement.application.RecurrenceFailureView;
 import com.forgeboard.identity.SelectedTenant;
 import jakarta.validation.Valid;
 
@@ -35,8 +37,9 @@ import jakarta.validation.Valid;
 public class EngagementController {
     private final EngagementService engagements;
     private final EngagementChecklistService checklist;
-    public EngagementController(EngagementService engagements, EngagementChecklistService checklist) {
-        this.engagements = engagements; this.checklist = checklist;
+    private final RecurrenceFailureService recurrenceFailures;
+    public EngagementController(EngagementService engagements, EngagementChecklistService checklist, RecurrenceFailureService recurrenceFailures) {
+        this.engagements = engagements; this.checklist = checklist; this.recurrenceFailures = recurrenceFailures;
     }
 
     @GetMapping
@@ -87,6 +90,23 @@ public class EngagementController {
         EngagementTemplateView created = engagements.createTemplate(tenant, request);
         return ResponseEntity.created(URI.create("/api/engagements/templates/" + created.id())).body(created);
     }
+
+    @GetMapping("/recurrence-failures")
+    List<RecurrenceFailureView> listRecurrenceFailures(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
+        return recurrenceFailures.list(tenant);
+    }
+
+    @PostMapping("/recurrence-failures/{runId}/retry")
+    RecurrenceFailureView retryRecurrenceFailure(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID runId) { return recurrenceFailures.retry(tenant, runId); }
+
+    @PostMapping("/recurrence-failures/{runId}/mark-solved")
+    ResponseEntity<Void> markRecurrenceFailureSolved(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID runId) { recurrenceFailures.markSolved(tenant, runId); return ResponseEntity.noContent().build(); }
+
+    @PostMapping("/recurrence-failures/{runId}/generate")
+    RecurrenceFailureView generateRecurrenceFailure(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID runId) { return recurrenceFailures.generateNow(tenant, runId); }
 
     @GetMapping("/{engagementId}/checklist")
     List<EngagementChecklistItemView> listChecklist(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,

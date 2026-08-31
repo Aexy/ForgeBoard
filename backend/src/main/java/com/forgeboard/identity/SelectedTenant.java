@@ -13,4 +13,6 @@ public record SelectedTenant(UUID firmId, UUID userId, String email, MembershipR
     public boolean canManageEngagementTemplates() {
         return role == MembershipRole.OWNER || role == MembershipRole.ADMINISTRATOR || role == MembershipRole.MANAGER;
     }
+    public boolean canManageFirmCalendar() { return canManageEngagementTemplates(); }
+    public boolean isOwner() { return role == MembershipRole.OWNER; }
 }

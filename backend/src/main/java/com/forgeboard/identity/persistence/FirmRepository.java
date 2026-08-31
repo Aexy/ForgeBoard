@@ -10,9 +10,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import com.forgeboard.identity.domain.Firm;
+import com.forgeboard.identity.domain.FirmStatus;
 
 public interface FirmRepository extends JpaRepository<Firm, UUID> {
         boolean existsBySlug(String slug);
+        java.util.List<Firm> findAllByStatus(FirmStatus status);
 
         @Query(value = "select new com.forgeboard.identity.persistence.FirmRepository$PlatformFirmRow("
                 + "firm.id, firm.name, firm.slug, firm.status, firm.createdAt, count(membership)) "
