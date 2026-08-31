@@ -12,6 +12,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
+import com.forgeboard.document.application.DocumentRequestFollowUpState;
+
 @Entity
 @Table(name = "document_requests")
 public class DocumentRequest {
@@ -39,6 +41,12 @@ public class DocumentRequest {
 
     @Column(name = "received_at")
     private Instant receivedAt;
+
+    @Column(name = "reminded_at")
+    private Instant remindedAt;
+
+    @Column(name = "escalated_at")
+    private Instant escalatedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -73,6 +81,20 @@ public class DocumentRequest {
         return true;
     }
 
+    public boolean recordReminder(Instant now) {
+        if (status == DocumentRequestStatus.RECEIVED || remindedAt != null) return false;
+        remindedAt = now;
+        updatedAt = now;
+        return true;
+    }
+
+    public boolean escalate(Instant now) {
+        if (status == DocumentRequestStatus.RECEIVED || remindedAt == null || escalatedAt != null) return false;
+        escalatedAt = now;
+        updatedAt = now;
+        return true;
+    }
+
     public UUID id() {
         return id;
     }
@@ -99,6 +121,21 @@ public class DocumentRequest {
 
     public Instant receivedAt() {
         return receivedAt;
+    }
+
+    public Instant remindedAt() {
+        return remindedAt;
+    }
+
+    public Instant escalatedAt() {
+        return escalatedAt;
+    }
+
+    public DocumentRequestFollowUpState followUpState() {
+        if (status == DocumentRequestStatus.RECEIVED) return DocumentRequestFollowUpState.RECEIVED;
+        if (escalatedAt != null) return DocumentRequestFollowUpState.ESCALATED;
+        if (remindedAt != null) return DocumentRequestFollowUpState.REMINDER_RECORDED;
+        return DocumentRequestFollowUpState.OPEN;
     }
 
     public long version() {
