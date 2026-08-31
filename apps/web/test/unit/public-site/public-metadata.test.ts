@@ -14,4 +14,10 @@ describe('public route metadata', () => {
     expect(metadata.description).toEqual(expect.any(String))
     expect(metadata.description).not.toHaveLength(0)
   })
+
+  it('uses the approved Why ForgeBoard description', () => {
+    expect(whyMetadata.description).toBe(
+      'See why accounting firms use ForgeBoard to coordinate recurring client work, ownership, review, blockers, and deadline risk in one dependable workflow.',
+    )
+  })
 })

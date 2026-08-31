@@ -4,7 +4,7 @@ import { WhyForgeBoardPageContent } from '@/features/public-site/WhyForgeBoardPa
 
 export const metadata: Metadata = {
   title: 'Why ForgeBoard | ForgeBoard',
-  description: 'Learn why accounting firms use ForgeBoard to keep recurring work, ownership, review, and risk in one dependable view.',
+  description: 'See why accounting firms use ForgeBoard to coordinate recurring client work, ownership, review, blockers, and deadline risk in one dependable workflow.',
 }
 
 export default function WhyForgeBoardPage() {
