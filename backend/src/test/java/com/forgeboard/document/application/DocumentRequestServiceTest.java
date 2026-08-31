@@ -1,6 +1,7 @@
 package com.forgeboard.document.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.document.domain.DocumentRequest;
@@ -73,5 +76,64 @@ class DocumentRequestServiceTest {
 
         assertThat(received.status().name()).isEqualTo("RECEIVED");
         verify(activity, times(0)).recordRestUserAction(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void recordsOneReminderAndOneEscalationForTheSelectedFirm() {
+        UUID requestId = UUID.randomUUID();
+        DocumentRequest request = new DocumentRequest(requestId, tenant.firmId(), UUID.randomUUID(),
+                "Bank statements", null, null, now);
+        when(requests.findByIdAndFirmId(requestId, tenant.firmId())).thenReturn(Optional.of(request));
+
+        assertThat(service.recordReminder(tenant, requestId).followUpState())
+                .isEqualTo(DocumentRequestFollowUpState.REMINDER_RECORDED);
+        assertThat(service.escalate(tenant, requestId).followUpState())
+                .isEqualTo(DocumentRequestFollowUpState.ESCALATED);
+
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(),
+                "document-request.reminded", "document-request", requestId, Map.of("label", "Bank statements"));
+        verify(activity).recordRestUserAction(tenant.firmId(), tenant.userId(),
+                "document-request.escalated", "document-request", requestId, Map.of("label", "Bank statements"));
+    }
+
+    @Test
+    void followUpActionsAreIdempotentAndNeverCreateDuplicateAuditEvents() {
+        UUID requestId = UUID.randomUUID();
+        DocumentRequest request = new DocumentRequest(requestId, tenant.firmId(), UUID.randomUUID(),
+                "Bank statements", null, null, now);
+        when(requests.findByIdAndFirmId(requestId, tenant.firmId())).thenReturn(Optional.of(request));
+
+        service.recordReminder(tenant, requestId);
+        service.recordReminder(tenant, requestId);
+        service.escalate(tenant, requestId);
+        service.escalate(tenant, requestId);
+
+        verify(activity, times(1)).recordRestUserAction(tenant.firmId(), tenant.userId(),
+                "document-request.reminded", "document-request", requestId, Map.of("label", "Bank statements"));
+        verify(activity, times(1)).recordRestUserAction(tenant.firmId(), tenant.userId(),
+                "document-request.escalated", "document-request", requestId, Map.of("label", "Bank statements"));
+    }
+
+    @Test
+    void followUpActionsDoNotRevealAnotherFirmsRequest() {
+        UUID requestId = UUID.randomUUID();
+        when(requests.findByIdAndFirmId(requestId, tenant.firmId())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.recordReminder(tenant, requestId))
+                .isInstanceOf(DocumentRequestNotFoundException.class);
+        assertThatThrownBy(() -> service.escalate(tenant, requestId))
+                .isInstanceOf(DocumentRequestNotFoundException.class);
+    }
+
+    @Test
+    void deniesFollowUpForReadOnlyMembers() {
+        SelectedTenant readOnlyTenant = new SelectedTenant(tenant.firmId(), UUID.randomUUID(),
+                "readonly@example.com", MembershipRole.READ_ONLY);
+        UUID requestId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> service.recordReminder(readOnlyTenant, requestId))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> service.escalate(readOnlyTenant, requestId))
+                .isInstanceOf(AccessDeniedException.class);
     }
 }

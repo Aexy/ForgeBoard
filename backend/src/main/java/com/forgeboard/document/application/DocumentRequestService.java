@@ -55,11 +55,31 @@ public class DocumentRequestService {
     @Transactional
     public DocumentRequestView receive(SelectedTenant tenant, UUID id) {
         requireWrite(tenant);
-        DocumentRequest request = requests.findByIdAndFirmId(id, tenant.firmId())
-                .orElseThrow(() -> new DocumentRequestNotFoundException(
-                        "Document request was not found in the selected firm"));
+        DocumentRequest request = findRequest(tenant, id);
         if (request.receive(clock.instant())) {
             activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "document-request.received",
+                    "document-request", request.id(), Map.of("label", request.label()));
+        }
+        return view(request);
+    }
+
+    @Transactional
+    public DocumentRequestView recordReminder(SelectedTenant tenant, UUID id) {
+        requireWrite(tenant);
+        DocumentRequest request = findRequest(tenant, id);
+        if (request.recordReminder(clock.instant())) {
+            activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "document-request.reminded",
+                    "document-request", request.id(), Map.of("label", request.label()));
+        }
+        return view(request);
+    }
+
+    @Transactional
+    public DocumentRequestView escalate(SelectedTenant tenant, UUID id) {
+        requireWrite(tenant);
+        DocumentRequest request = findRequest(tenant, id);
+        if (request.escalate(clock.instant())) {
+            activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "document-request.escalated",
                     "document-request", request.id(), Map.of("label", request.label()));
         }
         return view(request);
@@ -68,7 +88,13 @@ public class DocumentRequestService {
     private DocumentRequestView view(DocumentRequest request) {
         return new DocumentRequestView(request.id(), request.clientId(), request.label(),
                 request.externalReference(), request.dueDate(), request.status(), request.receivedAt(),
-                request.version());
+                request.version(), request.followUpState(), request.remindedAt(), request.escalatedAt());
+    }
+
+    private DocumentRequest findRequest(SelectedTenant tenant, UUID id) {
+        return requests.findByIdAndFirmId(id, tenant.firmId())
+                .orElseThrow(() -> new DocumentRequestNotFoundException(
+                        "Document request was not found in the selected firm"));
     }
 
     private String blankToNull(String value) {

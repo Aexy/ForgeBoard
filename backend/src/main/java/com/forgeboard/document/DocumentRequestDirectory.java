@@ -23,6 +23,7 @@ public class DocumentRequestDirectory {
 
     private DocumentRequestSummary summary(DocumentRequest request) {
         return new DocumentRequestSummary(request.id(), request.clientId(), request.label(), request.dueDate(),
-                request.status().name(), request.receivedAt());
+                request.status().name(), request.receivedAt(), request.followUpState(), request.remindedAt(),
+                request.escalatedAt());
     }
 }

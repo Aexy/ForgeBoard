@@ -50,4 +50,18 @@ public class DocumentRequestController {
             @PathVariable UUID id) {
         return requests.receive(tenant, id);
     }
+
+    @PatchMapping("/{id}/reminded")
+    DocumentRequestView recordReminder(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID id) {
+        return requests.recordReminder(tenant, id);
+    }
+
+    @PatchMapping("/{id}/escalated")
+    DocumentRequestView escalate(
+            @RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID id) {
+        return requests.escalate(tenant, id);
+    }
 }
