@@ -26,11 +26,14 @@ import com.forgeboard.client.ClientDirectory;
 import com.forgeboard.engagement.domain.EngagementTemplate;
 import com.forgeboard.engagement.domain.EngagementTemplateEnrollment;
 import com.forgeboard.engagement.domain.EngagementTemplateVersion;
+import com.forgeboard.engagement.domain.EngagementTemplateVersionChecklistItem;
 import com.forgeboard.engagement.domain.Recurrence;
 import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateEnrollmentRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateVersionRepository;
+import com.forgeboard.engagement.persistence.EngagementTemplateVersionChecklistItemRepository;
+import com.forgeboard.engagement.persistence.EngagementChecklistItemRepository;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.domain.MembershipRole;
@@ -40,6 +43,8 @@ import com.forgeboard.work.WorkflowDirectory;
 class EngagementServiceTest {
     @Mock EngagementTemplateRepository templates;
     @Mock EngagementTemplateVersionRepository templateVersions;
+    @Mock EngagementTemplateVersionChecklistItemRepository templateChecklistItems;
+    @Mock EngagementChecklistItemRepository engagementChecklistItems;
     @Mock EngagementTemplateEnrollmentRepository enrollments;
     @Mock EngagementRepository engagements;
     @Mock WorkflowDirectory workflows;
@@ -53,7 +58,7 @@ class EngagementServiceTest {
     void setUp() {
         now = Instant.parse("2026-07-13T09:00:00Z");
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
-        service = new EngagementService(templates, templateVersions, enrollments, engagements,
+        service = new EngagementService(templates, templateVersions, templateChecklistItems, engagementChecklistItems, enrollments, engagements,
                 mock(com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository.class), workflows, clients,
                 activity, Clock.fixed(now, ZoneOffset.UTC));
     }
@@ -84,6 +89,24 @@ class EngagementServiceTest {
                 .hasMessage("An engagement template with this name already exists");
 
         verifyNoInteractions(activity);
+    }
+
+    @Test
+    void snapshotsChecklistDefinitionsWithTheTemplateVersion() {
+        UUID workflowId = UUID.randomUUID();
+        when(workflows.exists(tenant.firmId(), workflowId)).thenReturn(true);
+        when(templates.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.createTemplate(tenant, new EngagementTemplateRequest("Monthly bookkeeping", workflowId, Recurrence.MONTHLY,
+                "Bookkeeping {{period}}", 20, List.of(
+                        new ChecklistItemDefinitionRequest("Reconcile bank", true),
+                        new ChecklistItemDefinitionRequest("Check notes", false))));
+
+        ArgumentCaptor<List<EngagementTemplateVersionChecklistItem>> captured = ArgumentCaptor.forClass(List.class);
+        verify(templateChecklistItems).saveAll(captured.capture());
+        assertThat(captured.getValue()).extracting(EngagementTemplateVersionChecklistItem::label)
+                .containsExactly("Reconcile bank", "Check notes");
+        assertThat(captured.getValue()).extracting(EngagementTemplateVersionChecklistItem::position).containsExactly(0, 1);
     }
 
     @Test

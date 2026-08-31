@@ -119,6 +119,30 @@ class EngagementLifecyclePostgresIntegrationTest {
         }
     }
 
+    @Test
+    void enforcesChecklistSnapshotsBelongToTheSameFirmAndEngagement() throws Exception {
+        try (Connection connection = connection()) {
+            UUID definitionItemId = UUID.randomUUID();
+            insert(connection, """
+                    insert into engagement_template_version_checklist_items
+                    (id, firm_id, template_id, definition_version, label, is_required, position)
+                    values (?, ?, ?, ?, ?, ?, ?)
+                    """, definitionItemId, firmId, templateId, 1, "Reconcile bank", true, 0);
+            insert(connection, """
+                    insert into engagement_checklist_items
+                    (id, firm_id, engagement_id, source_item_id, label, is_required, position)
+                    values (?, ?, ?, ?, ?, ?, ?)
+                    """, UUID.randomUUID(), firmId, engagementId, definitionItemId, "Reconcile bank", true, 0);
+
+            assertThatThrownBy(() -> insert(connection, """
+                    insert into engagement_checklist_items
+                    (id, firm_id, engagement_id, source_item_id, label, is_required, position)
+                    values (?, ?, ?, ?, ?, ?, ?)
+                    """, UUID.randomUUID(), otherFirmId, engagementId, definitionItemId, "Foreign", true, 0))
+                    .isInstanceOf(Exception.class);
+        }
+    }
+
     private Connection connection() throws Exception {
         return DriverManager.getConnection(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
     }

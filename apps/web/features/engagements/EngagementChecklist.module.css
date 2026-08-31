@@ -1,0 +1,8 @@
+.checklist { display: grid; gap: .75rem; }
+.checklist header { align-items: baseline; display: flex; gap: .6rem; justify-content: space-between; }
+.checklist h2, .checklist p { margin: 0; }
+.checklist header p, .readOnly { color: var(--forge-text-muted); font-size: .9rem; }
+.checklist ul { display: grid; gap: .5rem; list-style: none; margin: 0; padding: 0; }
+.checklist li { border-top: 1px solid var(--forge-border); display: grid; gap: .25rem; padding-top: .5rem; }
+.checklist label { align-items: center; display: flex; gap: .5rem; }
+.checklist em { color: var(--forge-green-800); font-size: .8rem; font-style: normal; font-weight: 700; }

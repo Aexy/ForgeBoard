@@ -21,6 +21,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.forgeboard.engagement.application.EngagementService;
+import com.forgeboard.engagement.application.EngagementChecklistService;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.application.TenantAuthorizationService;
 import com.forgeboard.identity.domain.MembershipRole;
@@ -32,6 +33,7 @@ import com.forgeboard.identity.security.TenantSelectionFilter;
 class EngagementTemplateEnrollmentControllerSecurityTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean EngagementService engagements;
+    @MockitoBean EngagementChecklistService checklist;
     @MockitoBean TenantAuthorizationService tenantAuthorization;
 
     @Test

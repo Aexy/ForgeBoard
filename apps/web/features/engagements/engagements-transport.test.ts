@@ -21,4 +21,18 @@ describe('engagements transport', () => { beforeEach(() => vi.stubGlobal('fetch'
     expect(requests[2].method).toBe('POST')
     expect(await requests[2].json()).toEqual({ clientIds: ['client-1'] })
   })
+  it('refreshes only the initiating firm’s engagement checklist after an optimistic-versioned toggle', async () => {
+    const store = makeStore()
+    await Promise.all([
+      store.dispatch(engagementsApi.endpoints.getEngagementChecklist.initiate({ firm: firmA, engagementId: 'engagement-1' })),
+      store.dispatch(engagementsApi.endpoints.getEngagementChecklist.initiate({ firm: firmB, engagementId: 'engagement-1' })),
+    ])
+    await store.dispatch(engagementsApi.endpoints.toggleEngagementChecklistItem.initiate({ firm: firmA, engagementId: 'engagement-1', checklistItemId: 'item-1', completed: true, expectedVersion: 2 }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const requests = vi.mocked(fetch).mock.calls.map(([input]) => input as Request).filter((request) => request.url.endsWith('/engagements/engagement-1/checklist'))
+    expect(requests).toHaveLength(3)
+    const mutation = vi.mocked(fetch).mock.calls.map(([input]) => input as Request).find((request) => request.url.endsWith('/engagements/engagement-1/checklist/item-1'))
+    expect(mutation?.method).toBe('PATCH')
+    expect(await mutation?.json()).toEqual({ completed: true, expectedVersion: 2 })
+  })
 })

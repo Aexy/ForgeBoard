@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.UUID;
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.forgeboard.engagement.application.EngagementAlreadyExistsException;
 import com.forgeboard.engagement.application.EngagementNotFoundException;
 import com.forgeboard.engagement.application.EngagementService;
+import com.forgeboard.engagement.application.EngagementChecklistService;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.application.TenantAuthorizationService;
 import com.forgeboard.identity.domain.MembershipRole;
@@ -34,12 +36,24 @@ import com.forgeboard.identity.security.TenantSelectionFilter;
 class EngagementLifecycleControllerSecurityTest {
     @Autowired MockMvc mockMvc;
     @MockitoBean EngagementService engagements;
+    @MockitoBean EngagementChecklistService checklist;
     @MockitoBean TenantAuthorizationService tenantAuthorization;
 
     @Test void rejectsUnauthenticatedLifecycleMutations() throws Exception {
         mockMvc.perform(post(path(UUID.randomUUID(), "cancel")).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"expectedVersion\":0}")).andExpect(status().isUnauthorized());
         verifyNoInteractions(engagements, tenantAuthorization);
+    }
+
+    @Test void routesChecklistUpdatesAndRejectsUnauthenticatedRequests() throws Exception {
+        UUID firm = UUID.randomUUID(); UUID engagement = UUID.randomUUID(); UUID item = UUID.randomUUID();
+        mockMvc.perform(patch(checklistPath(engagement, item)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"completed\":true,\"expectedVersion\":0}")).andExpect(status().isUnauthorized());
+        SelectedTenant tenant = authorize(firm, "preparer@example.com", MembershipRole.MEMBER);
+        mockMvc.perform(patch(checklistPath(engagement, item)).with(user("preparer@example.com"))
+                .header(TenantSelectionFilter.FIRM_HEADER, firm).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"completed\":true,\"expectedVersion\":0}")).andExpect(status().isOk());
+        verify(checklist).update(eq(tenant), eq(engagement), eq(item), any());
     }
 
     @Test void routesOwnerAndManagerLifecycleActions() throws Exception {
@@ -93,4 +107,7 @@ class EngagementLifecycleControllerSecurityTest {
         when(tenantAuthorization.authorize(email, firm)).thenReturn(tenant); return tenant;
     }
     private String path(UUID id, String action) { return "/api/engagements/" + id + "/" + action; }
+    private String checklistPath(UUID engagement, UUID item) {
+        return "/api/engagements/" + engagement + "/checklist/" + item;
+    }
 }

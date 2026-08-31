@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -21,6 +22,9 @@ import com.forgeboard.engagement.application.EngagementView;
 import com.forgeboard.engagement.application.UpdateEngagementTemplateRequest;
 import com.forgeboard.engagement.application.TemplateEnrollmentRequest;
 import com.forgeboard.engagement.application.TemplateEnrollmentView;
+import com.forgeboard.engagement.application.EngagementChecklistService;
+import com.forgeboard.engagement.application.EngagementChecklistItemView;
+import com.forgeboard.engagement.application.UpdateEngagementChecklistItemRequest;
 import com.forgeboard.engagement.EngagementDetail;
 import com.forgeboard.engagement.application.ExpectedVersionRequest;
 import com.forgeboard.identity.SelectedTenant;
@@ -30,7 +34,10 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/engagements")
 public class EngagementController {
     private final EngagementService engagements;
-    public EngagementController(EngagementService engagements) { this.engagements = engagements; }
+    private final EngagementChecklistService checklist;
+    public EngagementController(EngagementService engagements, EngagementChecklistService checklist) {
+        this.engagements = engagements; this.checklist = checklist;
+    }
 
     @GetMapping
     List<EngagementView> list(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
@@ -79,6 +86,19 @@ public class EngagementController {
             @Valid @RequestBody EngagementTemplateRequest request) {
         EngagementTemplateView created = engagements.createTemplate(tenant, request);
         return ResponseEntity.created(URI.create("/api/engagements/templates/" + created.id())).body(created);
+    }
+
+    @GetMapping("/{engagementId}/checklist")
+    List<EngagementChecklistItemView> listChecklist(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId) {
+        return checklist.list(tenant, engagementId);
+    }
+
+    @PatchMapping("/{engagementId}/checklist/{itemId}")
+    EngagementChecklistItemView updateChecklist(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID engagementId, @PathVariable UUID itemId,
+            @Valid @RequestBody UpdateEngagementChecklistItemRequest request) {
+        return checklist.update(tenant, engagementId, itemId, request);
     }
 
     @PutMapping("/templates/{templateId}")

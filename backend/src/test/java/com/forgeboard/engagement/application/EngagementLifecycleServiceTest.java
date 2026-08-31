@@ -25,6 +25,7 @@ import com.forgeboard.engagement.domain.EngagementReviewDecision;
 import com.forgeboard.engagement.domain.EngagementReviewDecisionType;
 import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository;
+import com.forgeboard.engagement.persistence.EngagementChecklistItemRepository;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.domain.MembershipRole;
@@ -39,6 +40,7 @@ class EngagementLifecycleServiceTest {
     private static final Instant NOW = Instant.parse("2026-07-24T10:00:00Z");
     private EngagementRepository engagements;
     private EngagementReviewDecisionRepository decisions;
+    private EngagementChecklistItemRepository checklistItems;
     private WorkItemAssignmentDirectory assignments;
     private ActivityRecorder activity;
     private SelectedTenant tenant;
@@ -52,6 +54,7 @@ class EngagementLifecycleServiceTest {
     void setUp() {
         engagements = org.mockito.Mockito.mock(EngagementRepository.class);
         decisions = org.mockito.Mockito.mock(EngagementReviewDecisionRepository.class);
+        checklistItems = org.mockito.Mockito.mock(EngagementChecklistItemRepository.class);
         assignments = org.mockito.Mockito.mock(WorkItemAssignmentDirectory.class);
         activity = org.mockito.Mockito.mock(ActivityRecorder.class);
         owner = UUID.randomUUID(); reviewer = UUID.randomUUID();
@@ -61,7 +64,7 @@ class EngagementLifecycleServiceTest {
                 WorkPriority.NORMAL, BigDecimal.ONE, "FB-1", NOW);
         engagement = new Engagement(UUID.randomUUID(), tenant.firmId(), UUID.randomUUID(), UUID.randomUUID(), workflowId,
                 item.id(), LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), LocalDate.of(2026, 8, 20), NOW);
-        service = new EngagementLifecycleService(engagements, decisions, assignments, activity, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new EngagementLifecycleService(engagements, decisions, checklistItems, assignments, activity, Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @Test
@@ -119,6 +122,20 @@ class EngagementLifecycleServiceTest {
         engagement.cancel(NOW);
         assertThatThrownBy(() -> service.onWorkItemMove(move(preparation, review, List.of(preparation, review, complete), owner, null)))
                 .isInstanceOf(com.forgeboard.work.WorkItemLifecycleConflictException.class);
+    }
+
+    @Test
+    void preventsReviewSubmissionUntilRequiredChecklistItemsAreComplete() {
+        WorkflowStage preparation = stage(item.stageId(), 0, StageAttention.NONE, false);
+        WorkflowStage review = stage(UUID.randomUUID(), 1, StageAttention.AWAITING_REVIEW, false);
+        linked();
+        when(assignments.roles(tenant.firmId(), item.id())).thenReturn(new WorkItemAssignmentRoles(owner, reviewer));
+        when(checklistItems.existsByFirmIdAndEngagementIdAndRequiredTrueAndCompletedAtIsNull(tenant.firmId(), engagement.id()))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> service.onWorkItemMove(move(preparation, review, List.of(preparation, review), owner, null)))
+                .isInstanceOf(com.forgeboard.work.WorkItemLifecycleConflictException.class)
+                .hasMessageContaining("required checklist");
     }
 
     @Test

@@ -27,12 +27,16 @@ import com.forgeboard.engagement.domain.Engagement;
 import com.forgeboard.engagement.domain.EngagementTemplate;
 import com.forgeboard.engagement.domain.EngagementTemplateEnrollment;
 import com.forgeboard.engagement.domain.EngagementTemplateVersion;
+import com.forgeboard.engagement.domain.EngagementTemplateVersionChecklistItem;
+import com.forgeboard.engagement.domain.EngagementChecklistItem;
 import com.forgeboard.engagement.domain.Recurrence;
 import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateEnrollmentRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateVersionRepository;
+import com.forgeboard.engagement.persistence.EngagementTemplateVersionChecklistItemRepository;
+import com.forgeboard.engagement.persistence.EngagementChecklistItemRepository;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.work.WorkflowDirectory;
@@ -42,6 +46,8 @@ public class EngagementService implements WorkItemEngagementDetails {
     private static final DateTimeFormatter PERIOD_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
     private final EngagementTemplateRepository templates;
     private final EngagementTemplateVersionRepository templateVersions;
+    private final EngagementTemplateVersionChecklistItemRepository templateChecklistItems;
+    private final EngagementChecklistItemRepository engagementChecklistItems;
     private final EngagementTemplateEnrollmentRepository enrollments;
     private final EngagementRepository engagements;
     private final EngagementReviewDecisionRepository reviewDecisions;
@@ -51,10 +57,12 @@ public class EngagementService implements WorkItemEngagementDetails {
     private final Clock clock;
 
     public EngagementService(EngagementTemplateRepository templates, EngagementTemplateVersionRepository templateVersions,
-            EngagementTemplateEnrollmentRepository enrollments, EngagementRepository engagements,
+            EngagementTemplateVersionChecklistItemRepository templateChecklistItems,
+            EngagementChecklistItemRepository engagementChecklistItems, EngagementTemplateEnrollmentRepository enrollments, EngagementRepository engagements,
             EngagementReviewDecisionRepository reviewDecisions, WorkflowDirectory workflows, ClientDirectory clients,
             ActivityRecorder activity, Clock clock) {
-        this.templates = templates; this.templateVersions = templateVersions; this.enrollments = enrollments;
+        this.templates = templates; this.templateVersions = templateVersions; this.templateChecklistItems = templateChecklistItems;
+        this.engagementChecklistItems = engagementChecklistItems; this.enrollments = enrollments;
         this.engagements = engagements; this.workflows = workflows; this.reviewDecisions = reviewDecisions;
         this.clients = clients; this.activity = activity; this.clock = clock;
     }
@@ -88,6 +96,7 @@ public class EngagementService implements WorkItemEngagementDetails {
                 request.workflowId(), name, request.recurrence(), request.defaultWorkItemTitle().strip(),
                 request.dueDay(), clock.instant()));
         templateVersions.save(templateVersion(created, tenant.userId(), clock.instant()));
+        writeTemplateChecklist(created, request.checklistItemsOrEmpty());
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "engagement-template.created", "engagement-template",
                 created.id(), Map.of("version", created.currentVersion()));
         return templateView(created);
@@ -108,6 +117,7 @@ public class EngagementService implements WorkItemEngagementDetails {
         template.advanceDefinition(name, request.workflowId(), request.recurrence(), request.defaultWorkItemTitle().strip(),
                 request.dueDay(), now);
         templateVersions.save(templateVersion(template, tenant.userId(), now));
+        writeTemplateChecklist(template, request.checklistItemsOrEmpty());
         templates.saveAndFlush(template);
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "engagement-template.updated", "engagement-template",
                 template.id(), Map.of("version", template.currentVersion()));
@@ -211,6 +221,7 @@ public class EngagementService implements WorkItemEngagementDetails {
                 workItemTitle, workItemDescription(template, periodStart, periodEnd), dueDate, clock.instant());
         Engagement created = engagements.save(new Engagement(UUID.randomUUID(), tenant.firmId(), template.id(), template.currentVersion(), request.clientId(),
                 template.workflowId(), workItemId, periodStart, periodEnd, dueDate, clock.instant()));
+        materializeChecklist(created);
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "work-item.created", "work-item", workItemId,
                 Map.of("title", workItemTitle, "workflowId", template.workflowId().toString(), "source", "engagement"));
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), "engagement.created", "engagement", created.id(),
@@ -237,9 +248,12 @@ public class EngagementService implements WorkItemEngagementDetails {
         return templateView(template, activeEnrollmentCount(template.firmId(), template.id()));
     }
     private EngagementTemplateView templateView(EngagementTemplate template, long enrolledClientCount) {
+        List<TemplateChecklistItemView> checklist = templateChecklistItems
+                .findAllByFirmIdAndTemplateIdAndDefinitionVersionOrderByPositionAsc(template.firmId(), template.id(), template.currentVersion())
+                .stream().map(item -> new TemplateChecklistItemView(item.id(), item.label(), item.required(), item.position())).toList();
         return new EngagementTemplateView(template.id(), template.name(), template.workflowId(), template.recurrence(),
                 template.defaultWorkItemTitle(), template.dueDay(), template.version(), template.currentVersion(),
-                enrolledClientCount);
+                enrolledClientCount, checklist);
     }
     private EngagementView engagementView(Engagement engagement) {
         return new EngagementView(engagement.id(), engagement.templateId(), engagement.templateVersion(), engagement.clientId(), engagement.workflowId(), engagement.workItemId(),
@@ -278,6 +292,22 @@ public class EngagementService implements WorkItemEngagementDetails {
     private EngagementTemplateVersion templateVersion(EngagementTemplate template, UUID actorId, Instant now) {
         return new EngagementTemplateVersion(UUID.randomUUID(), template.firmId(), template.id(), template.currentVersion(),
                 template.workflowId(), template.name(), template.recurrence(), template.defaultWorkItemTitle(), template.dueDay(), actorId, now);
+    }
+    private void writeTemplateChecklist(EngagementTemplate template, List<ChecklistItemDefinitionRequest> definitions) {
+        List<EngagementTemplateVersionChecklistItem> snapshots = java.util.stream.IntStream.range(0, definitions.size())
+                .mapToObj(position -> {
+                    ChecklistItemDefinitionRequest definition = definitions.get(position);
+                    return new EngagementTemplateVersionChecklistItem(UUID.randomUUID(), template.firmId(), template.id(),
+                            template.currentVersion(), definition.label().strip(), definition.required(), position);
+                }).toList();
+        if (!snapshots.isEmpty()) templateChecklistItems.saveAll(snapshots);
+    }
+    private void materializeChecklist(Engagement engagement) {
+        List<EngagementChecklistItem> snapshots = templateChecklistItems
+                .findAllByFirmIdAndTemplateIdAndDefinitionVersionOrderByPositionAsc(engagement.firmId(), engagement.templateId(), engagement.templateVersion())
+                .stream().map(item -> new EngagementChecklistItem(UUID.randomUUID(), engagement.firmId(), engagement.id(),
+                        item.id(), item.label(), item.required(), item.position())).toList();
+        if (!snapshots.isEmpty()) engagementChecklistItems.saveAll(snapshots);
     }
     private List<ClientDirectory.ActiveClient> requireActiveClients(SelectedTenant tenant, Collection<UUID> requestedIds) {
         List<UUID> clientIds = List.copyOf(requestedIds);

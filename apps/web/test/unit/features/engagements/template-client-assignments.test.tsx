@@ -14,7 +14,7 @@ vi.mock('@/features/engagements/engagements-transport', () => ({
 import { TemplateClientAssignments } from '@/features/engagements/TemplateClientAssignments'
 
 const firm = { firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' as const }
-const template = { id: 'template-1', name: 'Monthly bookkeeping', workflowId: 'workflow-1', recurrence: 'MONTHLY' as const, defaultWorkItemTitle: 'Prepare {{period}}', dueDay: 20, version: 1, currentVersion: 1, enrolledClientCount: 1 }
+const template = { id: 'template-1', name: 'Monthly bookkeeping', workflowId: 'workflow-1', recurrence: 'MONTHLY' as const, defaultWorkItemTitle: 'Prepare {{period}}', dueDay: 20, checklistItems: [], version: 1, currentVersion: 1, enrolledClientCount: 1 }
 const clients = [
   { id: 'client-1', displayName: 'Northstar', legalName: 'Northstar GmbH', primaryEmail: null, status: 'ACTIVE' as const, version: 0 },
   { id: 'client-2', displayName: 'Bergmann', legalName: 'Bergmann GmbH', primaryEmail: null, status: 'ACTIVE' as const, version: 0 },

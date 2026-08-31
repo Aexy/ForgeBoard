@@ -13,6 +13,7 @@ import com.forgeboard.engagement.domain.EngagementReviewDecisionType;
 import com.forgeboard.engagement.domain.EngagementStatus;
 import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository;
+import com.forgeboard.engagement.persistence.EngagementChecklistItemRepository;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.work.WorkItemAssignmentDirectory;
 import com.forgeboard.work.WorkItemAssignmentRoles;
@@ -24,13 +25,15 @@ import com.forgeboard.work.WorkItemLifecyclePolicy;
 public class EngagementLifecycleService implements WorkItemLifecyclePolicy {
     private final EngagementRepository engagements;
     private final EngagementReviewDecisionRepository decisions;
+    private final EngagementChecklistItemRepository checklistItems;
     private final WorkItemAssignmentDirectory assignments;
     private final ActivityRecorder activity;
     private final Clock clock;
 
     public EngagementLifecycleService(EngagementRepository engagements, EngagementReviewDecisionRepository decisions,
+            EngagementChecklistItemRepository checklistItems,
             WorkItemAssignmentDirectory assignments, ActivityRecorder activity, Clock clock) {
-        this.engagements = engagements; this.decisions = decisions; this.assignments = assignments;
+        this.engagements = engagements; this.decisions = decisions; this.checklistItems = checklistItems; this.assignments = assignments;
         this.activity = activity; this.clock = clock;
     }
 
@@ -71,6 +74,8 @@ public class EngagementLifecycleService implements WorkItemLifecyclePolicy {
         if (move.targetAwaitingReview()) {
             requireOwnerAndReviewer(roles, move.actorId());
             if (engagement.status() != EngagementStatus.ACTIVE) throw conflict("Only active engagements can be submitted for review");
+            if (checklistItems.existsByFirmIdAndEngagementIdAndRequiredTrueAndCompletedAtIsNull(move.firmId(), engagement.id()))
+                throw conflict("Complete all required checklist items before submitting an engagement for review");
             engagement.submitForReview(now);
             activity.recordRestUserAction(move.firmId(), move.actorId(), "engagement.review-submitted", "engagement",
                     engagement.id(), Map.of("workItemId", move.workItemId().toString()));
