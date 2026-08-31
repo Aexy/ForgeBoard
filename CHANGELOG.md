@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Changed
+
+- Clarified the active M2 operating-loop decisions: versioned template snapshots, enrolled-client recurrence, ordered checklists, review-accountability rules, Austrian business-day deadlines, and one-retry recovery. Deferred the design-partner walkthrough to the end of M3 and the BMD import profile until a real sanitized export is available. (`M2`–`M3`)
+
 ### Removed
 
 - Retired the legacy Vite browser application and Spring browser-session/CSRF surface. ForgeBoard now uses the routed Next.js application, Auth.js browser sessions, and server-side BFF bearer forwarding; no deployment was changed. (`M2`)

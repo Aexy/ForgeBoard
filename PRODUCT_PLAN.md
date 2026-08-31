@@ -1,7 +1,7 @@
 # ForgeBoard Product Plan
 
 **Status:** Approved outcome-led roadmap for product and engineering decisions  
-**Last updated:** 2026-07-23
+**Last updated:** 2026-08-31
 **Initial market:** Independent accounting and bookkeeping firms with 5–50 staff
 
 ### Planning principles
@@ -102,12 +102,11 @@ Core entities:
 Product rules that must be decided before M2 exits:
 
 - Engagement lifecycle and completion semantics are decided: an assigned owner submits a linked engagement to an awaiting-review stage; only its assigned reviewer may return it one ordered stage with a required note or approve it into the sole final stage, which completes the engagement. Blocked stages synchronize lifecycle status. Completed, cancelled, and archived engagements reject board moves until explicitly reopened. Only owners and managers may cancel, reopen, archive, or unarchive; those stewardship actions never move the board card. Review decisions are immutable tenant-scoped history, while audit summaries remain redacted.
-- Whether an engagement owns one workflow instance or may span several
-- How template edits affect engagements already created
-- Owner/reviewer defaults, reassignment, absence, and workload visibility
-- Deadline timezone, weekend/holiday, override, and escalation rules
-- Document reminder, expiry, and external-reference safety rules
-- Firm data export, retention, deletion, and offboarding
+- A template produces a client-specific engagement snapshot: template edits create a new version for future generation and never silently alter existing engagements. Each engagement owns one linked workflow instance.
+- Templates may define optional default preparer and reviewer assignments, ordered required/optional checklist items, a due-day plus period offset, and explicit active-client enrollments. Required checklist items block submission for review. Members cannot review their own work; owners, administrators, and managers may self-review only with explicit immutable history.
+- Daily recurrence uses the firm timezone and creates the prior period on the first business day for active enrolled clients. The firm timezone is initially `Europe/Vienna`; weekends and the editable Austrian public-holiday/firm-closure calendar move a deadline to the preceding business day. A failed run retries once, then remains visibly recoverable through audited retry and owner-only resolution/generation actions.
+- Document requests remain metadata-only. Reminder/escalation behavior awaits pilot evidence.
+- Firm data export, retention, deletion, and offboarding are M3/M4 operating controls.
 
 ## 5. MVP scope
 
@@ -328,37 +327,41 @@ Verified by the PostgreSQL integration test and React workflow tests, including 
 
 ### M2 — Accounting workflow value
 
+**Status: Active (2026-08-31).** Lifecycle, routed browser workspace, employee ownership, templates, document-request metadata, dashboards, and audit foundations are available. M2 remains open until its recurring operating loop and controlled local acceptance walkthrough are complete.
+
 - Define engagement states: draft, active, blocked, awaiting review, complete, cancelled, reopened, and archived
-- Version-aware templates with default stages, owners/reviewers, due-date rules, and document requirements
-- Idempotent recurrence with timezone-aware scheduling, failure visibility, retry, and duplicate prevention
+- Version-aware templates with default stages, optional owners/reviewers, due-date rules, ordered required/optional checklists, and explicit active-client enrollments
+- Idempotent recurrence with timezone-aware scheduling, first-business-day prior-period generation, failure visibility, one automatic retry, owner recovery, and duplicate prevention
 - Explicit preparer-to-reviewer handoff, review outcome, reassignment, and completion rules
 - Document requests with due dates, reminder/escalation state, and metadata-only external references
 - Manager dashboard for overdue, due soon, blocked, unassigned, and awaiting-review work
 - Employee provisioning, tenant-consistent work-item ownership, and a server-filtered assigned-work dashboard, covered by authorization and tenant-isolation tests.
-- Search and saved portfolio filters by client, service, owner, and filing period
-- Validated CSV import with preview, row errors, duplicate handling, and correction flow
+- Search and saved portfolio filters by client, service/template, owner, reviewer, filing period, and overlapping attention states
+- Validated CSV import with preview, row errors, duplicate handling, and correction flow. The BMD profile is deliberately deferred until a real sanitized BMD export establishes its field and encoding contract.
 - Complete browser flows for templates, engagements, requests, and dashboards—not API-only delivery
-- End-to-end tests from recurrence through completion, including tenant isolation
+- Controlled local-browser acceptance from recurrence through completion, including tenant isolation
 
 **Exit criterion:** with representative data, a small accounting firm can configure and run a monthly bookkeeping cycle from recurrence through review and completion without a parallel task spreadsheet; a manager can identify all overdue, blocked, unassigned, and awaiting-review engagements in one view.
 
-**Evidence required:** scripted end-to-end acceptance, recurrence idempotency tests, authorization and tenant-isolation tests, import failure tests, and a design-partner walkthrough with unresolved gaps recorded.
+**Evidence required:** scripted controlled local-browser acceptance, recurrence idempotency tests, authorization and tenant-isolation tests, import failure tests, and unresolved gaps recorded. The design-partner walkthrough is an M3 requirement.
 
 ### M3 — Pilot-ready SaaS operations
 
+**Status: Not started as a phase (2026-08-31).** The invitation, membership, reset, and session-revocation slices are prepared early, but M3’s operational, recovery, deployment, support, and pilot evidence remains open.
+
 - Guided onboarding, sample templates, useful empty states, and a first-value checklist
 - Invitations, role management, membership removal/suspension, password reset, and session revocation
-- Firm lifecycle: pilot/trial state, limits, suspension, export, deletion request, and offboarding; billing remains feature-flagged
+- Generic active/suspended firm control, owner-requested export, deletion request, and offboarding; pilot roster and limits remain operator-managed until observed load or policy requires product controls
 - EU production deployment with environment separation and controlled migrations
 - Logs, metrics, traces, uptime checks, alert ownership, and support correlation IDs
 - Encrypted backups and a timed restore drill with recorded recovery results
 - Security review of tenant isolation, permission matrix, secrets, sessions, dependencies, rate limits, abuse cases, and audit integrity
 - GDPR operating basics: retention, export/delete procedures, subprocessors, privacy terms, and incident response
-- Safe, audited support diagnostics without silent tenant impersonation
+- Safe, audited superadmin diagnostics without tenant impersonation
 - Pilot analytics for activation, adoption, completion, deadline visibility, errors, retention, and support burden
 - Accessibility, browser compatibility, performance budgets, and critical-path CI checks
 
-**Exit criterion:** two pilot firms can be onboarded, operated, supported, isolated, exported, and recovered safely in production for one complete recurring cycle, without engineers manually mutating tenant data.
+**Exit criterion:** two design-partner pilot firms can be onboarded, operated, supported, isolated, exported, and recovered safely in production for one complete recurring cycle, without engineers manually mutating tenant data.
 
 **Evidence required:** production-readiness review, successful restore drill, tenant-boundary report, incident/offboarding tabletop exercises, pilot analytics, and acceptance notes from each pilot.
 
@@ -424,9 +427,8 @@ Targets remain hypotheses until pilot baselines exist and are reviewed after two
 
 | Risk or missing decision | Why it matters | Resolve by |
 | --- | --- | --- |
-| No design-partner evidence is recorded | The roadmap may optimize an imagined workflow | Before M2 scope locks |
-| Template-version rules are unspecified | Template edits may make recurrence and reporting ambiguous | Early M2 |
-| Deadline and calendar rules are unspecified | Accounting deadlines cannot be trusted | Early M2 |
+| No design-partner evidence is recorded | The roadmap may optimize an imagined workflow | End of M3 pilot cycle |
+| Real BMD client-export contract is unavailable | A claimed import profile could reject or mis-map production client data | Before BMD-profile implementation in M2 |
 | Roles lack an explicit permission matrix | Browser/MCP parity cannot be proven | M2 |
 | Invitations, reset, removal, export, and deletion are absent | Pilots cannot be operated safely | M3 |
 | Recovery lacks RPO/RTO and restore evidence | Backups alone are not a usable promise | M3 |
