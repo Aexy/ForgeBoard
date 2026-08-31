@@ -10,4 +10,7 @@ public record SelectedTenant(UUID firmId, UUID userId, String email, MembershipR
     public boolean canManageEngagementLifecycle() {
         return role == MembershipRole.OWNER || role == MembershipRole.MANAGER;
     }
+    public boolean canManageEngagementTemplates() {
+        return role == MembershipRole.OWNER || role == MembershipRole.ADMINISTRATOR || role == MembershipRole.MANAGER;
+    }
 }

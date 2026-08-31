@@ -57,6 +57,9 @@ class EngagementLifecyclePostgresIntegrationTest {
                     "FB-" + unrelatedWorkItemId.toString().substring(0, 8), now, now);
             insert(connection, "insert into engagement_templates (id, firm_id, workflow_id, name, recurrence, default_work_item_title, due_day, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     templateId, firmId, workflowId, "Template", "MONTHLY", "Task", 20, now, now);
+            insert(connection, "insert into engagement_template_versions (id, firm_id, template_id, definition_version, workflow_id, name, recurrence, default_work_item_title, due_day, created_by, created_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    UUID.randomUUID(), firmId, templateId, 1, workflowId, "Template", "MONTHLY", "Task", 20,
+                    UUID.randomUUID(), now);
             insertEngagement(connection, engagementId, firmId, workItemId, "ACTIVE", null);
         }
     }
@@ -92,6 +95,26 @@ class EngagementLifecyclePostgresIntegrationTest {
                     .isInstanceOf(Exception.class);
             assertThatThrownBy(() -> insert(connection, "insert into engagement_review_decisions (id, firm_id, engagement_id, work_item_id, actor_id, decision, note, occurred_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
                     UUID.randomUUID(), firmId, engagementId, unrelatedWorkItemId, UUID.randomUUID(), "APPROVED", null, now))
+                    .isInstanceOf(Exception.class);
+        }
+    }
+
+    @Test
+    void migratesVersionColumnsAsIntegersAndEnforcesEnrollmentFirmScope() throws Exception {
+        try (Connection connection = connection()) {
+            try (var statement = connection.prepareStatement("""
+                    select data_type from information_schema.columns
+                    where table_name = 'engagement_template_versions' and column_name = 'definition_version'
+                    """)) {
+                try (var result = statement.executeQuery()) {
+                    org.assertj.core.api.Assertions.assertThat(result.next()).isTrue();
+                    org.assertj.core.api.Assertions.assertThat(result.getString(1)).isEqualTo("integer");
+                }
+            }
+            assertThatThrownBy(() -> insert(connection, """
+                    insert into engagement_template_enrollments (id, firm_id, template_id, client_id, created_by, created_at)
+                    values (?, ?, ?, ?, ?, ?)
+                    """, UUID.randomUUID(), otherFirmId, templateId, clientId, UUID.randomUUID(), now))
                     .isInstanceOf(Exception.class);
         }
     }

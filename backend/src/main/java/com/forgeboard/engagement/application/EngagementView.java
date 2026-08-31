@@ -5,5 +5,5 @@ import java.time.LocalDate;
 import java.util.UUID;
 import com.forgeboard.engagement.domain.EngagementStatus;
 
-public record EngagementView(UUID id, UUID templateId, UUID clientId, UUID workflowId, UUID workItemId, LocalDate periodStart,
+public record EngagementView(UUID id, UUID templateId, int templateVersion, UUID clientId, UUID workflowId, UUID workItemId, LocalDate periodStart,
         LocalDate periodEnd, LocalDate dueDate, EngagementStatus status, Instant statusChangedAt, long version) {}

@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +18,9 @@ import com.forgeboard.engagement.application.EngagementService;
 import com.forgeboard.engagement.application.EngagementTemplateRequest;
 import com.forgeboard.engagement.application.EngagementTemplateView;
 import com.forgeboard.engagement.application.EngagementView;
+import com.forgeboard.engagement.application.UpdateEngagementTemplateRequest;
+import com.forgeboard.engagement.application.TemplateEnrollmentRequest;
+import com.forgeboard.engagement.application.TemplateEnrollmentView;
 import com.forgeboard.engagement.EngagementDetail;
 import com.forgeboard.engagement.application.ExpectedVersionRequest;
 import com.forgeboard.identity.SelectedTenant;
@@ -74,6 +79,30 @@ public class EngagementController {
             @Valid @RequestBody EngagementTemplateRequest request) {
         EngagementTemplateView created = engagements.createTemplate(tenant, request);
         return ResponseEntity.created(URI.create("/api/engagements/templates/" + created.id())).body(created);
+    }
+
+    @PutMapping("/templates/{templateId}")
+    EngagementTemplateView updateTemplate(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID templateId, @Valid @RequestBody UpdateEngagementTemplateRequest request) {
+        return engagements.updateTemplate(tenant, templateId, request);
+    }
+
+    @GetMapping("/templates/{templateId}/enrollments")
+    List<com.forgeboard.engagement.application.TemplateEnrollmentClientView> listEnrollments(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID templateId) {
+        return engagements.listEnrolledClients(tenant, templateId);
+    }
+
+    @PostMapping("/templates/{templateId}/enrollments")
+    TemplateEnrollmentView enrollClients(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID templateId, @Valid @RequestBody TemplateEnrollmentRequest request) {
+        return engagements.enrollClients(tenant, templateId, request);
+    }
+
+    @DeleteMapping("/templates/{templateId}/enrollments")
+    TemplateEnrollmentView unenrollClients(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @PathVariable UUID templateId, @Valid @RequestBody TemplateEnrollmentRequest request) {
+        return engagements.unenrollClients(tenant, templateId, request);
     }
 
     @PostMapping("/templates/{templateId}/instances")

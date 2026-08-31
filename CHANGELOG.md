@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Added
+
+- Added immutable engagement-template definition versions and explicit firm-scoped active-client enrollments. Owners, administrators, and managers can update future template definitions and search, select, add, or remove multiple active clients; manual engagements now use only enrolled active clients. (`M2`, migration `V022`)
+
 ### Changed
 
 - Clarified the active M2 operating-loop decisions: versioned template snapshots, enrolled-client recurrence, ordered checklists, review-accountability rules, Austrian business-day deadlines, and one-retry recovery. Deferred the design-partner walkthrough to the end of M3 and the BMD import profile until a real sanitized export is available. (`M2`–`M3`)

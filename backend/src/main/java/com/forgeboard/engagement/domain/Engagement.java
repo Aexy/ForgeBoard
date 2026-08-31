@@ -17,6 +17,7 @@ public class Engagement {
     @Id private UUID id;
     @Column(name = "firm_id", nullable = false) private UUID firmId;
     @Column(name = "template_id", nullable = false) private UUID templateId;
+    @Column(name = "template_version", nullable = false) private int templateVersion = 1;
     @Column(name = "client_id", nullable = false) private UUID clientId;
     @Column(name = "workflow_id", nullable = false) private UUID workflowId;
     @Column(name = "work_item_id") private UUID workItemId;
@@ -33,7 +34,12 @@ public class Engagement {
     protected Engagement() {}
     public Engagement(UUID id, UUID firmId, UUID templateId, UUID clientId, UUID workflowId, UUID workItemId,
             LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate, Instant now) {
+        this(id, firmId, templateId, 1, clientId, workflowId, workItemId, periodStart, periodEnd, dueDate, now);
+    }
+    public Engagement(UUID id, UUID firmId, UUID templateId, int templateVersion, UUID clientId, UUID workflowId, UUID workItemId,
+            LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate, Instant now) {
         this.id = id; this.firmId = firmId; this.templateId = templateId; this.clientId = clientId;
+        this.templateVersion = templateVersion;
         this.workflowId = workflowId; this.workItemId = workItemId; this.periodStart = periodStart; this.periodEnd = periodEnd;
         this.dueDate = dueDate; this.status = EngagementStatus.ACTIVE; this.statusChangedAt = now;
         this.createdAt = now; this.updatedAt = now;
@@ -41,6 +47,7 @@ public class Engagement {
     public UUID id() { return id; }
     public UUID firmId() { return firmId; }
     public UUID templateId() { return templateId; }
+    public int templateVersion() { return templateVersion; }
     public UUID clientId() { return clientId; }
     public UUID workflowId() { return workflowId; }
     public UUID workItemId() { return workItemId; }

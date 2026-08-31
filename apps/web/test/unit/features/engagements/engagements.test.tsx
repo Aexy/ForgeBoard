@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   useFirmContext: vi.fn(), clients: vi.fn(), workflows: vi.fn(), templates: vi.fn(), engagements: vi.fn(), requests: vi.fn(),
   createTemplate: vi.fn(), createEngagement: vi.fn(), createRequest: vi.fn(), receive: vi.fn(),
+  updateTemplate: vi.fn(), enrolledClients: vi.fn(),
 }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
@@ -16,6 +17,8 @@ vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowsQuery:
 vi.mock('@/features/engagements/engagements-transport', () => ({
   useGetEngagementTemplatesQuery: mocks.templates, useGetEngagementsQuery: mocks.engagements, useGetDocumentRequestsQuery: mocks.requests,
   useCreateEngagementTemplateMutation: () => [mocks.createTemplate, { isLoading: false }], useCreateEngagementMutation: () => [mocks.createEngagement, { isLoading: false }], useCreateDocumentRequestMutation: () => [mocks.createRequest, { isLoading: false }], useReceiveDocumentRequestMutation: () => [mocks.receive],
+  useUpdateEngagementTemplateMutation: () => [mocks.updateTemplate, { isLoading: false }],
+  useGetTemplateEnrollmentsQuery: mocks.enrolledClients,
 }))
 import { Engagements } from '@/features/engagements/Engagements'
 import { LanguageProvider } from '@/app/LanguageProvider'
@@ -23,13 +26,15 @@ import { LanguageProvider } from '@/app/LanguageProvider'
 const render = (ui: ReactElement, language: 'en' | 'de' = 'en') => baseRender(<LanguageProvider initialLanguage={language}>{ui}</LanguageProvider>)
 
 const client = { id: 'client-1', displayName: 'Northstar', legalName: 'Northstar GmbH', primaryEmail: null, status: 'ACTIVE', version: 0 }
-const template = { id: 'template-1', name: 'Monthly bookkeeping', workflowId: 'workflow-1', recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare {{period}}', dueDay: 20, version: 0 }
+const template = { id: 'template-1', name: 'Monthly bookkeeping', workflowId: 'workflow-1', recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare {{period}}', dueDay: 20, version: 1, currentVersion: 1, enrolledClientCount: 0 }
+const secondTemplate = { ...template, id: 'template-2', name: 'Annual accounts', recurrence: 'ANNUAL' as const, defaultWorkItemTitle: 'Prepare annual accounts', dueDay: 28, version: 4, currentVersion: 2 }
+const unassignedClient = { ...client, id: 'client-2', displayName: 'Bergmann' }
 
 describe('Engagements route feature', () => {
   afterEach(cleanup)
   beforeEach(() => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' })
-    mocks.clients.mockReturnValue({ isLoading: false, data: [client] }); mocks.workflows.mockReturnValue({ isLoading: false, data: [{ id: 'workflow-1', name: 'Monthly close', version: 0 }] }); mocks.templates.mockReturnValue({ isLoading: false, data: [template] }); mocks.engagements.mockReturnValue({ isLoading: false, data: [] }); mocks.requests.mockReturnValue({ isLoading: false, data: [] })
+    mocks.clients.mockReturnValue({ isLoading: false, data: [client] }); mocks.workflows.mockReturnValue({ isLoading: false, data: [{ id: 'workflow-1', name: 'Monthly close', version: 0 }] }); mocks.templates.mockReturnValue({ isLoading: false, data: [template] }); mocks.engagements.mockReturnValue({ isLoading: false, data: [] }); mocks.requests.mockReturnValue({ isLoading: false, data: [] }); mocks.enrolledClients.mockReturnValue({ isLoading: false, data: [client] })
     mocks.createTemplate.mockReset(); mocks.createEngagement.mockReset(); mocks.createRequest.mockReset(); mocks.receive.mockReset()
   })
 
@@ -69,6 +74,45 @@ describe('Engagements route feature', () => {
     expect(screen.queryByRole('button', { name: '+ Start engagement' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '+ Request' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Mark received' })).not.toBeInTheDocument()
+  })
+
+  it.each(['MEMBER', 'READ_ONLY'] as const)('does not expose template definition or client assignments to %s memberships', (role) => {
+    mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role })
+    render(<Engagements />)
+    expect(screen.queryByRole('button', { name: 'Edit template Monthly bookkeeping' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Manage clients for Monthly bookkeeping' })).not.toBeInTheDocument()
+  })
+
+  it.each(['OWNER', 'ADMINISTRATOR', 'MANAGER'] as const)('exposes template definition and client assignments to %s memberships', (role) => {
+    mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role })
+    render(<Engagements />)
+    expect(screen.getByRole('button', { name: 'Edit template Monthly bookkeeping' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Manage clients for Monthly bookkeeping' })).toBeVisible()
+  })
+
+  it('resets the template definition form when switching to edit a different template', () => {
+    mocks.templates.mockReturnValue({ isLoading: false, data: [template, secondTemplate] })
+    render(<Engagements />)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit template Monthly bookkeeping' }))
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Unsaved monthly edit' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Edit template Annual accounts' }))
+    expect(screen.getByLabelText('Name')).toHaveValue('Annual accounts')
+    expect(screen.getByLabelText('Default work item')).toHaveValue('Prepare annual accounts')
+  })
+
+  it('offers only active clients enrolled in the selected template and explains an empty enrollment', () => {
+    mocks.clients.mockReturnValue({ isLoading: false, data: [client, unassignedClient] })
+    mocks.templates.mockReturnValue({ isLoading: false, data: [template, secondTemplate] })
+    mocks.enrolledClients.mockReturnValue({ isLoading: false, data: [client] })
+    render(<Engagements />)
+    fireEvent.click(screen.getByRole('button', { name: '+ Start engagement' }))
+    fireEvent.change(screen.getByLabelText('Template'), { target: { value: template.id } })
+    expect(screen.getByRole('option', { name: 'Northstar' })).toBeVisible()
+    expect(screen.queryByRole('option', { name: 'Bergmann' })).not.toBeInTheDocument()
+    mocks.enrolledClients.mockReturnValue({ isLoading: false, data: [] })
+    fireEvent.change(screen.getByLabelText('Template'), { target: { value: secondTemplate.id } })
+    expect(screen.getByText('No active clients are enrolled for this template. Manage its clients before starting an engagement.')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Start engagement' })).toBeDisabled()
   })
 
   it('marks a document request received through the firm-scoped mutation', async () => {
