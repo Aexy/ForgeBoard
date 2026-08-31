@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.forgeboard.engagement.application.EngagementService;
 import com.forgeboard.engagement.application.EngagementChecklistService;
 import com.forgeboard.engagement.application.RecurrenceFailureService;
+import com.forgeboard.engagement.application.EngagementPortfolioService;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.identity.application.TenantAuthorizationService;
 import com.forgeboard.identity.domain.MembershipRole;
@@ -36,6 +37,7 @@ class EngagementTemplateEnrollmentControllerSecurityTest {
     @MockitoBean EngagementService engagements;
     @MockitoBean EngagementChecklistService checklist;
     @MockitoBean RecurrenceFailureService recurrenceFailures;
+    @MockitoBean EngagementPortfolioService portfolio;
     @MockitoBean TenantAuthorizationService tenantAuthorization;
 
     @Test

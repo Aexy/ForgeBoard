@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added an owner/manager engagement portfolio with firm-scoped search, filing-period and assignment filters, paginated results, and overlapping overdue, due-soon, blocked, unassigned, and awaiting-review signals. (`M2`)
+
 - Added firm calendar management with Europe/Vienna defaults, statutory Austrian holidays, and firm closures; recurring templates now generate the preceding period idempotently on the first business day, shift deadlines to the preceding business day, and retain owner-recoverable, audited failure/retry evidence. (`M2`, migrations `V024`, `V025`)
 
 - Added ordered required/optional engagement template checklists. Checklist definitions are versioned, materialized on each new engagement, completable only by its assigned preparer, and enforced before a review submission. (`M2`, migration `V023`)

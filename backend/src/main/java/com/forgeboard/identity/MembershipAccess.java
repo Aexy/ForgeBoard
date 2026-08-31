@@ -29,6 +29,12 @@ public class MembershipAccess {
         if (!tenant.role().canManageMemberships())
             throw new AccessDeniedException("Only owners and administrators can manage shared workflow views");
     }
+    /** Portfolio visibility is deliberately narrower than template administration. */
+    public void requireEngagementPortfolioAccess(SelectedTenant tenant) {
+        authorization.requireActiveTenant(tenant);
+        if (tenant.role() != MembershipRole.OWNER && tenant.role() != MembershipRole.MANAGER)
+            throw new AccessDeniedException("Only owners and managers can view the engagement portfolio");
+    }
     public boolean belongsToFirm(UUID firmId, UUID userId) {
         return memberships.existsActiveEnabledByFirmIdAndUserId(firmId, userId);
     }

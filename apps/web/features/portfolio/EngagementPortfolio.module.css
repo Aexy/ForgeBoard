@@ -1,0 +1,24 @@
+.workspace { display: grid; gap: 1.5rem; max-width: 84rem; }
+.heading { display: grid; gap: .4rem; }
+.heading h1, .heading p { margin: 0; }
+.eyebrow { color: var(--forge-green-800); font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.filters { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); padding: 1rem; background: #f4f5f3; border: 1px solid var(--forge-border); }
+.filters label, .attention { display: grid; gap: .35rem; font-weight: 600; }
+.filters input, .filters select { background: white; border: 1px solid var(--forge-border); border-radius: .25rem; color: inherit; font: inherit; min-height: 2.5rem; padding: .4rem .55rem; }
+.attention { grid-column: 1 / -1; }
+.attentionOptions { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; font-weight: 400; }
+.attentionOptions label { align-items: center; display: flex; gap: .4rem; }
+.filterActions { align-items: end; display: flex; }
+.filterActions button, .pagination button { background: transparent; border: 1px solid var(--forge-border); border-radius: .25rem; color: inherit; font: inherit; min-height: 2.5rem; padding: .4rem .75rem; }
+.tableWrap { border: 1px solid var(--forge-border); overflow-x: auto; }
+.table { border-collapse: collapse; min-width: 66rem; width: 100%; }
+.table th, .table td { border-bottom: 1px solid var(--forge-border); padding: .75rem; text-align: left; vertical-align: top; }
+.table th { background: #f4f5f3; font-size: .82rem; }
+.table tr:last-child td { border-bottom: 0; }
+.badges { display: flex; flex-wrap: wrap; gap: .35rem; }
+.badge { background: #f7e6c2; border-radius: 999px; font-size: .75rem; font-weight: 700; padding: .2rem .5rem; white-space: nowrap; }
+.status { color: var(--forge-text-muted); font-size: .85rem; }
+.empty, .denied, .error { border-left: .25rem solid var(--forge-border); margin: 0; padding: .8rem 1rem; }
+.denied, .error { border-left-color: #a94442; }
+.pagination { align-items: center; display: flex; gap: .75rem; justify-content: flex-end; }
+@media (max-width: 42rem) { .filters { grid-template-columns: 1fr; } .filterActions { align-items: stretch; } }

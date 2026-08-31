@@ -1,7 +1,9 @@
 package com.forgeboard.engagement.web;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import com.forgeboard.engagement.application.CreateEngagementRequest;
 import com.forgeboard.engagement.application.EngagementService;
@@ -29,22 +32,47 @@ import com.forgeboard.engagement.EngagementDetail;
 import com.forgeboard.engagement.application.ExpectedVersionRequest;
 import com.forgeboard.engagement.application.RecurrenceFailureService;
 import com.forgeboard.engagement.application.RecurrenceFailureView;
+import com.forgeboard.engagement.application.EngagementPortfolioPage;
+import com.forgeboard.engagement.application.EngagementPortfolioQuery;
+import com.forgeboard.engagement.application.EngagementPortfolioService;
+import com.forgeboard.engagement.application.EngagementAttention;
+import com.forgeboard.engagement.domain.EngagementStatus;
 import com.forgeboard.identity.SelectedTenant;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 
 @RestController
 @RequestMapping("/api/engagements")
+@Validated
 public class EngagementController {
     private final EngagementService engagements;
     private final EngagementChecklistService checklist;
     private final RecurrenceFailureService recurrenceFailures;
-    public EngagementController(EngagementService engagements, EngagementChecklistService checklist, RecurrenceFailureService recurrenceFailures) {
-        this.engagements = engagements; this.checklist = checklist; this.recurrenceFailures = recurrenceFailures;
+    private final EngagementPortfolioService portfolio;
+    public EngagementController(EngagementService engagements, EngagementChecklistService checklist, RecurrenceFailureService recurrenceFailures,
+            EngagementPortfolioService portfolio) {
+        this.engagements = engagements; this.checklist = checklist; this.recurrenceFailures = recurrenceFailures; this.portfolio = portfolio;
     }
 
     @GetMapping
     List<EngagementView> list(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant) {
         return engagements.listEngagements(tenant);
+    }
+
+    @GetMapping("/portfolio")
+    EngagementPortfolioPage portfolio(@RequestAttribute(SelectedTenant.REQUEST_ATTRIBUTE) SelectedTenant tenant,
+            @RequestParam(required = false) String q, @RequestParam(required = false) UUID clientId,
+            @RequestParam(required = false) UUID templateId, @RequestParam(required = false) UUID preparerUserId,
+            @RequestParam(required = false) UUID reviewerUserId, @RequestParam(required = false) LocalDate periodStart,
+            @RequestParam(required = false) LocalDate periodEnd,
+            @RequestParam(required = false) Set<EngagementAttention> attention,
+            @RequestParam(required = false) Set<EngagementStatus> status,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "25") @Min(1) @Max(100) int pageSize) {
+        return portfolio.list(tenant, new EngagementPortfolioQuery(q, clientId, templateId, preparerUserId, reviewerUserId,
+                periodStart, periodEnd, attention, status, page, pageSize));
     }
 
     @GetMapping("/{engagementId}")

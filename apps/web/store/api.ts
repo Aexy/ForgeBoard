@@ -3,7 +3,7 @@
 import { createApi, fetchBaseQuery, type BaseQueryFn, type FetchArgs, type FetchBaseQueryError } from '@reduxjs/toolkit/query/react'
 import { signOut } from 'next-auth/react'
 
-export const forgeboardTagTypes = ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail', 'Engagement', 'EngagementChecklist', 'EngagementTemplate', 'DocumentRequest', 'FirmCalendar', 'PlatformFirm', 'PlatformEmployee'] as const
+export const forgeboardTagTypes = ['Workflow', 'Client', 'WorkItem', 'MyWork', 'WorkflowView', 'Employee', 'AuditTrail', 'Engagement', 'EngagementChecklist', 'EngagementTemplate', 'EngagementPortfolio', 'DocumentRequest', 'FirmCalendar', 'PlatformFirm', 'PlatformEmployee'] as const
 export type ForgeboardTagType = typeof forgeboardTagTypes[number]
 
 export const firmTag = (firmId: string, id?: string) => id ? `${firmId}:${id}` : firmId
