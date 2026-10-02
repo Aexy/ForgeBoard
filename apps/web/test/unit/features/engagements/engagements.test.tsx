@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   useFirmContext: vi.fn(), clients: vi.fn(), workflows: vi.fn(), templates: vi.fn(), engagements: vi.fn(), requests: vi.fn(),
-  createTemplate: vi.fn(), createEngagement: vi.fn(), createRequest: vi.fn(), receive: vi.fn(),
+  createTemplate: vi.fn(), createEngagement: vi.fn(), createRequest: vi.fn(), receive: vi.fn(), remind: vi.fn(), escalate: vi.fn(),
   updateTemplate: vi.fn(), enrolledClients: vi.fn(),
   recurrenceFailures: vi.fn(), retryRecurrence: vi.fn(), markRecurrenceSolved: vi.fn(), generateRecurrence: vi.fn(),
 }))
@@ -17,7 +17,7 @@ vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: moc
 vi.mock('@/features/workflow/workflow-transport', () => ({ useGetWorkflowsQuery: mocks.workflows }))
 vi.mock('@/features/engagements/engagements-transport', () => ({
   useGetEngagementTemplatesQuery: mocks.templates, useGetEngagementsQuery: mocks.engagements, useGetDocumentRequestsQuery: mocks.requests,
-  useCreateEngagementTemplateMutation: () => [mocks.createTemplate, { isLoading: false }], useCreateEngagementMutation: () => [mocks.createEngagement, { isLoading: false }], useCreateDocumentRequestMutation: () => [mocks.createRequest, { isLoading: false }], useReceiveDocumentRequestMutation: () => [mocks.receive],
+  useCreateEngagementTemplateMutation: () => [mocks.createTemplate, { isLoading: false }], useCreateEngagementMutation: () => [mocks.createEngagement, { isLoading: false }], useCreateDocumentRequestMutation: () => [mocks.createRequest, { isLoading: false }], useReceiveDocumentRequestMutation: () => [mocks.receive], useRecordDocumentRequestReminderMutation: () => [mocks.remind], useEscalateDocumentRequestMutation: () => [mocks.escalate],
   useUpdateEngagementTemplateMutation: () => [mocks.updateTemplate, { isLoading: false }],
   useGetTemplateEnrollmentsQuery: mocks.enrolledClients,
   useGetRecurrenceFailuresQuery: mocks.recurrenceFailures,
@@ -41,7 +41,7 @@ describe('Engagements route feature', () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'OWNER' })
     mocks.recurrenceFailures.mockReturnValue({ isLoading: false, data: [] })
     mocks.clients.mockReturnValue({ isLoading: false, data: [client] }); mocks.workflows.mockReturnValue({ isLoading: false, data: [{ id: 'workflow-1', name: 'Monthly close', version: 0 }] }); mocks.templates.mockReturnValue({ isLoading: false, data: [template] }); mocks.engagements.mockReturnValue({ isLoading: false, data: [] }); mocks.requests.mockReturnValue({ isLoading: false, data: [] }); mocks.enrolledClients.mockReturnValue({ isLoading: false, data: [client] })
-    mocks.createTemplate.mockReset(); mocks.createEngagement.mockReset(); mocks.createRequest.mockReset(); mocks.receive.mockReset()
+    mocks.createTemplate.mockReset(); mocks.createEngagement.mockReset(); mocks.createRequest.mockReset(); mocks.receive.mockReset(); mocks.remind.mockReset(); mocks.escalate.mockReset()
   })
 
   it('shows loading, error, and empty states', () => {
@@ -74,7 +74,7 @@ describe('Engagements route feature', () => {
 
   it('does not render mutations for read-only memberships', () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' })
-    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, version: 0 }] })
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, followUpState: 'OPEN', remindedAt: null, escalatedAt: null, version: 0 }] })
     render(<Engagements />)
     expect(screen.queryByRole('button', { name: '+ New template' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '+ Start engagement' })).not.toBeInTheDocument()
@@ -122,10 +122,57 @@ describe('Engagements route feature', () => {
   })
 
   it('marks a document request received through the firm-scoped mutation', async () => {
-    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, version: 0 }] })
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, followUpState: 'OPEN', remindedAt: null, escalatedAt: null, version: 0 }] })
     mocks.receive.mockReturnValue({ unwrap: vi.fn().mockResolvedValue({ id: 'request-1' }) })
     render(<Engagements />)
     fireEvent.click(screen.getByRole('button', { name: 'Mark received' }))
     await vi.waitFor(() => expect(mocks.receive).toHaveBeenCalledWith({ firm: expect.objectContaining({ firmId: 'firm-1' }), requestId: 'request-1' }))
+  })
+
+  it('records then escalates an outstanding request through its firm-scoped mutations', async () => {
+    const request = { id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, version: 0 }
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ ...request, followUpState: 'OPEN', remindedAt: null, escalatedAt: null }] })
+    mocks.remind.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(request) })
+    const view = render(<Engagements />)
+
+    expect(screen.getByText('open')).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Record reminder' }))
+    await vi.waitFor(() => expect(mocks.remind).toHaveBeenCalledWith({ firm: expect.objectContaining({ firmId: 'firm-1' }), requestId: 'request-1' }))
+
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ ...request, followUpState: 'REMINDER_RECORDED', remindedAt: '2026-08-31T09:00:00Z', escalatedAt: null }] })
+    mocks.escalate.mockReturnValue({ unwrap: vi.fn().mockResolvedValue(request) })
+    view.rerender(<LanguageProvider initialLanguage="en"><Engagements /></LanguageProvider>)
+    expect(screen.getByText('reminder recorded')).toBeVisible()
+    expect(screen.getByText(/Reminder recorded/)).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Escalate' }))
+    await vi.waitFor(() => expect(mocks.escalate).toHaveBeenCalledWith({ firm: expect.objectContaining({ firmId: 'firm-1' }), requestId: 'request-1' }))
+  })
+
+  it('hides follow-up controls from read-only memberships', () => {
+    mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' })
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, followUpState: 'OPEN', remindedAt: null, escalatedAt: null, version: 0 }] })
+    render(<Engagements />)
+    expect(screen.queryByRole('button', { name: 'Record reminder' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Escalate' })).not.toBeInTheDocument()
+  })
+
+  it('shows the request error treatment when recording a reminder fails', async () => {
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, followUpState: 'OPEN', remindedAt: null, escalatedAt: null, version: 0 }] })
+    mocks.remind.mockReturnValue({ unwrap: vi.fn().mockRejectedValue(new Error('failed')) })
+    render(<Engagements />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record reminder' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The document request follow-up could not be updated.')
+  })
+
+  it('keeps receipt available without more follow-up actions after escalation', () => {
+    mocks.requests.mockReturnValue({ isLoading: false, data: [{ id: 'request-1', clientId: 'client-1', label: 'Bank statement', externalReference: null, dueDate: null, status: 'REQUESTED', receivedAt: null, followUpState: 'ESCALATED', remindedAt: '2026-08-31T09:00:00Z', escalatedAt: '2026-08-31T10:00:00Z', version: 2 }] })
+    render(<Engagements />)
+
+    expect(screen.getByText('escalated')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Record reminder' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Escalate' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mark received' })).toBeVisible()
   })
 })

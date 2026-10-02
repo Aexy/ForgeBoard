@@ -17,6 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Added
 
+- Added metadata-only document-request follow-up so authorized firm members can record audited reminders and escalations; ForgeBoard does not send reminders or store documents. (`M2`, migration `V026`)
+
 - Added an owner/manager engagement portfolio with firm-scoped search, filing-period and assignment filters, paginated results, and overlapping overdue, due-soon, blocked, unassigned, and awaiting-review signals. (`M2`)
 
 - Added firm calendar management with Europe/Vienna defaults, statutory Austrian holidays, and firm closures; recurring templates now generate the preceding period idempotently on the first business day, shift deadlines to the preceding business day, and retain owner-recoverable, audited failure/retry evidence. (`M2`, migrations `V024`, `V025`)
