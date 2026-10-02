@@ -58,9 +58,10 @@ class EngagementServiceTest {
     void setUp() {
         now = Instant.parse("2026-07-13T09:00:00Z");
         tenant = new SelectedTenant(UUID.randomUUID(), UUID.randomUUID(), "owner@example.com", MembershipRole.OWNER);
-        service = new EngagementService(templates, templateVersions, templateChecklistItems, engagementChecklistItems, enrollments, engagements,
+        service = new EngagementService(templates, templateVersions, templateChecklistItems, enrollments, engagements,
                 mock(com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository.class), workflows, clients,
-                activity, Clock.fixed(now, ZoneOffset.UTC));
+                activity, Clock.fixed(now, ZoneOffset.UTC),
+                new EngagementMaterializer(engagements, templateChecklistItems, engagementChecklistItems, workflows));
     }
 
     @Test

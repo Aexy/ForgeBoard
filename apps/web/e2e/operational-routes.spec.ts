@@ -2,10 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
-const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
-const password = 'playwright-test-password'
-
-type Credentials = { email: string; password: string }
+import { apiBaseURL, password, createFirm, headers as firmHeaders, signInAt, type Credentials } from './helpers'
 
 type OperationalFirm = {
   firmSlug: string
@@ -24,33 +21,15 @@ type OperationalFirm = {
   reviewerUserId: string
 }
 
-async function signInAt(page: Page, path: string, credentials: Credentials) {
-  await page.goto(path)
-  await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
-  await page.getByLabel('Email address').fill(credentials.email)
-  await page.getByLabel('Password').fill(credentials.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(path, { timeout: 15_000 })
-}
-
 async function createOperationalFirm(request: APIRequestContext): Promise<OperationalFirm> {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-operations-${suffix.slice(0, 12)}`
-  const owner = { email: `e2e-owner-${suffix}@forgeboard.test`, password }
+  const firm = await createFirm(request, 'operations')
+  const { suffix, slug: firmSlug, owner } = firm
   const manager = { email: `e2e-manager-${suffix}@forgeboard.test`, password }
   const readOnly = { email: `e2e-readonly-${suffix}@forgeboard.test`, password }
   const preparer = { email: `e2e-preparer-${suffix}@forgeboard.test`, password }
   const reviewer = { email: `e2e-reviewer-${suffix}@forgeboard.test`, password }
 
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E Operations ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: owner.email, ownerName: 'Playwright Owner', password },
-  })
-  expect(onboarding.status(), 'Spring must be running with a writable disposable database').toBe(201)
-
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: owner })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const headers = firmHeaders(firm)
   const clientName = `E2E Engagement Client ${suffix.slice(0, 8)}`
   const workflowName = `E2E Engagement Workflow ${suffix.slice(0, 8)}`
 
@@ -84,8 +63,8 @@ async function createOperationalFirm(request: APIRequestContext): Promise<Operat
 
   return {
     firmSlug, owner, manager, readOnly, preparer, reviewer, clientName, workflowName,
-    workflowId: createdWorkflow.id, workflowSlug: createdWorkflow.workflowSlug, firmId: credentials.firms[0].id,
-    ownerToken: credentials.accessToken,
+    workflowId: createdWorkflow.id, workflowSlug: createdWorkflow.workflowSlug, firmId: firm.id,
+    ownerToken: firm.token,
     preparerUserId: employees[2].userId, reviewerUserId: employees[3].userId,
   }
 }
@@ -182,7 +161,7 @@ test('provisions a read-only employee through the browser and preserves their re
   await employeePage.getByLabel('Password', { exact: true }).fill(employee.password)
   await employeePage.getByLabel('Confirm password').fill(employee.password)
   await employeePage.getByRole('button', { name: 'Accept invitation' }).click()
-  await expect(employeePage).toHaveURL('/', { timeout: 15_000 })
+  await expect(employeePage).toHaveURL('/sign-in', { timeout: 15_000 })
   await signInAt(employeePage, `/firms/${firm.firmSlug}/engagements`, employee)
   await expect(employeePage.getByRole('heading', { name: 'Engagements', exact: true })).toBeVisible()
   await expect(employeePage.getByRole('button', { name: '+ New template' })).toHaveCount(0)
@@ -209,25 +188,42 @@ test('runs an owner engagement and document-request operating loop through the b
   await page.getByRole('button', { name: 'Save template' }).click()
   await expect(page.getByRole('button', { name: '+ Start engagement' })).toBeEnabled()
 
+  await page.getByRole('button', { name: `Manage clients for ${templateName}` }).click()
+  await page.getByRole('checkbox', { name: firm.clientName }).check()
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Add 1 selected client' }).click()
+  await expect(page.getByText('Enrolled', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: `Close client assignments for ${templateName}` }).click()
+
   await page.getByRole('button', { name: '+ Start engagement' }).click()
-  await page.getByLabel('Template').selectOption({ label: templateName })
-  await page.getByLabel('Client').selectOption({ label: firm.clientName })
+  await page.getByRole('combobox', { name: 'Template', exact: true }).selectOption({ label: templateName })
+  await page.getByRole('combobox', { name: 'Client', exact: true }).selectOption({ label: firm.clientName })
   await page.getByLabel('Period start').fill('2026-07-01')
   await page.getByRole('button', { name: 'Start engagement' }).click()
-  await expect(page.locator('article').filter({ hasText: templateName })).toContainText('Board work item created')
+  const engagementCard = page.getByRole('article').filter({ hasText: templateName }).filter({ hasText: firm.clientName })
+  await expect(engagementCard).toContainText('Board work item created')
 
   await page.getByRole('button', { name: '+ Request' }).click()
-  await page.getByLabel('Client').selectOption({ label: firm.clientName })
+  await page.getByRole('combobox', { name: 'Client', exact: true }).selectOption({ label: firm.clientName })
   await page.getByLabel('Request').fill(requestLabel)
   await page.getByRole('button', { name: 'Send request' }).click()
   const documentRequest = page.locator('article').filter({ hasText: requestLabel })
-  await expect(documentRequest).toContainText('requested')
+  await expect(documentRequest).toContainText('open')
+  await documentRequest.getByRole('button', { name: 'Record reminder' }).click()
+  await expect(documentRequest).toContainText('reminder recorded')
+  await expect(documentRequest).toContainText('Reminder recorded')
+  await documentRequest.getByRole('button', { name: 'Escalate' }).click()
+  await expect(documentRequest).toContainText('escalated')
+  await expect(documentRequest).toContainText('Escalated')
   await documentRequest.getByRole('button', { name: 'Mark received' }).click()
   await expect(documentRequest).toContainText('received')
 
   await page.reload()
-  await expect(page.locator('article').filter({ hasText: templateName })).toContainText('Board work item created')
-  await expect(page.locator('article').filter({ hasText: requestLabel })).toContainText('received')
+  await expect(engagementCard).toContainText('Board work item created')
+  const persistedDocumentRequest = page.locator('article').filter({ hasText: requestLabel })
+  await expect(persistedDocumentRequest).toContainText('received')
+  await expect(persistedDocumentRequest).toContainText('Reminder recorded')
+  await expect(persistedDocumentRequest).toContainText('Escalated')
 
   const managerContext = await browser.newContext()
   const managerPage = await managerContext.newPage()
@@ -268,6 +264,11 @@ test('runs the engagement review lifecycle through the browser without moving th
   const clients = await request.get(`${apiBaseURL}/api/clients`, { headers })
   expect(clients.status()).toBe(200)
   const client = (await clients.json() as Array<{ id: string }>)[0]
+  const enrollment = await request.post(`${apiBaseURL}/api/engagements/templates/${createdTemplate.id}/enrollments`, {
+    headers,
+    data: { clientIds: [client.id] },
+  })
+  expect(enrollment.status()).toBe(200)
   const engagementResponse = await request.post(`${apiBaseURL}/api/engagements/templates/${createdTemplate.id}/instances`, {
     headers,
     data: { clientId: client.id, periodStart: '2026-07-01' },

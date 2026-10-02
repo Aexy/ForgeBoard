@@ -3,31 +3,12 @@ import { execFileSync } from 'node:child_process'
 
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 
-const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
-const password = 'playwright-test-password'
+import { apiBaseURL, password, createFirm, headers, signInAt, type Credentials, type Firm } from './helpers'
 const platformAdministratorEmail = 'e2e-platform-admin@forgeboard.test'
 
-type Credentials = { email: string; password: string }
-type Firm = { id: string; slug: string; owner: Credentials; ownerId: string; token: string }
 type AccessLink = { actionId: string; link: string; expiresAt: string }
 type Employee = { membershipId: string; userId: string | null; email: string; role: string; status: string }
 
-async function createFirm(request: APIRequestContext, prefix: string, email?: string): Promise<Firm> {
-  const suffix = randomUUID().replaceAll('-', '')
-  const owner = { email: email ?? `${prefix}-owner-${suffix}@forgeboard.test`, password }
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E ${prefix} ${suffix.slice(0, 8)}`, firmSlug: `e2e-${prefix}-${suffix.slice(0, 12)}`,
-      ownerEmail: owner.email, ownerName: 'Playwright Owner', password: owner.password },
-  })
-  expect(onboarding.status(), 'Spring must be running with a writable disposable database').toBe(201)
-  const created = await onboarding.json() as { firmId: string; ownerId: string; firmSlug: string }
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: owner })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string }
-  return { id: created.firmId, slug: created.firmSlug, owner, ownerId: created.ownerId, token: credentials.accessToken }
-}
-
-function headers(firm: Firm) { return { Authorization: `Bearer ${firm.token}`, 'X-ForgeBoard-Firm': firm.id } }
 function routePath(link: string) { return new URL(link).pathname }
 
 function expireAccessAction(token: string) {
@@ -65,15 +46,6 @@ async function employees(request: APIRequestContext, firm: Firm): Promise<Employ
   return response.json() as Promise<Employee[]>
 }
 
-async function signInAt(page: Page, path: string, credentials: Credentials) {
-  await page.goto(path)
-  await expect(page).toHaveURL(/\/?(?:\?callbackUrl=%2Ffirms%2F|$)/)
-  await page.getByLabel('Email address').fill(credentials.email)
-  await page.getByLabel('Password').fill(credentials.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(path, { timeout: 15_000 })
-}
-
 async function acceptNewInvitation(page: Page, link: AccessLink, displayName: string, account: Credentials) {
   await page.goto(routePath(link.link))
   await expect(page.getByRole('heading', { name: 'Accept your invitation' })).toBeVisible()
@@ -81,7 +53,7 @@ async function acceptNewInvitation(page: Page, link: AccessLink, displayName: st
   await page.getByLabel('Password', { exact: true }).fill(account.password)
   await page.getByLabel('Confirm password').fill(account.password)
   await page.getByRole('button', { name: 'Accept invitation' }).click()
-  await expect(page).toHaveURL('/', { timeout: 15_000 })
+  await expect(page).toHaveURL('/sign-in', { timeout: 15_000 })
 }
 
 async function expectGenericInvitationDenial(page: Page, linkPath: string) {
@@ -113,7 +85,7 @@ test('accepts new and existing-account invitations through the public Next pages
   await existingPage.getByLabel('Email address').fill(existingFirm.owner.email)
   await existingPage.getByLabel('Password').fill(existingFirm.owner.password)
   await existingPage.getByRole('button', { name: 'Sign in and accept invitation' }).click()
-  await expect(existingPage).toHaveURL('/', { timeout: 15_000 })
+  await expect(existingPage).toHaveURL('/sign-in', { timeout: 15_000 })
   await signInAt(existingPage, `/firms/${firm.slug}/my-work`, existingFirm.owner)
   await expect(existingPage.getByRole('heading', { name: 'My work' })).toBeVisible()
   await existingContext.close()
@@ -190,7 +162,7 @@ test('allows a configured platform administrator to reset a password and forces 
   await resetPage.getByLabel('New password', { exact: true }).fill(newPassword)
   await resetPage.getByLabel('Confirm new password').fill(newPassword)
   await resetPage.getByRole('button', { name: 'Reset password' }).click()
-  await expect(resetPage).toHaveURL('/', { timeout: 15_000 })
+  await expect(resetPage).toHaveURL('/sign-in', { timeout: 15_000 })
   await resetContext.close()
 
   const protectedPath = `/firms/${target.slug}/my-work`

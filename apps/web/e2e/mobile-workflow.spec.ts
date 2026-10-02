@@ -1,26 +1,13 @@
-import { randomUUID } from 'node:crypto'
-
 import { expect, test } from '@playwright/test'
 
-const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
+import { apiBaseURL, createFirm, headers as firmHeaders, signInAt } from './helpers'
 
 test('keeps the mobile workspace navigation and workflow task flow usable', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-mobile-${suffix.slice(0, 12)}`
-  const email = `e2e-mobile-${suffix}@forgeboard.test`
-  const password = 'playwright-test-password'
+  const firm = await createFirm(request, 'mobile')
+  const { suffix, slug: firmSlug } = firm
   const title = `Mobile close ${suffix.slice(0, 8)}`
   const reviewTitle = `Mobile review ${suffix.slice(0, 8)}`
-
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E Mobile ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: email, ownerName: 'Playwright Owner', password },
-  })
-  expect(onboarding.status()).toBe(201)
-
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: { email, password } })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const headers = firmHeaders(firm)
 
   const client = await request.post(`${apiBaseURL}/api/clients`, {
     headers,
@@ -56,11 +43,7 @@ test('keeps the mobile workspace navigation and workflow task flow usable', asyn
   expect(createdItem).toBeDefined()
 
   const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
-  await page.goto(boardPath)
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(boardPath, { timeout: 15_000 })
+  await signInAt(page, boardPath, firm.owner)
 
   const logo = page.getByRole('link', { name: 'ForgeBoard home' }).getByRole('img', { name: 'ForgeBoard' })
   await expect(logo).toBeVisible()

@@ -3,11 +3,8 @@ package com.forgeboard.engagement.application;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.TextStyle;
 import java.time.YearMonth;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Collection;
 import java.util.Set;
@@ -28,26 +25,21 @@ import com.forgeboard.engagement.domain.EngagementTemplate;
 import com.forgeboard.engagement.domain.EngagementTemplateEnrollment;
 import com.forgeboard.engagement.domain.EngagementTemplateVersion;
 import com.forgeboard.engagement.domain.EngagementTemplateVersionChecklistItem;
-import com.forgeboard.engagement.domain.EngagementChecklistItem;
-import com.forgeboard.engagement.domain.Recurrence;
 import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateEnrollmentRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateVersionRepository;
 import com.forgeboard.engagement.persistence.EngagementTemplateVersionChecklistItemRepository;
-import com.forgeboard.engagement.persistence.EngagementChecklistItemRepository;
 import com.forgeboard.identity.ActivityRecorder;
 import com.forgeboard.identity.SelectedTenant;
 import com.forgeboard.work.WorkflowDirectory;
 
 @Service
 public class EngagementService implements WorkItemEngagementDetails {
-    private static final DateTimeFormatter PERIOD_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH);
     private final EngagementTemplateRepository templates;
     private final EngagementTemplateVersionRepository templateVersions;
     private final EngagementTemplateVersionChecklistItemRepository templateChecklistItems;
-    private final EngagementChecklistItemRepository engagementChecklistItems;
     private final EngagementTemplateEnrollmentRepository enrollments;
     private final EngagementRepository engagements;
     private final EngagementReviewDecisionRepository reviewDecisions;
@@ -59,25 +51,14 @@ public class EngagementService implements WorkItemEngagementDetails {
 
     public EngagementService(EngagementTemplateRepository templates, EngagementTemplateVersionRepository templateVersions,
             EngagementTemplateVersionChecklistItemRepository templateChecklistItems,
-            EngagementChecklistItemRepository engagementChecklistItems, EngagementTemplateEnrollmentRepository enrollments, EngagementRepository engagements,
+            EngagementTemplateEnrollmentRepository enrollments, EngagementRepository engagements,
             EngagementReviewDecisionRepository reviewDecisions, WorkflowDirectory workflows, ClientDirectory clients,
             ActivityRecorder activity, Clock clock, EngagementMaterializer materializer) {
         this.templates = templates; this.templateVersions = templateVersions; this.templateChecklistItems = templateChecklistItems;
-        this.engagementChecklistItems = engagementChecklistItems; this.enrollments = enrollments;
+        this.enrollments = enrollments;
         this.engagements = engagements; this.workflows = workflows; this.reviewDecisions = reviewDecisions;
         this.clients = clients; this.activity = activity; this.clock = clock;
         this.materializer = materializer;
-    }
-
-    /** Compatibility constructor for focused unit tests; Spring uses the injected materializer constructor. */
-    EngagementService(EngagementTemplateRepository templates, EngagementTemplateVersionRepository templateVersions,
-            EngagementTemplateVersionChecklistItemRepository templateChecklistItems,
-            EngagementChecklistItemRepository engagementChecklistItems, EngagementTemplateEnrollmentRepository enrollments,
-            EngagementRepository engagements, EngagementReviewDecisionRepository reviewDecisions, WorkflowDirectory workflows,
-            ClientDirectory clients, ActivityRecorder activity, Clock clock) {
-        this(templates, templateVersions, templateChecklistItems, engagementChecklistItems, enrollments, engagements,
-                reviewDecisions, workflows, clients, activity, clock,
-                new EngagementMaterializer(engagements, templateChecklistItems, engagementChecklistItems, workflows));
     }
 
     @Transactional(readOnly = true)
@@ -239,20 +220,6 @@ public class EngagementService implements WorkItemEngagementDetails {
         return engagementView(created);
     }
 
-    private LocalDate normalizedPeriodStart(LocalDate date, Recurrence recurrence) {
-        return switch (recurrence) {
-            case MONTHLY -> date.withDayOfMonth(1);
-            case QUARTERLY -> date.withMonth(((date.getMonthValue() - 1) / 3) * 3 + 1).withDayOfMonth(1);
-            case ANNUAL -> date.withDayOfYear(1);
-        };
-    }
-    private LocalDate periodEnd(LocalDate start, Recurrence recurrence) {
-        return switch (recurrence) {
-            case MONTHLY -> start.plusMonths(1).minusDays(1);
-            case QUARTERLY -> start.plusMonths(3).minusDays(1);
-            case ANNUAL -> start.plusYears(1).minusDays(1);
-        };
-    }
     private EngagementTemplateView templateView(EngagementTemplate template) {
         return templateView(template, activeEnrollmentCount(template.firmId(), template.id()));
     }
@@ -311,13 +278,6 @@ public class EngagementService implements WorkItemEngagementDetails {
                 }).toList();
         if (!snapshots.isEmpty()) templateChecklistItems.saveAll(snapshots);
     }
-    private void materializeChecklist(Engagement engagement) {
-        List<EngagementChecklistItem> snapshots = templateChecklistItems
-                .findAllByFirmIdAndTemplateIdAndDefinitionVersionOrderByPositionAsc(engagement.firmId(), engagement.templateId(), engagement.templateVersion())
-                .stream().map(item -> new EngagementChecklistItem(UUID.randomUUID(), engagement.firmId(), engagement.id(),
-                        item.id(), item.label(), item.required(), item.position())).toList();
-        if (!snapshots.isEmpty()) engagementChecklistItems.saveAll(snapshots);
-    }
     private List<ClientDirectory.ActiveClient> requireActiveClients(SelectedTenant tenant, Collection<UUID> requestedIds) {
         List<UUID> clientIds = List.copyOf(requestedIds);
         if (clientIds.stream().distinct().count() != clientIds.size())
@@ -346,21 +306,6 @@ public class EngagementService implements WorkItemEngagementDetails {
         engagements.save(engagement);
         activity.recordRestUserAction(tenant.firmId(), tenant.userId(), action, "engagement", engagement.id(), Map.of());
         return engagementView(engagement);
-    }
-    private String workItemTitle(EngagementTemplate template, LocalDate periodStart) {
-        return template.defaultWorkItemTitle().replace("{{period}}", periodLabel(periodStart, template.recurrence())).strip();
-    }
-    private String periodLabel(LocalDate periodStart, Recurrence recurrence) {
-        return switch (recurrence) {
-            case MONTHLY -> periodStart.getMonth().getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-                    + " " + periodStart.getYear();
-            case QUARTERLY -> "Q" + (((periodStart.getMonthValue() - 1) / 3) + 1) + " " + periodStart.getYear();
-            case ANNUAL -> String.valueOf(periodStart.getYear());
-        };
-    }
-    private String workItemDescription(EngagementTemplate template, LocalDate periodStart, LocalDate periodEnd) {
-        return "Generated from " + template.name() + " for " + PERIOD_FORMAT.format(periodStart)
-                + " to " + PERIOD_FORMAT.format(periodEnd) + ".";
     }
     private void requireWrite(SelectedTenant tenant) {
         if (!tenant.canWrite()) throw new AccessDeniedException("Read-only members cannot change engagements");

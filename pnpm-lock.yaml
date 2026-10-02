@@ -76,8 +76,6 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@24.13.3)(jsdom@29.1.1)(vite@8.1.4(@types/node@24.13.3))
 
-  packages/config: {}
-
   packages/ui:
     devDependencies:
       '@testing-library/jest-dom':

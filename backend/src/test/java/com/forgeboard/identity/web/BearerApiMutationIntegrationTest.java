@@ -44,6 +44,7 @@ import com.forgeboard.engagement.application.CreateEngagementRequest;
 import com.forgeboard.engagement.application.EngagementService;
 import com.forgeboard.engagement.application.EngagementTemplateRequest;
 import com.forgeboard.engagement.application.EngagementView;
+import com.forgeboard.engagement.application.TemplateEnrollmentRequest;
 import com.forgeboard.engagement.domain.Recurrence;
 import com.forgeboard.engagement.persistence.EngagementRepository;
 import com.forgeboard.engagement.persistence.EngagementReviewDecisionRepository;
@@ -185,6 +186,7 @@ class BearerApiMutationIntegrationTest {
         UUID reviewerId = acceptInvitation(owner, "Reviewer", reviewerEmail);
         var template = engagements.createTemplate(owner, new EngagementTemplateRequest("Lifecycle template", workflow.id(),
                 Recurrence.MONTHLY, "Prepare lifecycle", 20));
+        engagements.enrollClients(owner, template.id(), new TemplateEnrollmentRequest(List.of(client.id())));
         EngagementView engagement = engagements.createEngagement(owner, template.id(),
                 new CreateEngagementRequest(client.id(), LocalDate.of(2026, 7, 1)));
         workflows.assign(owner, workflow.id(), engagement.workItemId(), new AssignWorkItemRequest(preparerId));

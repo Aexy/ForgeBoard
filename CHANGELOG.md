@@ -15,6 +15,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Changed
+
+- Removed unused migration validators, Redux UI state, an empty config package, stale engagement contracts/helpers, and an unused workflow mutation. Engagement service construction now has one production constructor; browser checks share isolated firm and sign-in setup while retaining their behavioral assertions. (`M2`)
+
 ### Added
 
 - Added metadata-only document-request follow-up so authorized firm members can record audited reminders and escalations; ForgeBoard does not send reminders or store documents. (`M2`, migration `V026`)
@@ -87,6 +91,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 - Excluded generated `output/` brand artifacts from Git while keeping the website logo as a tracked frontend asset. (`M2`)
 
 ### Fixed
+
+- Restored Spring startup by keeping one fully supplied `EngagementService` constructor, with regression coverage for Spring construction. (`M2`)
 
 - Delayed workflow-card side-panel opening so double-clicking a work item reliably opens its full task workspace without a board reflow redirecting the second click. (`M2`)
 

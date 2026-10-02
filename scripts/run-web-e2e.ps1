@@ -56,7 +56,15 @@ BEGIN;
 CREATE TEMP TABLE e2e_firm_ids ON COMMIT DROP AS
   SELECT id FROM firms WHERE name ILIKE 'e2e %' OR slug LIKE 'e2e-%';
 DELETE FROM saved_workflow_views WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_review_decisions WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_checklist_items WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
 DELETE FROM engagements WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_template_version_checklist_items WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_recurrence_runs WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_template_enrollments WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_template_versions WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM engagement_templates WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
+DELETE FROM work_item_document_requests WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
 DELETE FROM work_items WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
 DELETE FROM document_requests WHERE firm_id IN (SELECT id FROM e2e_firm_ids);
 DELETE FROM firms WHERE id IN (SELECT id FROM e2e_firm_ids);
@@ -125,7 +133,7 @@ $env:FORGEBOARD_PLATFORM_ADMIN_EMAILS = 'e2e-platform-admin@forgeboard.test'
 try {
     Push-Location $repositoryRoot
     $maven = (Get-Command mvn -ErrorAction Stop).Source
-    $backendProcess = Start-Process -FilePath $maven -ArgumentList '-f', 'backend/pom.xml', 'spring-boot:run' -WorkingDirectory $repositoryRoot -RedirectStandardOutput $backendOutputLog -RedirectStandardError $backendErrorLog -PassThru
+    $backendProcess = Start-Process -FilePath $maven -ArgumentList '-f', 'backend/pom.xml', 'spring-boot:run' -WorkingDirectory $repositoryRoot -RedirectStandardOutput $backendOutputLog -RedirectStandardError $backendErrorLog -WindowStyle Hidden -PassThru
 
     $deadline = (Get-Date).AddSeconds(90)
     do {

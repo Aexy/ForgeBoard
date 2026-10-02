@@ -1,8 +1,6 @@
-import { randomUUID } from 'node:crypto'
-
 import { expect, test, type APIRequestContext } from '@playwright/test'
 
-const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
+import { apiBaseURL, createFirm, headers as firmHeaders, signInAt } from './helpers'
 
 type WorkflowBoardResponse = {
   workflowSlug: string
@@ -16,21 +14,10 @@ async function canonicalWorkflowBoard(request: APIRequestContext, headers: Recor
 }
 
 test('uses shareable workflow routes, task workspace, moves, and saved views', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-workflow-${suffix.slice(0, 12)}`
-  const email = `e2e-workflow-${suffix}@forgeboard.test`
-  const password = 'playwright-test-password'
+  const firm = await createFirm(request, 'workflow')
+  const { suffix, slug: firmSlug } = firm
   const urgentTitle = `Urgent close ${suffix.slice(0, 8)}`
-
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E Workflow ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: email, ownerName: 'Playwright Owner', password },
-  })
-  expect(onboarding.status()).toBe(201)
-
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: { email, password } })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const headers = firmHeaders(firm)
 
   const client = await request.post(`${apiBaseURL}/api/clients`, {
     headers,
@@ -61,12 +48,7 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
   expect(savedView.status()).toBe(201)
 
   const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
-  await page.goto(`${boardPath}?priority=URGENT`)
-  await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(`${boardPath}?priority=URGENT`, { timeout: 15_000 })
+  await signInAt(page, `${boardPath}?priority=URGENT`, firm.owner)
   await page.getByRole('button', { name: 'Add work item to Prepare' }).click()
   const newWorkItem = page.getByRole('form', { name: 'New work item' })
   await newWorkItem.locator('select[name="clientId"]').selectOption(clientData.id)
@@ -121,21 +103,10 @@ test('uses shareable workflow routes, task workspace, moves, and saved views', a
 })
 
 test('refreshes a stale board after a confirmed Spring conflict', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-conflict-${suffix.slice(0, 12)}`
-  const email = `e2e-conflict-${suffix}@forgeboard.test`
-  const password = 'playwright-test-password'
+  const firm = await createFirm(request, 'conflict')
+  const { suffix, slug: firmSlug } = firm
   const title = `Concurrent close ${suffix.slice(0, 8)}`
-
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E Conflict ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: email, ownerName: 'Playwright Owner', password },
-  })
-  expect(onboarding.status()).toBe(201)
-
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: { email, password } })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const headers = firmHeaders(firm)
 
   const client = await request.post(`${apiBaseURL}/api/clients`, {
     headers,
@@ -160,10 +131,7 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
   expect(createdItem).toBeDefined()
 
   const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
-  await page.goto(boardPath)
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await signInAt(page, boardPath, firm.owner)
   const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: title })
   await expect(card.getByRole('button', { name: `Open ${title} details` })).toBeVisible({ timeout: 15_000 })
 
@@ -179,22 +147,9 @@ test('refreshes a stale board after a confirmed Spring conflict', async ({ page,
 })
 
 test('does not expose another firm workflow through the browser BFF', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const first = { slug: `e2e-first-${suffix.slice(0, 10)}`, email: `e2e-first-${suffix}@forgeboard.test` }
-  const second = { slug: `e2e-second-${suffix.slice(0, 10)}`, email: `e2e-second-${suffix}@forgeboard.test` }
-  const password = 'playwright-test-password'
-
-  for (const firm of [first, second]) {
-    const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-      data: { firmName: `E2E ${firm.slug}`, firmSlug: firm.slug, ownerEmail: firm.email, ownerName: 'Playwright Owner', password },
-    })
-    expect(onboarding.status()).toBe(201)
-  }
-
-  const secondGrant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: { email: second.email, password } })
-  expect(secondGrant.status()).toBe(200)
-  const secondCredentials = await secondGrant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const secondHeaders = { Authorization: `Bearer ${secondCredentials.accessToken}`, 'X-ForgeBoard-Firm': secondCredentials.firms[0].id }
+  const first = await createFirm(request, 'first')
+  const second = await createFirm(request, 'second')
+  const secondHeaders = firmHeaders(second)
   const secondWorkflow = await request.post(`${apiBaseURL}/api/workflows`, {
     headers: secondHeaders,
     data: { name: 'Private second-firm workflow', stages: [{ name: 'Prepare', attention: 'NONE', finalStage: false }, { name: 'Review', attention: 'AWAITING_REVIEW', finalStage: false }, { name: 'Complete', attention: 'NONE', finalStage: true }] },
@@ -223,10 +178,7 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
   const secondBoardItem = secondBoard.stages.flatMap((stage) => stage.items).find((candidate) => candidate.id === secondItemData.id)
   expect(secondBoardItem).toBeDefined()
 
-  await page.goto(`/firms/${first.slug}/my-work`)
-  await page.getByLabel('Email address').fill(first.email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await signInAt(page, `/firms/${first.slug}/my-work`, first.owner)
   await expect(page.getByRole('heading', { name: 'My work' })).toBeVisible()
 
   const response = await page.evaluate(async ({ workflowId, forgedFirmId }) => {
@@ -234,7 +186,7 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
       headers: { 'X-ForgeBoard-Firm': forgedFirmId },
     })
     return { status: result.status, body: await result.text() }
-  }, { workflowId: secondWorkflowData.id, forgedFirmId: secondCredentials.firms[0].id })
+  }, { workflowId: secondWorkflowData.id, forgedFirmId: second.id })
 
   expect(response.status).toBe(404)
   expect(response.body).not.toContain('Private second-firm workflow')
@@ -246,7 +198,7 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
   ]).then(async (results) => Promise.all(results.map(async (result) => ({ status: result.status, body: await result.text() })))), {
     workflowSlug: secondBoard.workflowSlug,
     taskReference: secondBoardItem!.taskReference,
-    forgedFirmId: secondCredentials.firms[0].id,
+    forgedFirmId: second.id,
     workflowId: secondWorkflowData.id,
     itemId: secondItemData.id,
     requestId: secondDocumentRequestData.id,
@@ -260,21 +212,11 @@ test('does not expose another firm workflow through the browser BFF', async ({ p
 })
 
 test('shows a Spring authorization denial and preserves board state for read-only staff', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-readonly-workflow-${suffix.slice(0, 10)}`
-  const owner = { email: `e2e-readonly-owner-${suffix}@forgeboard.test`, password: 'playwright-test-password' }
-  const reader = { email: `e2e-readonly-reader-${suffix}@forgeboard.test`, password: 'playwright-test-password' }
+  const firm = await createFirm(request, 'readonly-workflow')
+  const { suffix, slug: firmSlug } = firm
   const title = `Read only close ${suffix.slice(0, 8)}`
-
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E Read only ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: owner.email, ownerName: 'Playwright Owner', password: owner.password },
-  })
-  expect(onboarding.status()).toBe(201)
-
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: owner })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const headers = firmHeaders(firm)
+  const reader = { email: `e2e-readonly-reader-${suffix}@forgeboard.test`, password: firm.owner.password }
 
   const client = await request.post(`${apiBaseURL}/api/clients`, {
     headers,
@@ -317,11 +259,7 @@ test('shows a Spring authorization denial and preserves board state for read-onl
   expect(acceptance.status()).toBe(204)
 
   const boardPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}`
-  await page.goto(boardPath)
-  await page.getByLabel('Email address').fill(reader.email)
-  await page.getByLabel('Password').fill(reader.password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(boardPath, { timeout: 15_000 })
+  await signInAt(page, boardPath, reader)
 
   const card = page.getByLabel('Prepare stage').locator('article').filter({ hasText: title })
   await expect(card.getByRole('button', { name: `Open ${title} details` })).toBeVisible({ timeout: 15_000 })

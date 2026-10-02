@@ -1,29 +1,13 @@
-import { randomUUID } from 'node:crypto'
-
 import { expect, test } from '@playwright/test'
 
-const apiBaseURL = process.env.FORGEBOARD_E2E_API_BASE_URL ?? 'http://127.0.0.1:8080'
+import { apiBaseURL, createFirm, headers as firmHeaders, signInAt } from './helpers'
 
 test('persists the German language choice through Auth.js and direct firm routes', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-${suffix.slice(0, 16)}`
-  const email = `e2e-${suffix}@forgeboard.test`
-  const password = 'playwright-test-password'
+  const { suffix, slug: firmSlug, owner: { email, password } } = await createFirm(request, 'language')
   const clientName = `E2E Client ${suffix.slice(0, 8)}`
 
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: {
-      firmName: `E2E Firm ${suffix.slice(0, 8)}`,
-      firmSlug,
-      ownerEmail: email,
-      ownerName: 'Playwright Owner',
-      password,
-    },
-  })
-  expect(onboarding.status(), 'Spring must be running with a writable local database').toBe(201)
-
   await page.goto(`/firms/${firmSlug}/my-work`)
-  await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
+  await expect(page).toHaveURL(`/sign-in?callbackUrl=${encodeURIComponent(`/firms/${firmSlug}/my-work`)}`)
   await page.getByRole('button', { name: 'Deutsch' }).click()
   await expect(page.locator('html')).toHaveAttribute('lang', 'de')
   await page.getByLabel('E-Mail-Adresse').fill(email)
@@ -49,21 +33,10 @@ test('persists the German language choice through Auth.js and direct firm routes
 })
 
 test('opens assigned work from My work and preserves the direct task link', async ({ page, request }) => {
-  const suffix = randomUUID().replaceAll('-', '')
-  const firmSlug = `e2e-my-work-${suffix.slice(0, 12)}`
-  const email = `e2e-my-work-${suffix}@forgeboard.test`
-  const password = 'playwright-test-password'
+  const firm = await createFirm(request, 'my-work')
+  const { suffix, slug: firmSlug, owner: { email, password } } = firm
   const title = `Assigned close ${suffix.slice(0, 8)}`
-
-  const onboarding = await request.post(`${apiBaseURL}/api/onboarding/firms`, {
-    data: { firmName: `E2E My work ${suffix.slice(0, 8)}`, firmSlug, ownerEmail: email, ownerName: 'Playwright Owner', password },
-  })
-  expect(onboarding.status()).toBe(201)
-
-  const grant = await request.post(`${apiBaseURL}/api/auth/grant`, { data: { email, password } })
-  expect(grant.status()).toBe(200)
-  const credentials = await grant.json() as { accessToken: string; firms: Array<{ id: string }> }
-  const headers = { Authorization: `Bearer ${credentials.accessToken}`, 'X-ForgeBoard-Firm': credentials.firms[0].id }
+  const headers = firmHeaders(firm)
 
   const employees = await request.get(`${apiBaseURL}/api/identity/employees`, { headers })
   expect(employees.status()).toBe(200)
@@ -105,12 +78,7 @@ test('opens assigned work from My work and preserves the direct task link', asyn
 
   const myWorkPath = `/firms/${firmSlug}/my-work`
   const taskPath = `/firms/${firmSlug}/workflow/${boardData.workflowSlug}/tasks/${createdItem!.taskReference}`
-  await page.goto(myWorkPath)
-  await expect(page).toHaveURL(/\/\?callbackUrl=%2Ffirms%2F/)
-  await page.getByLabel('Email address').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL(myWorkPath, { timeout: 15_000 })
+  await signInAt(page, myWorkPath, { email, password })
   const taskLink = page.getByRole('link', { name: new RegExp(title) })
   await expect(taskLink).toBeVisible()
   await taskLink.click()
