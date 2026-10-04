@@ -44,9 +44,13 @@ public class EngagementPortfolioService {
         Map<UUID, String> names = employees.displayNames(tenant.firmId(), rows.getContent().stream()
                 .flatMap(row -> java.util.stream.Stream.of(row.preparerUserId(), row.reviewerUserId()))
                 .filter(java.util.Objects::nonNull).distinct().toList());
-        return new EngagementPortfolioPage(rows.getContent().stream().map(row -> row.view(names.get(row.preparerUserId()),
-                names.get(row.reviewerUserId()), attention(row, today))).toList(), rows.getNumber(), rows.getSize(),
+        return new EngagementPortfolioPage(rows.getContent().stream().map(row -> row.view(nameFor(names, row.preparerUserId()),
+                nameFor(names, row.reviewerUserId()), attention(row, today))).toList(), rows.getNumber(), rows.getSize(),
                 rows.getTotalElements(), rows.getTotalPages());
+    }
+
+    private String nameFor(Map<UUID, String> names, UUID userId) {
+        return userId == null ? null : names.get(userId);
     }
 
     private Set<EngagementAttention> attention(EngagementPortfolioRow row, LocalDate today) {

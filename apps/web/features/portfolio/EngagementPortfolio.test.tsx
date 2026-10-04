@@ -66,4 +66,25 @@ describe('EngagementPortfolio', () => {
     expect(mocks.portfolio).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ skip: true }))
     expect(mocks.clients).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ skip: true }))
   })
+
+  it('refreshes on return and focus without removing rows or resetting the selected filters', () => {
+    const previous = mocks.portfolio.getMockImplementation()!()
+    mocks.portfolio.mockReturnValue({ ...previous, isFetching: true })
+    render(<EngagementPortfolio basePath="/firms/hearth/portfolio" />)
+    expect(screen.getByRole('status')).toHaveTextContent('Updating')
+    expect(screen.getByRole('link', { name: 'Open task' })).toBeVisible()
+    expect(screen.getByLabelText('Search engagements')).toHaveValue('Northstar')
+    expect(mocks.portfolio).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }), {
+      skip: false, refetchOnMountOrArgChange: true, refetchOnFocus: true,
+    })
+    expect(router.replace).not.toHaveBeenCalled()
+  })
+
+  it('retains the existing failure message when a background refresh fails', () => {
+    mocks.portfolio.mockReturnValue({ isLoading: false, isFetching: false, isError: true })
+    render(<EngagementPortfolio basePath="/firms/hearth/portfolio" />)
+    expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(router.replace).not.toHaveBeenCalled()
+  })
 })

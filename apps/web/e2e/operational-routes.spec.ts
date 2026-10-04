@@ -91,6 +91,56 @@ async function provisionEmployeeThroughInvitation(request: APIRequestContext, he
   return { userId: provisioned!.userId! }
 }
 
+test('refreshes the filtered portfolio after a task assignment and colleague changes on focus', async ({ page, request }) => {
+  const firm = await createOperationalFirm(request)
+  const headers = { Authorization: `Bearer ${firm.ownerToken}`, 'X-ForgeBoard-Firm': firm.firmId }
+  const clients = await request.get(`${apiBaseURL}/api/clients`, { headers })
+  expect(clients.status()).toBe(200)
+  const client = (await clients.json() as Array<{ id: string }>)[0]
+  const templateName = `Portfolio close ${firm.firmSlug.slice(-6)}`
+  const templateResponse = await request.post(`${apiBaseURL}/api/engagements/templates`, {
+    headers,
+    data: { name: templateName, workflowId: firm.workflowId, recurrence: 'MONTHLY', defaultWorkItemTitle: 'Prepare portfolio close', dueDay: 20 },
+  })
+  expect(templateResponse.status()).toBe(201)
+  const template = await templateResponse.json() as { id: string }
+  const enrollment = await request.post(`${apiBaseURL}/api/engagements/templates/${template.id}/enrollments`, {
+    headers, data: { clientIds: [client.id] },
+  })
+  expect(enrollment.status()).toBe(200)
+  const created = await request.post(`${apiBaseURL}/api/engagements/templates/${template.id}/instances`, {
+    headers, data: { clientId: client.id, periodStart: '2026-07-01' },
+  })
+  expect(created.status()).toBe(201)
+  const engagement = await created.json() as { workItemId: string }
+  const query = new URLSearchParams({ q: templateName, status: 'ACTIVE' })
+  const portfolioPath = `/firms/${firm.firmSlug}/portfolio?${query}`
+  await signInAt(page, portfolioPath, firm.owner)
+  const row = page.getByRole('row').filter({ hasText: templateName })
+  await expect(row).toBeVisible()
+  await expect(row.getByRole('cell').nth(5)).toHaveText('Unassigned')
+  await row.getByRole('link', { name: 'Open task' }).click()
+  const reviewer = page.getByRole('combobox', { name: 'Select reviewer' })
+  await reviewer.selectOption(firm.reviewerUserId)
+  await expect(reviewer).toHaveValue(firm.reviewerUserId)
+  await expect(reviewer).toBeEnabled()
+  await page.goBack()
+  await expect(page).toHaveURL(portfolioPath)
+  await expect(page.getByRole('textbox', { name: 'Search engagements' })).toHaveValue(templateName)
+  await expect(page.getByRole('checkbox', { name: 'Active', exact: true })).toBeChecked()
+  await expect(row.getByRole('cell').nth(5)).toHaveText('Playwright Reviewer')
+
+  const colleagueChange = await request.put(`${apiBaseURL}/api/workflows/${firm.workflowId}/items/${engagement.workItemId}/reviewer`, {
+    headers, data: { userId: firm.preparerUserId },
+  })
+  expect(colleagueChange.status()).toBe(200)
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect(row.getByRole('cell').nth(5)).toHaveText('Playwright Preparer')
+  await expect(page).toHaveURL(portfolioPath)
+  await expect(page.getByRole('textbox', { name: 'Search engagements' })).toHaveValue(templateName)
+  await expect(page.getByRole('checkbox', { name: 'Active', exact: true })).toBeChecked()
+})
+
 test('opens operational routes directly for their authorized roles', async ({ page, browser, request }) => {
   const firm = await createOperationalFirm(request)
 

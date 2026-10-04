@@ -8,6 +8,9 @@ export type ForgeboardTagType = typeof forgeboardTagTypes[number]
 
 export const firmTag = (firmId: string, id?: string) => id ? `${firmId}:${id}` : firmId
 
+export const portfolioInvalidation = (error: FetchBaseQueryError | undefined, firmId: string) =>
+  !error || error.status === 409 ? [{ type: 'EngagementPortfolio' as const, id: firmTag(firmId) }] : []
+
 /** Platform administration is deliberately not firm-scoped. */
 export const platformTag = (id?: string) => id ?? 'LIST'
 

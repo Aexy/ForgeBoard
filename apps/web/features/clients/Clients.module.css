@@ -17,3 +17,12 @@
 .row button { background: transparent; color: var(--forge-green-800); }
 .empty { border: 1px dashed var(--forge-border); border-radius: .5rem; padding: 1rem; }
 .error { color: #a11e26; }
+.importPanel { border: 1px solid var(--forge-border); border-radius: .5rem; padding: 1rem; min-width: 0; }
+.importPanel summary { cursor: pointer; font-weight: 600; }
+.importPanel .form { margin-top: 1rem; }
+.importPanel p { overflow-wrap: anywhere; }
+.importTable { overflow: auto; max-height: 24rem; margin-bottom: 1rem; }
+.importTable table { border-collapse: collapse; width: 100%; text-align: left; }
+.importTable th, .importTable td { border-bottom: 1px solid var(--forge-border); padding: .6rem; overflow-wrap: anywhere; max-width: 24rem; }
+.importCommit { background: var(--forge-green-800); color: white; border: 1px solid var(--forge-green-800); border-radius: .35rem; font: inherit; padding: .55rem .8rem; }
+.importPanel button:disabled { opacity: .6; cursor: not-allowed; }

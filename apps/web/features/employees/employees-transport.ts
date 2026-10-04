@@ -1,7 +1,7 @@
 'use client'
 
 import type { FirmContext } from '@/lib/firm-context'
-import { firmTag, forgeboardApi } from '@/store/api'
+import { firmTag, forgeboardApi, portfolioInvalidation } from '@/store/api'
 
 export type MembershipRole = 'OWNER' | 'ADMINISTRATOR' | 'MANAGER' | 'MEMBER' | 'READ_ONLY'
 export type MembershipStatus = 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'REMOVED'
@@ -55,15 +55,15 @@ export const employeesApi = forgeboardApi.injectEndpoints({
     }),
     suspendMembership: build.mutation<Employee, FirmMembership>({
       query: ({ membershipId }) => ({ url: `identity/employees/${encodeURIComponent(membershipId)}/suspension`, method: 'POST' }),
-      invalidatesTags: (_result, _error, { firm }) => employeeTags(firm),
+      invalidatesTags: (_result, _error, { firm }) => [...employeeTags(firm), ...portfolioInvalidation(_error, firm.firmId)],
     }),
     reactivateMembership: build.mutation<Employee, FirmMembership>({
       query: ({ membershipId }) => ({ url: `identity/employees/${encodeURIComponent(membershipId)}/suspension`, method: 'DELETE' }),
-      invalidatesTags: (_result, _error, { firm }) => employeeTags(firm),
+      invalidatesTags: (_result, _error, { firm }) => [...employeeTags(firm), ...portfolioInvalidation(_error, firm.firmId)],
     }),
     removeMembership: build.mutation<void, FirmMembership>({
       query: ({ membershipId }) => ({ url: `identity/employees/${encodeURIComponent(membershipId)}`, method: 'DELETE' }),
-      invalidatesTags: (_result, _error, { firm }) => employeeTags(firm),
+      invalidatesTags: (_result, _error, { firm }) => [...employeeTags(firm), ...portfolioInvalidation(_error, firm.firmId)],
     }),
   }),
 })

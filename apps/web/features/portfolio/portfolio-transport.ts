@@ -70,9 +70,9 @@ function portfolioUrl({ filters, page, size }: Omit<EngagementPortfolioRequest, 
 export const portfolioApi = forgeboardApi.injectEndpoints({ endpoints: (build) => ({
   getEngagementPortfolio: build.query<EngagementPortfolioPage, EngagementPortfolioRequest>({
     query: ({ filters, page, size }) => ({ url: portfolioUrl({ filters, page, size }) }),
-    providesTags: (_result, _error, { firm, filters, page, size }) => [{
+    providesTags: (_result, _error, { firm }) => [{
       type: 'EngagementPortfolio',
-      id: firmTag(firm.firmId, JSON.stringify({ filters, page, size })),
+      id: firmTag(firm.firmId),
     }],
   }),
 }) })

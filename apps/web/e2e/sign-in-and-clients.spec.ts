@@ -2,6 +2,52 @@ import { expect, test } from '@playwright/test'
 
 import { apiBaseURL, createFirm, headers as firmHeaders, signInAt } from './helpers'
 
+test('previews and corrects CSV before importing clients, persists them, and blocks duplicates', async ({ page, request }) => {
+  const firm = await createFirm(request, 'csv-import')
+  const otherFirm = await createFirm(request, 'csv-other')
+  const clientName = `CSV Müller ${firm.suffix.slice(0, 8)}`
+  const header = 'legalName,displayName,primaryEmail\n'
+  const csv = `${header}${clientName},${clientName},csv-${firm.suffix}@forgeboard.test\n`
+  await signInAt(page, `/firms/${firm.slug}/clients`, firm.owner)
+  await page.getByText('Import clients from CSV', { exact: true }).click()
+  const file = page.getByLabel('CSV file')
+  await file.setInputFiles({ name: 'clients.csv', mimeType: 'text/csv', buffer: Buffer.from(`${header},${clientName},invalid-email\n`) })
+  await page.getByRole('button', { name: 'Preview CSV', exact: true }).click()
+  const commit = page.getByRole('button', { name: 'Import clients', exact: true })
+  await expect(commit).toBeDisabled()
+  await expect(page.getByRole('table')).toContainText(clientName)
+  await expect(page.getByRole('table')).toContainText('legalName is required')
+  await expect(page.getByRole('table')).toContainText('primaryEmail is invalid')
+  let clients = await request.get(`${apiBaseURL}/api/clients`, { headers: firmHeaders(firm) })
+  expect(clients.status()).toBe(200)
+  expect(await clients.json()).toEqual([])
+
+  await file.setInputFiles({ name: 'corrected.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  await expect(commit).toHaveCount(0)
+  await page.getByRole('button', { name: 'Preview CSV', exact: true }).click()
+  await expect(commit).toBeEnabled()
+  clients = await request.get(`${apiBaseURL}/api/clients`, { headers: firmHeaders(firm) })
+  expect(clients.status()).toBe(200)
+  expect(await clients.json()).toEqual([])
+  await commit.click()
+  await expect(page.getByRole('status')).toHaveText('Clients imported: 1')
+  await expect(page.getByRole('heading', { name: clientName, exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('heading', { name: clientName, exact: true })).toBeVisible()
+
+  await page.getByText('Import clients from CSV', { exact: true }).click()
+  await file.setInputFiles({ name: 'duplicate.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+  await page.getByRole('button', { name: 'Preview CSV', exact: true }).click()
+  await expect(commit).toBeDisabled()
+  await expect(page.getByRole('table')).toContainText('Duplicate legalName')
+  clients = await request.get(`${apiBaseURL}/api/clients`, { headers: firmHeaders(firm) })
+  expect(clients.status()).toBe(200)
+  expect(await clients.json()).toHaveLength(1)
+  const otherClients = await request.get(`${apiBaseURL}/api/clients`, { headers: firmHeaders(otherFirm) })
+  expect(otherClients.status()).toBe(200)
+  expect(await otherClients.json()).toEqual([])
+})
+
 test('persists the German language choice through Auth.js and direct firm routes', async ({ page, request }) => {
   const { suffix, slug: firmSlug, owner: { email, password } } = await createFirm(request, 'language')
   const clientName = `E2E Client ${suffix.slice(0, 8)}`

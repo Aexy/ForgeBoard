@@ -68,7 +68,7 @@ export function EngagementPortfolio({ basePath }: Readonly<{ basePath: string }>
   const search = portfolioSearchFromParams(params)
   const canView = firm.role === 'OWNER' || firm.role === 'MANAGER'
   const request = { firm, filters: search, page: search.page, size: search.size }
-  const portfolio = useGetEngagementPortfolioQuery(request, { skip: !canView })
+  const portfolio = useGetEngagementPortfolioQuery(request, { skip: !canView, refetchOnMountOrArgChange: true, refetchOnFocus: true })
   const clients = useGetClientsQuery({ firm }, { skip: !canView })
   const templates = useGetEngagementTemplatesQuery({ firm }, { skip: !canView })
   const employees = useGetEmployeesQuery({ firm }, { skip: !canView })
@@ -85,6 +85,7 @@ export function EngagementPortfolio({ basePath }: Readonly<{ basePath: string }>
   if (!canView) return <section className={styles.workspace}><h1>{t('portfolio.title')}</h1><p className={styles.denied} role="alert">{t('portfolio.denied')}</p></section>
 
   return <section className={styles.workspace}>
+    {portfolio.isFetching && !portfolio.isLoading && <p role="status">{t('portfolio.updating')}</p>}
     <header className={styles.heading}><p className={styles.eyebrow}>{t('portfolio.eyebrow')}</p><h1>{t('portfolio.title')}</h1><p>{t('portfolio.description')}</p></header>
     <div className={styles.filters} aria-label={t('portfolio.filters')}>
       <label>{t('portfolio.search')}<input value={search.q ?? ''} onChange={(event) => replace({ q: event.target.value || undefined })} /></label>

@@ -86,6 +86,25 @@ class EngagementPortfolioServiceTest {
         org.mockito.Mockito.verifyNoInteractions(portfolio, employees);
     }
 
+    @Test void keepsUnassignedPeopleNullWithoutLookingThemUp() {
+        EngagementPortfolioRow row = new EngagementPortfolioRow(UUID.randomUUID(), UUID.randomUUID(), "Alpine GmbH",
+                UUID.randomUUID(), "Monthly VAT", 2, null, null, LocalDate.of(2026, 7, 1),
+                LocalDate.of(2026, 7, 31), null, EngagementStatus.ACTIVE, "vat", "FB-42", false, false);
+        when(portfolio.findPortfolio(eq(owner.firmId()), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+                isNull(), anyBoolean(), anyList(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(),
+                anyBoolean(), any(LocalDate.class), any(LocalDate.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(row)));
+        when(employees.displayNames(owner.firmId(), List.of())).thenReturn(Map.of());
+
+        EngagementPortfolioPage page = service.list(owner, new EngagementPortfolioQuery(null, null, null, null, null,
+                null, null, Set.of(), Set.of(), 0, 25));
+
+        assertThat(page.content()).singleElement().satisfies(view -> {
+            assertThat(view.preparerName()).isNull();
+            assertThat(view.reviewerName()).isNull();
+        });
+    }
+
     @Test void validatesPeriodBoundsAndPaginationBeforeCallingTheRepository() {
         assertThatThrownBy(() -> new EngagementPortfolioQuery("  search ", null, null, null, null,
                 LocalDate.of(2026, 8, 1), LocalDate.of(2026, 7, 31), Set.of(), Set.of(), 0, 25))

@@ -3,9 +3,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetClientsQuery: vi.fn(), create: vi.fn(), archive: vi.fn() }))
+const mocks = vi.hoisted(() => ({ useFirmContext: vi.fn(), useGetClientsQuery: vi.fn(), create: vi.fn(), archive: vi.fn(), importClients: vi.fn() }))
 vi.mock('@/store/firm-cache-boundary', () => ({ useFirmContext: mocks.useFirmContext }))
-vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.useGetClientsQuery, useCreateClientMutation: () => [mocks.create, { isLoading: false }], useArchiveClientMutation: () => [mocks.archive] }))
+vi.mock('@/features/clients/clients-transport', () => ({ useGetClientsQuery: mocks.useGetClientsQuery, useCreateClientMutation: () => [mocks.create, { isLoading: false }], useArchiveClientMutation: () => [mocks.archive], useImportClientsMutation: () => [mocks.importClients] }))
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }))
 import { Clients } from '@/features/clients/Clients'
 import { LanguageProvider } from '@/app/LanguageProvider'
@@ -36,6 +36,7 @@ describe('Clients route feature', () => {
     mocks.useFirmContext.mockReturnValue({ firmId: 'firm-1', firmSlug: 'hearth', role: 'READ_ONLY' }); mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [activeClient] })
     renderWithLanguage()
     expect(screen.queryByRole('button', { name: '+ New client' })).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Archive' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Import clients from CSV')).not.toBeInTheDocument()
   })
   it('renders German presentation copy while retaining English request field names', () => {
     mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [] })
@@ -44,5 +45,22 @@ describe('Clients route feature', () => {
     fireEvent.click(screen.getByRole('button', { name: '+ Neuer Mandant' }))
     expect(screen.getByLabelText('Rechtlicher Name')).toHaveAttribute('name', 'legalName')
     expect(screen.getByRole('button', { name: 'Mandant speichern' })).toBeVisible()
+  })
+
+  it('discards the selected file and preview when switching firms', async () => {
+    mocks.useGetClientsQuery.mockReturnValue({ isLoading: false, data: [] })
+    mocks.importClients.mockReturnValue({ unwrap: async () => ({ dryRun: true, totalRows: 1, validRows: 1, importedRows: 0, rows: [] }) })
+    const view = renderWithLanguage()
+    fireEvent.click(screen.getByText('Import clients from CSV'))
+    const file = new File(['legalName,displayName,primaryEmail\nNorthstar,Northstar,'], 'clients.csv')
+    Object.defineProperty(file, 'arrayBuffer', { value: async () => new TextEncoder().encode('legalName,displayName,primaryEmail\nNorthstar,Northstar,').buffer })
+    fireEvent.change(screen.getByLabelText('CSV file'), { target: { files: [file] } })
+    fireEvent.submit(screen.getByRole('form', { name: 'Import clients from CSV' }))
+    expect(await screen.findByRole('button', { name: 'Import clients' })).toBeEnabled()
+    mocks.useFirmContext.mockReturnValue({ firmId: 'firm-2', firmSlug: 'northstar', role: 'OWNER' })
+    view.rerender(<LanguageProvider initialLanguage="en"><Clients /></LanguageProvider>)
+    fireEvent.click(screen.getByText('Import clients from CSV'))
+    expect(screen.queryByRole('button', { name: 'Import clients' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Preview CSV' })).toBeDisabled()
   })
 })

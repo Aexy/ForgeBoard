@@ -15,6 +15,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh the firm-scoped engagement portfolio after related mutations and when returning to the page or focusing the browser, retaining filters and existing rows while updating. (`M2`)
+
+### Added
+
+- Added CSV client import to the Clients page with a non-mutating preview, row validation errors, correction/retry, and explicit all-or-nothing import through the existing firm-scoped API. (`M2`)
+
 ### Changed
 
 - Removed unused migration validators, Redux UI state, an empty config package, stale engagement contracts/helpers, and an unused workflow mutation. Engagement service construction now has one production constructor; browser checks share isolated firm and sign-in setup while retaining their behavioral assertions. (`M2`)
