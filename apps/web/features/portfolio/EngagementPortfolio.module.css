@@ -20,5 +20,7 @@
 .status { color: var(--forge-text-muted); font-size: .85rem; }
 .empty, .denied, .error { border-left: .25rem solid var(--forge-border); margin: 0; padding: .8rem 1rem; }
 .denied, .error { border-left-color: #a94442; }
+.error p { margin: 0; }
+.error button { background: transparent; border: 1px solid currentColor; border-radius: .25rem; color: inherit; font: inherit; margin-top: .75rem; min-height: 2.5rem; padding: .4rem .75rem; }
 .pagination { align-items: center; display: flex; gap: .75rem; justify-content: flex-end; }
 @media (max-width: 42rem) { .filters { grid-template-columns: 1fr; } .filterActions { align-items: stretch; } }

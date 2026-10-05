@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ### Fixed
 
+- Fixed PostgreSQL portfolio loading when the optional search query is absent, and made a failed portfolio load recoverable with an in-place retry that preserves the current filters. (`M2`)
 - Refresh the firm-scoped engagement portfolio after related mutations and when returning to the page or focusing the browser, retaining filters and existing rows while updating. (`M2`)
 
 ### Added

@@ -81,10 +81,24 @@ describe('EngagementPortfolio', () => {
   })
 
   it('retains the existing failure message when a background refresh fails', () => {
-    mocks.portfolio.mockReturnValue({ isLoading: false, isFetching: false, isError: true })
+    const refetch = vi.fn()
+    mocks.portfolio.mockReturnValue({ isLoading: false, isFetching: false, isError: true, refetch })
     render(<EngagementPortfolio basePath="/firms/hearth/portfolio" />)
     expect(screen.getByRole('alert')).toHaveTextContent('could not be loaded')
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(refetch).toHaveBeenCalledOnce()
+    expect(screen.getByLabelText('Search engagements')).toHaveValue('Northstar')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(router.replace).not.toHaveBeenCalled()
+  })
+
+  it('prevents duplicate retries while the portfolio request is in flight', () => {
+    const refetch = vi.fn()
+    mocks.portfolio.mockReturnValue({ isLoading: false, isFetching: true, isError: true, refetch })
+    render(<EngagementPortfolio basePath="/firms/hearth/portfolio" />)
+    const retry = screen.getByRole('button', { name: 'Trying again…' })
+    expect(retry).toBeDisabled()
+    fireEvent.click(retry)
+    expect(refetch).not.toHaveBeenCalled()
   })
 })
