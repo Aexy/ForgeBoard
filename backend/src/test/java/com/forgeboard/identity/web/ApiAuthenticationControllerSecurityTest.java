@@ -2,6 +2,9 @@ package com.forgeboard.identity.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -12,6 +15,9 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -21,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.forgeboard.identity.application.FirmAccessView;
 import com.forgeboard.identity.application.SessionIdentity;
+import com.forgeboard.identity.application.SessionLoginRequest;
 import com.forgeboard.identity.application.TenantAuthorizationService;
 import com.forgeboard.identity.security.ApiTokenService;
 import com.forgeboard.identity.security.ApiTokenService.ApiGrant;
@@ -47,13 +54,48 @@ class ApiAuthenticationControllerSecurityTest {
     @Test
     void grantDoesNotCreateABrowserSession() throws Exception {
         when(tokens.grant(any())).thenReturn(new ApiGrant("access-token-value", Instant.parse("2026-07-16T12:15:00Z"),
-                "refresh-token-value", new SessionIdentity("owner@example.com"), List.<FirmAccessView>of(), false));
+                "refresh-token-value", new SessionIdentity("owner@example.com"), List.<FirmAccessView>of(), false,
+                Instant.parse("2026-08-15T12:00:00Z")));
 
         mockMvc.perform(post("/api/auth/grant").contentType("application/json")
                         .content("{\"email\":\"owner@example.com\",\"password\":\"correct horse battery\"}"))
                 .andExpect(status().isOk())
                 .andExpect(header().doesNotExist("Set-Cookie"))
-                .andExpect(jsonPath("$.accessToken").value("access-token-value"));
+                .andExpect(jsonPath("$.accessToken").value("access-token-value"))
+                .andExpect(jsonPath("$.sessionExpiresAt").value("2026-08-15T12:00:00Z"));
+        ArgumentCaptor<SessionLoginRequest> request = ArgumentCaptor.forClass(SessionLoginRequest.class);
+        verify(tokens).grant(request.capture());
+        assertThat(request.getValue().remember()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void acceptsBothExplicitRememberChoices(boolean remember) throws Exception {
+        mockMvc.perform(post("/api/auth/grant").contentType("application/json")
+                        .content("{\"email\":\"owner@example.com\",\"password\":\"password\",\"remember\":" + remember + "}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<SessionLoginRequest> request = ArgumentCaptor.forClass(SessionLoginRequest.class);
+        verify(tokens).grant(request.capture());
+        assertThat(request.getValue().remember()).isEqualTo(remember);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "[]", "\"invalid\"", "\"true\"", "\"false\"", "0", "1"})
+    void rejectsMalformedRememberValuesBeforeCallingTheService(String remember) throws Exception {
+        mockMvc.perform(post("/api/auth/grant").contentType("application/json")
+                        .content("{\"email\":\"owner@example.com\",\"password\":\"password\",\"remember\":" + remember + "}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(tokens);
+    }
+
+    @Test
+    void acceptsNullRememberForLegacyCompatibility() throws Exception {
+        mockMvc.perform(post("/api/auth/grant").contentType("application/json")
+                        .content("{\"email\":\"owner@example.com\",\"password\":\"password\",\"remember\":null}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<SessionLoginRequest> request = ArgumentCaptor.forClass(SessionLoginRequest.class);
+        verify(tokens).grant(request.capture());
+        assertThat(request.getValue().remember()).isNull();
     }
 
     @Test

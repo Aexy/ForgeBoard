@@ -1,1 +1,12 @@
 .form { display: grid; gap: 1rem; max-width: 26rem; }.form label { display: grid; gap: .4rem; font-weight: 600; }.form input { border: 1px solid var(--forge-border); border-radius: .35rem; font: inherit; padding: .65rem .75rem; }.form button { background: var(--forge-green-800); border: 0; border-radius: .35rem; color: white; cursor: pointer; font: inherit; font-weight: 700; padding: .7rem 1rem; }.form button:disabled { cursor: progress; opacity: .7; }.error { color: #a11e26; margin: 0; }
+.passwordField { display: grid; gap: 7px; }
+.passwordRow { display: flex; align-items: stretch; gap: 8px; }
+.passwordRow input { width: 100%; min-width: 0; font-size: 1rem; }
+.passwordRow .passwordToggle { flex-shrink: 0; padding: 10px; border: 1px solid var(--forge-border); border-radius: 8px; background: #edf1ee; color: #173126; cursor: pointer; }
+.passwordToggle svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.passwordToggle:hover { background: #e0e8e2; }
+.recovery { margin: 0; color: #52655a; font-size: .875rem; line-height: 1.5; }
+label.remember.remember { display: flex; align-items: center; gap: 8px; font-size: .875rem; font-weight: 400; }
+label.remember input { width: auto; margin: 0; accent-color: #17663d; }
+.form input:focus-visible, .form button:focus-visible, .passwordRow button:focus-visible, .error:focus-visible { outline: 2px solid #28714a; outline-offset: 3px; }
+@media (max-width: 360px) { .passwordRow { flex-wrap: wrap; } }

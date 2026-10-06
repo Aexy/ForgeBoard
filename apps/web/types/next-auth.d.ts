@@ -10,6 +10,7 @@ declare module 'next-auth' {
   }
 
   interface User {
+    sessionExpiresAt?: number
     accessToken?: string
     accessTokenExpiresAt?: number
     refreshToken?: string
@@ -20,6 +21,7 @@ declare module 'next-auth' {
 
 declare module '@auth/core/jwt' {
   interface JWT {
+    sessionExpiresAt?: number
     accessToken?: string
     accessTokenExpiresAt?: number
     refreshToken?: string

@@ -45,6 +45,10 @@ const englishMessages = {
   'access.yourName': 'Your name',
   'access.emailAddress': 'Email address',
   'access.password': 'Password',
+  'access.showPassword': 'Show password',
+  'access.hidePassword': 'Hide password',
+  'access.rememberMe': 'Remember me for 30 days',
+  'access.passwordRecoveryGuidance': 'Forgot your password? Contact your ForgeBoard administrator for a reset link.',
   'access.confirmPassword': 'Confirm password',
   'access.passwordMismatch': 'Passwords do not match.',
   'access.onboardingFailed': 'We could not create your firm. Review the details and try again.',
@@ -470,6 +474,10 @@ export type MessageKey = keyof typeof englishMessages
 
 const germanMessages = {
   ...englishMessages,
+  'access.showPassword': 'Passwort anzeigen',
+  'access.hidePassword': 'Passwort verbergen',
+  'access.rememberMe': '30 Tage angemeldet bleiben',
+  'access.passwordRecoveryGuidance': 'Passwort vergessen? Wenden Sie sich an Ihren ForgeBoard-Administrator, um einen Link zum Zurücksetzen zu erhalten.',
   'portfolio.updating': 'Wird aktualisiert…',
   'clients.importTitle': 'Mandanten aus CSV importieren',
   'clients.importFile': 'CSV-Datei',

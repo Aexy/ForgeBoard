@@ -15,6 +15,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) with
 
 ## [Unreleased]
 
+### Added
+
+- Added accessible password visibility, recovery guidance, and an opt-in 30-day Remember Me control to ForgeBoard sign-in. (`M2`)
+
+### Security
+
+- Set ForgeBoard sign-in sessions to a 12-hour default or a 30-day remembered duration, with a server-enforced absolute expiry that refresh cannot extend. (`M2`)
+
 ### Fixed
 
 - Fixed PostgreSQL portfolio loading when the optional search query is absent, and made a failed portfolio load recoverable with an in-place retry that preserves the current filters. (`M2`)

@@ -17,6 +17,7 @@ const environment = {
 const privateToken = {
   accessToken: 'spring-access-token',
   accessTokenExpiresAt: Date.now() + 60_000,
+  sessionExpiresAt: Date.now() + 12 * 60 * 60_000,
   refreshToken: 'spring-refresh-token',
   user: { id: 'user-1', email: 'owner@example.com' },
   firms: [{ id: 'firm-1', slug: 'hearth', name: 'Hearth', role: 'OWNER' as const }],
@@ -48,6 +49,18 @@ describe('server-only Auth.js API session', () => {
       user: { id: 'other-user', email: 'other@example.com' },
       firms: privateToken.firms,
       platformAdministrator: false,
+    })).resolves.toBeUndefined()
+  })
+  it.each(['/api/forgeboard/clients', '/api/platform-admin/firms'])('rejects an expired private session at %s even with a valid access token', async (path) => {
+    mocks.getToken.mockResolvedValue({ ...privateToken, sessionExpiresAt: Date.now() - 1 })
+    const browserSession = { user: privateToken.user, firms: privateToken.firms, platformAdministrator: true }
+    await expect(apiSessionFromRequest(new Request(`http://localhost:3000${path}`), browserSession)).resolves.toBeUndefined()
+  })
+  it('fails closed for an old private grant without an absolute session expiry', async () => {
+    const { sessionExpiresAt: _expiry, ...legacy } = privateToken
+    mocks.getToken.mockResolvedValue(legacy)
+    await expect(apiSessionFromRequest(new Request('http://localhost:3000/api/forgeboard/clients'), {
+      user: privateToken.user, firms: privateToken.firms, platformAdministrator: true,
     })).resolves.toBeUndefined()
   })
 })

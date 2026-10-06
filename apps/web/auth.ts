@@ -3,7 +3,7 @@ import Credentials from 'next-auth/providers/credentials'
 import type { ApiGrant } from '@forgeboard/api-client'
 
 import { serverEnvironment } from '@/lib/env'
-import { toBrowserSession, toPrivateToken, type PrivateAuthToken } from '@/lib/auth-session'
+import { privateGrantFrom, toBrowserSession, toPrivateToken, type PrivateAuthToken } from '@/lib/auth-session'
 
 const REFRESH_EARLY_MS = 60_000
 const environment = serverEnvironment()
@@ -12,7 +12,7 @@ function authEndpoint(path: string): string {
   return new URL(path.replace(/^\//, ''), `${environment.FORGEBOARD_API_BASE_URL.replace(/\/$/, '')}/`).toString()
 }
 
-async function postGrant(path: string, payload: Record<string, string>): Promise<ApiGrant> {
+async function postGrant(path: string, payload: Record<string, string | boolean>): Promise<ApiGrant> {
   const response = await fetch(authEndpoint(path), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -24,39 +24,13 @@ async function postGrant(path: string, payload: Record<string, string>): Promise
 }
 
 export async function refreshPrivateToken(token: PrivateAuthToken): Promise<PrivateAuthToken> {
+  if (token.error || !Number.isFinite(token.sessionExpiresAt) || token.sessionExpiresAt <= Date.now()) return { ...token, error: 'RefreshAccessTokenError' }
   try {
     const grant = await postGrant('/api/auth/refresh', { refreshToken: token.refreshToken })
-    return { ...toPrivateToken(grant, token.user.id) }
+    const refreshed = toPrivateToken(grant, token.user.id)
+    return { ...refreshed, sessionExpiresAt: Math.min(token.sessionExpiresAt, refreshed.sessionExpiresAt) }
   } catch {
     return { ...token, error: 'RefreshAccessTokenError' }
-  }
-}
-
-function privateGrantFrom(token: unknown): PrivateAuthToken | undefined {
-  if (!token || typeof token !== 'object') return undefined
-
-  const candidate = token as Partial<PrivateAuthToken> & { sub?: unknown; email?: unknown }
-  const hasGrant = typeof candidate.accessToken === 'string'
-    && typeof candidate.refreshToken === 'string'
-    && typeof candidate.accessTokenExpiresAt === 'number'
-    && Number.isFinite(candidate.accessTokenExpiresAt)
-    && Array.isArray(candidate.firms)
-  if (!hasGrant) return undefined
-
-  const user = candidate.user
-    ?? (typeof candidate.sub === 'string' && typeof candidate.email === 'string'
-      ? { id: candidate.sub, email: candidate.email }
-      : undefined)
-  if (!user || typeof user.id !== 'string' || typeof user.email !== 'string') return undefined
-
-  return {
-    accessToken: candidate.accessToken!,
-    accessTokenExpiresAt: candidate.accessTokenExpiresAt!,
-    refreshToken: candidate.refreshToken!,
-    user,
-    firms: candidate.firms!,
-    platformAdministrator: candidate.platformAdministrator === true,
-    ...(candidate.error ? { error: candidate.error } : {}),
   }
 }
 
@@ -76,13 +50,16 @@ export const authConfig = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
+        remember: { label: 'Remember me', type: 'checkbox' },
       },
       async authorize(credentials) {
         const email = typeof credentials?.email === 'string' ? credentials.email : ''
         const password = typeof credentials?.password === 'string' ? credentials.password : ''
         if (!email || !password) return null
+        if (credentials.remember !== undefined && ![true, false, 'true', 'false'].includes(credentials.remember as string | boolean)) return null
+        const remember = credentials.remember === true || credentials.remember === 'true'
         try {
-          const grant = await postGrant('/api/auth/grant', { email, password })
+          const grant = await postGrant('/api/auth/grant', { email, password, remember })
           const privateToken = toPrivateToken(grant, grant.identity.email)
           return { id: privateToken.user.id, email: privateToken.user.email, ...privateToken }
         } catch {
@@ -91,7 +68,7 @@ export const authConfig = {
       },
     }),
   ],
-  session: { strategy: 'jwt' },
+  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
   pages: { signIn: '/sign-in' },
   callbacks: {
     async jwt({ token, user }) {
@@ -102,6 +79,7 @@ export const authConfig = {
       // NextAuth calls this callback for anonymous JWTs too. They do not have a
       // ForgeBoard grant and must never trigger a refresh request to Spring.
       if (!privateToken) return token
+      if (privateToken.error || privateToken.sessionExpiresAt <= Date.now()) return { ...token, ...privateToken, error: 'RefreshAccessTokenError' } as typeof token
       if (privateToken.accessTokenExpiresAt > Date.now() + REFRESH_EARLY_MS) return { ...token, ...privateToken } as typeof token
       const refreshed = await refreshPrivateToken(privateToken)
       return { ...token, ...refreshed, sub: refreshed.user.id, email: refreshed.user.email } as typeof token

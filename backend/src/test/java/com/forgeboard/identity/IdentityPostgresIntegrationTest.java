@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -20,6 +22,7 @@ import com.forgeboard.identity.application.OnboardingService;
 import com.forgeboard.identity.application.OnboardingResult;
 import com.forgeboard.identity.application.SessionLoginRequest;
 import com.forgeboard.identity.security.ApiTokenService;
+import com.forgeboard.identity.security.RefreshTokenRepository;
 import com.forgeboard.identity.domain.MembershipRole;
 import com.forgeboard.identity.domain.Firm;
 import com.forgeboard.identity.domain.FirmMembership;
@@ -41,6 +44,7 @@ import com.forgeboard.work.application.WorkflowService;
 import com.forgeboard.work.domain.WorkPriority;
 import java.util.List;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @SpringBootTest
@@ -61,6 +65,7 @@ class IdentityPostgresIntegrationTest {
     @Autowired ClientService clients;
     @Autowired WorkflowService workflows;
     @Autowired ApiTokenService apiTokens;
+    @Autowired RefreshTokenRepository refreshTokens;
     @Autowired FirmRepository firms;
     @Autowired UserRepository users;
     @Autowired FirmMembershipRepository memberships;
@@ -105,10 +110,41 @@ class IdentityPostgresIntegrationTest {
         ApiTokenService.ApiGrant replacement = apiTokens.refresh(grant.refreshToken());
 
         assertThat(replacement.refreshToken()).isNotEqualTo(grant.refreshToken());
+        assertThat(replacement.sessionExpiresAt()).isEqualTo(grant.sessionExpiresAt());
         assertThat(count("api_refresh_tokens")).isEqualTo(2);
         assertThatThrownBy(() -> apiTokens.refresh(grant.refreshToken())).isInstanceOf(RuntimeException.class);
         assertThat(jdbc.sql("select count(*) from api_refresh_tokens where revoked_at is not null")
                 .query(Long.class).single()).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @Transactional
+    void rotationsPersistTheDeadlineAndBearerAccessStopsAtIt(boolean remember) {
+        String email = "expiry-" + remember + "@example.com";
+        OnboardingResult onboarded = onboarding.createFirm(new OnboardingRequest("Expiry Firm", "expiry-firm-" + remember,
+                email, "Expiry Owner", "correct horse battery"));
+        ApiTokenService.ApiGrant grant = apiTokens.grant(new SessionLoginRequest(email, "correct horse battery", remember));
+        ApiTokenService.ApiGrant replacement = apiTokens.refresh(grant.refreshToken());
+        refreshTokens.flush();
+
+        List<Instant> deadlines = jdbc.sql("select expires_at from api_refresh_tokens where user_id = :userId")
+                .param("userId", onboarded.ownerId()).query(OffsetDateTime.class).list().stream()
+                .map(OffsetDateTime::toInstant).toList();
+        assertThat(deadlines).hasSize(2).allSatisfy(deadline ->
+                assertThat(deadline).isEqualTo(grant.sessionExpiresAt().truncatedTo(java.time.temporal.ChronoUnit.MICROS)));
+        assertThat(replacement.sessionExpiresAt()).isEqualTo(grant.sessionExpiresAt());
+        List<UUID> accessIds = jdbc.sql("select access_token_jti from api_refresh_tokens where user_id = :userId")
+                .param("userId", onboarded.ownerId()).query(UUID.class).list();
+        Instant deadline = deadlines.getFirst();
+        for (UUID accessId : accessIds) {
+            assertThat(refreshTokens.hasActiveAccessToken(accessId, deadline.minusSeconds(1))).isTrue();
+            assertThat(refreshTokens.hasActiveAccessToken(accessId, deadline)).isFalse();
+        }
+        apiTokens.revoke(replacement.refreshToken());
+        for (UUID accessId : accessIds) {
+            assertThat(apiTokens.isAccessTokenActive(accessId)).isFalse();
+        }
     }
 
     @Test

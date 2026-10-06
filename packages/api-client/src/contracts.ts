@@ -27,6 +27,7 @@ export interface ServerApiSession {
 export interface ApiGrant {
   accessToken: string
   accessTokenExpiresAt: string
+  sessionExpiresAt: string
   refreshToken: string
   identity: { email: string }
   firms: AccessibleFirm[]

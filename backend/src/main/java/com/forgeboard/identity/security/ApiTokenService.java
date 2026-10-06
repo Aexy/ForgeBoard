@@ -37,6 +37,7 @@ public class ApiTokenService {
     private static final String AUDIENCE = "forgeboard-api";
     private static final long ACCESS_TOKEN_MINUTES = 15;
     private static final long REFRESH_TOKEN_DAYS = 30;
+    private static final long DEFAULT_SESSION_HOURS = 12;
 
     private final AuthenticationManager authenticationManager;
     private final JwtEncoder jwtEncoder;
@@ -64,7 +65,11 @@ public class ApiTokenService {
         Authentication authentication = authenticationManager.authenticate(
                 UsernamePasswordAuthenticationToken.unauthenticated(credentials.email(), credentials.password()));
         ForgeBoardUser user = activeUser(authentication.getName());
-        return issue(user, UUID.randomUUID());
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
+        Instant sessionExpiry = Boolean.FALSE.equals(credentials.remember())
+                ? now.plus(DEFAULT_SESSION_HOURS, ChronoUnit.HOURS)
+                : now.plus(REFRESH_TOKEN_DAYS, ChronoUnit.DAYS);
+        return issue(user, UUID.randomUUID(), sessionExpiry);
     }
 
     @Transactional(noRollbackFor = BadCredentialsException.class)
@@ -78,7 +83,7 @@ public class ApiTokenService {
         }
         if (existing.revokedAt() != null || existing.isExpired(now)) throw invalidGrant();
         existing.markUsed(now);
-        return issue(activeUser(existing.userId()), existing.familyId());
+        return issue(activeUser(existing.userId()), existing.familyId(), existing.expiresAt());
     }
 
     @Transactional
@@ -97,18 +102,19 @@ public class ApiTokenService {
         refreshTokens.revokeAllForUser(userId, clock.instant());
     }
 
-    private ApiGrant issue(ForgeBoardUser user, UUID familyId) {
+    private ApiGrant issue(ForgeBoardUser user, UUID familyId, Instant sessionExpiry) {
         Instant now = clock.instant();
         Instant accessExpiry = now.plus(ACCESS_TOKEN_MINUTES, ChronoUnit.MINUTES);
+        if (accessExpiry.isAfter(sessionExpiry)) accessExpiry = sessionExpiry;
         UUID jti = UUID.randomUUID();
         String refreshToken = newRefreshToken();
         refreshTokens.save(new ApiRefreshToken(UUID.randomUUID(), user.id(), familyId, hash(refreshToken), jti,
-                now.plus(REFRESH_TOKEN_DAYS, ChronoUnit.DAYS), now));
+                sessionExpiry, now));
         JwtClaimsSet claims = JwtClaimsSet.builder().issuer(ISSUER).audience(List.of(AUDIENCE)).subject(user.email())
                 .issuedAt(now).expiresAt(accessExpiry).id(jti.toString()).claim("user_id", user.id().toString()).build();
         return new ApiGrant(jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue(), accessExpiry,
                 refreshToken, new SessionIdentity(user.email()), firmAccess.list(user.email()),
-                platformAdmins.isPlatformAdministrator(user.email()));
+                platformAdmins.isPlatformAdministrator(user.email()), sessionExpiry);
     }
 
     private ForgeBoardUser activeUser(String email) {
@@ -138,5 +144,6 @@ public class ApiTokenService {
     private BadCredentialsException invalidGrant() { return new BadCredentialsException("Invalid API credentials"); }
 
     public record ApiGrant(String accessToken, Instant accessTokenExpiresAt, String refreshToken,
-            SessionIdentity identity, List<FirmAccessView> firms, boolean platformAdministrator) { }
+            SessionIdentity identity, List<FirmAccessView> firms, boolean platformAdministrator,
+            Instant sessionExpiresAt) { }
 }
